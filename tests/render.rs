@@ -1,3 +1,6 @@
+use std::fs;
+use std::path::Path;
+
 use rmap::render::render_roadmap_str;
 use rmap::validate::validate_tasks_str;
 
@@ -37,57 +40,22 @@ depends_on = [74]
 "#;
 
 #[test]
-fn render_replaces_only_marked_phase_block() {
-    let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
-    let roadmap = r#"# Project Roadmap
+fn golden_render_fixtures_are_byte_equal() {
+    for case in golden_cases() {
+        let tasks_path = case.join("tasks.toml");
+        let input_path = case.join("ROADMAP.input.md");
+        let expected_path = case.join("ROADMAP.md");
 
-Hand-written intro stays exactly here.
+        let tasks_input = fs::read_to_string(&tasks_path).expect("read golden tasks.toml");
+        let roadmap = fs::read_to_string(&input_path).expect("read golden input roadmap");
+        let expected = fs::read_to_string(&expected_path).expect("read golden expected roadmap");
+        let tasks = validate_tasks_str(tasks_path.display().to_string(), &tasks_input)
+            .expect("golden tasks validate");
 
-<!-- TASKS:BEGIN phase=12 -->
-stale generated content
-<!-- TASKS:END -->
+        let rendered = render_roadmap_str(&roadmap, &tasks).expect("render golden roadmap");
 
-Hand-written outro stays too.
-"#;
-    let expected = r#"# Project Roadmap
-
-Hand-written intro stays exactly here.
-
-<!-- TASKS:BEGIN phase=12 -->
-| Task | Status | Eff | Markers | Title |
-|------|--------|-----|---------|-------|
-| 74 | done | 1.60 | parallel | parseTicker field map + coercion + enums |
-| 75 | pending | 1.33 |  | parseOrder field map |
-<!-- TASKS:END -->
-
-Hand-written outro stays too.
-"#;
-
-    let rendered = render_roadmap_str(roadmap, &tasks).expect("render roadmap");
-
-    assert_eq!(rendered, expected);
-}
-
-#[test]
-fn render_leaves_unmatched_phase_block_empty_table() {
-    let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
-    let roadmap = r#"Before
-<!-- TASKS:BEGIN phase=99 -->
-stale generated content
-<!-- TASKS:END -->
-After
-"#;
-    let expected = r#"Before
-<!-- TASKS:BEGIN phase=99 -->
-| Task | Status | Eff | Markers | Title |
-|------|--------|-----|---------|-------|
-<!-- TASKS:END -->
-After
-"#;
-
-    let rendered = render_roadmap_str(roadmap, &tasks).expect("render roadmap");
-
-    assert_eq!(rendered, expected);
+        assert_eq!(rendered, expected, "golden case {}", case.display());
+    }
 }
 
 #[test]
@@ -98,4 +66,15 @@ fn render_rejects_unclosed_marker() {
     let err = render_roadmap_str(roadmap, &tasks).expect_err("unclosed marker is rejected");
 
     assert!(err.to_string().contains("missing <!-- TASKS:END -->"));
+}
+
+fn golden_cases() -> Vec<std::path::PathBuf> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden");
+    let mut cases = fs::read_dir(root)
+        .expect("read golden fixtures")
+        .map(|entry| entry.expect("read golden fixture entry").path())
+        .filter(|path| path.is_dir())
+        .collect::<Vec<_>>();
+    cases.sort();
+    cases
 }

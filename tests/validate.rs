@@ -125,3 +125,45 @@ fn rejects_orphan_dependencies() {
     assert!(message.contains("roadmap/tasks.toml:38"));
     assert!(message.contains("task 75 depends on unknown task 999"));
 }
+
+#[test]
+fn rejects_invalid_cross_repo_relation() {
+    let input = VALID_TASKS.replace(
+        "linear_id = \"INE-300\"",
+        r#"linear_id = "INE-300"
+cross_repo = [
+  { repo = "ccxt_client", task_id = 42, relation = "duplicates" },
+]"#,
+    );
+
+    let err = validate_tasks_str("roadmap/tasks.toml", &input)
+        .expect_err("cross-repo relation is rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("invalid cross_repo relation \"duplicates\""));
+}
+
+#[test]
+fn rejects_task_that_references_unknown_phase() {
+    let input = VALID_TASKS.replace("phase = 12", "phase = 99");
+
+    let err =
+        validate_tasks_str("roadmap/tasks.toml", &input).expect_err("unknown phase is rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("task 74 references unknown phase 99"));
+}
+
+#[test]
+fn rejects_task_that_references_unknown_bundle() {
+    let input = VALID_TASKS.replace(
+        "bundle = \"ticker_normalization\"",
+        "bundle = \"order_normalization\"",
+    );
+
+    let err =
+        validate_tasks_str("roadmap/tasks.toml", &input).expect_err("unknown bundle is rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("task 74 references unknown bundle \"order_normalization\""));
+}

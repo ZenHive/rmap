@@ -9,6 +9,7 @@ use crate::schema::Tasks;
 const SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const VALID_STATUSES: &[&str] = &["pending", "in_progress", "blocked", "done", "superseded"];
 const VALID_MARKERS: &[&str] = &["parallel", "cx", "csr"];
+const VALID_CROSS_REPO_RELATIONS: &[&str] = &["blocks", "blocked_by", "related"];
 const FIRST_LINE_NUMBER: usize = 1;
 
 #[derive(Debug, Error)]
@@ -46,6 +47,8 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_markers(&path, input, &tasks)?;
     validate_linear_ids(&path, input, &tasks)?;
     validate_dependencies(&path, input, &tasks)?;
+    validate_cross_repo_relations(&path, input, &tasks)?;
+    validate_phase_and_bundle_references(&path, input, &tasks)?;
 
     Ok(tasks)
 }
@@ -148,6 +151,60 @@ fn validate_dependencies(path: &str, input: &str, tasks: &Tasks) -> Result<(), V
                 path,
                 line_containing(input, "depends_on").unwrap_or(FIRST_LINE_NUMBER),
                 format!("task {} depends on unknown task {dependency}", task.id),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_cross_repo_relations(
+    path: &str,
+    input: &str,
+    tasks: &Tasks,
+) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        for dependency in &task.cross_repo {
+            if VALID_CROSS_REPO_RELATIONS.contains(&dependency.relation.as_str()) {
+                continue;
+            }
+
+            return Err(semantic_error(
+                path,
+                line_containing(input, &format!("relation = \"{}\"", dependency.relation))
+                    .unwrap_or(FIRST_LINE_NUMBER),
+                format!("invalid cross_repo relation \"{}\"", dependency.relation),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_phase_and_bundle_references(
+    path: &str,
+    input: &str,
+    tasks: &Tasks,
+) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        if !tasks.phases.contains_key(&task.phase.to_string()) {
+            return Err(semantic_error(
+                path,
+                line_containing(input, &format!("phase = {}", task.phase))
+                    .unwrap_or(FIRST_LINE_NUMBER),
+                format!("task {} references unknown phase {}", task.id, task.phase),
+            ));
+        }
+
+        if !tasks.bundles.contains_key(&task.bundle) {
+            return Err(semantic_error(
+                path,
+                line_containing(input, &format!("bundle = \"{}\"", task.bundle))
+                    .unwrap_or(FIRST_LINE_NUMBER),
+                format!(
+                    "task {} references unknown bundle \"{}\"",
+                    task.id, task.bundle
+                ),
             ));
         }
     }

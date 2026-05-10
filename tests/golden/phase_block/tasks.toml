@@ -1,0 +1,32 @@
+schema_version = 1
+project = "ccxt_extract"
+default_branch = "development"
+
+[phases.12]
+name = "Per-Exchange Normalization"
+order = 12
+status = "in_progress"
+
+[bundles.ticker_normalization]
+phase = 12
+order = 1
+description = "Unified ticker fields across all exchanges"
+
+[[task]]
+id = 74
+phase = 12
+bundle = "ticker_normalization"
+status = "done"
+title = "parseTicker field map + coercion + enums"
+scores = { d = 5, b = 8, u = 8 }
+markers = ["parallel"]
+shipped_in = "PR #21"
+
+[[task]]
+id = 75
+phase = 12
+bundle = "ticker_normalization"
+status = "pending"
+title = "parseOrder field map"
+scores = { d = 6, b = 8, u = 8 }
+depends_on = [74]
