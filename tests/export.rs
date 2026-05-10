@@ -54,7 +54,7 @@ fn exports_validated_tasks_with_computed_efficiency() {
     assert_eq!(value["task"][0]["id"], 74);
     assert_eq!(value["task"][0]["eff"], 1.6);
     assert_eq!(value["task"][1]["id"], 75);
-    assert_eq!(value["task"][1]["eff"], 1.3333333333333333);
+    assert_eq!(value["task"][1]["eff"], 1.33);
 }
 
 #[test]

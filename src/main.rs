@@ -1,6 +1,7 @@
 use std::path::PathBuf;
+use std::process::ExitCode;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use rmap::export::export_json_str;
 use rmap::mutate::update_status_str;
@@ -22,6 +23,8 @@ enum Commands {
     Validate {
         #[arg(long)]
         tasks_path: Option<PathBuf>,
+        #[arg(long)]
+        check_render: bool,
     },
     Render {
         #[arg(long)]
@@ -65,13 +68,33 @@ enum ExportCommands {
     },
 }
 
-fn main() -> Result<()> {
+fn main() -> ExitCode {
+    match run() {
+        Ok(code) => code,
+        Err(err) => {
+            eprintln!("Error: {err:#}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn run() -> Result<ExitCode> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Validate { tasks_path } => {
+        Commands::Validate {
+            tasks_path,
+            check_render,
+        } => {
             let paths = resolve_paths(tasks_path, None, None)?;
-            validate_tasks_file(&paths.tasks_path)?;
+            if check_render && !roadmap_is_current(&paths)? {
+                eprintln!("ROADMAP.md is out of sync; run rmap render");
+                return Ok(ExitCode::from(2));
+            }
+            if !check_render {
+                validate_tasks_file(&paths.tasks_path)?;
+            }
+
             println!("valid");
         }
         Commands::Render {
@@ -97,11 +120,9 @@ fn main() -> Result<()> {
         Commands::Next { marker, tasks_path } => {
             let paths = resolve_paths(tasks_path, None, None)?;
             let tasks = validate_tasks_file(&paths.tasks_path)?;
-            let Some(task) = next_task(&tasks, marker.as_deref()) else {
-                bail!("no matching pending unblocked task");
-            };
-
-            println!("{}", format_next_task(task));
+            if let Some(task) = next_task(&tasks, marker.as_deref()) {
+                println!("{}", format_next_task(task));
+            }
         }
         Commands::Export {
             command: ExportCommands::Json { tasks_path },
@@ -112,7 +133,7 @@ fn main() -> Result<()> {
         }
     }
 
-    Ok(())
+    Ok(ExitCode::SUCCESS)
 }
 
 fn render(paths: ResolvedPaths, dry: bool, stdout: bool) -> Result<()> {
@@ -163,6 +184,15 @@ fn render_outputs(paths: &ResolvedPaths, tasks: &rmap::schema::Tasks) -> Result<
     let rendered_data = export_json_str(tasks)?;
 
     Ok((rendered_roadmap, rendered_data))
+}
+
+fn roadmap_is_current(paths: &ResolvedPaths) -> Result<bool> {
+    let tasks = validate_tasks_file(&paths.tasks_path)?;
+    let roadmap = std::fs::read_to_string(&paths.roadmap_path)
+        .with_context(|| format!("read {}", paths.roadmap_path.display()))?;
+    let rendered = render_roadmap_str(&roadmap, &tasks)?;
+
+    Ok(rendered == roadmap)
 }
 
 fn write_outputs(

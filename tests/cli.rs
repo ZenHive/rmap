@@ -98,6 +98,114 @@ fn validate_command_accepts_valid_tasks_file() {
 }
 
 #[test]
+fn validate_check_render_accepts_current_roadmap() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(&dir.join("roadmap"), "tasks.toml", VALID_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    let render = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap render");
+    assert!(
+        render.status.success(),
+        "expected render success, stderr: {}",
+        String::from_utf8_lossy(&render.stderr)
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("validate")
+        .arg("--check-render")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap validate --check-render");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("valid"));
+}
+
+#[test]
+fn validate_check_render_tasks_path_derives_conventional_roadmap_path() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", VALID_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    let render = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap render");
+    assert!(
+        render.status.success(),
+        "expected render success, stderr: {}",
+        String::from_utf8_lossy(&render.stderr)
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("validate")
+        .arg("--check-render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap validate --check-render");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("valid"));
+}
+
+#[test]
+fn validate_check_render_exits_two_when_roadmap_is_stale() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(&dir.join("roadmap"), "tasks.toml", VALID_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("validate")
+        .arg("--check-render")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap validate --check-render");
+
+    assert_eq!(output.status.code(), Some(2), "expected render drift");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("run rmap render"));
+}
+
+#[test]
+fn validate_check_render_keeps_validation_errors_as_exit_one() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(
+        &dir.join("roadmap"),
+        "tasks.toml",
+        &VALID_TASKS.replace("pending", "shipped"),
+    );
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("validate")
+        .arg("--check-render")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap validate --check-render");
+
+    assert_eq!(output.status.code(), Some(1), "expected validation error");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("invalid status \"shipped\""));
+}
+
+#[test]
 fn validate_command_rejects_invalid_tasks_file() {
     let path = write_temp_tasks(
         "invalid_tasks.toml",
@@ -142,7 +250,7 @@ fn render_command_updates_roadmap_file() {
     assert!(rendered.contains("Keep me."));
     assert!(
         rendered.contains(
-            "| Task 1 | ⬜ | 🎁 **foundation** · Add validation [D:2/B:8/U:8 → Eff:4.0] 🚀 |"
+            "| Task 1 | ⬜ | 🎁 **foundation** · Add validation [D:2/B:8/U:8 → Eff:4.0] 🎯 |"
         ),
         "{rendered}"
     );
@@ -331,6 +439,27 @@ fn next_command_prints_highest_eff_pending_unblocked_task() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Task 75"), "{stdout}");
     assert!(stdout.contains("Eff:1.8"), "{stdout}");
+}
+
+#[test]
+fn next_command_prints_nothing_and_exits_zero_when_no_task_matches() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--marker")
+        .arg("csr")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
 }
 
 fn write_temp_tasks(file_name: &str, contents: &str) -> PathBuf {

@@ -119,7 +119,9 @@ fn status_symbol(status: &str) -> &str {
 }
 
 fn priority_symbol(efficiency: f64) -> &'static str {
-    if efficiency >= 1.5 {
+    if efficiency >= 2.0 {
+        "🎯"
+    } else if efficiency >= 1.5 {
         "🚀"
     } else if efficiency >= 1.0 {
         "📋"

@@ -58,7 +58,7 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
         status: &task.status,
         title: &task.title,
         scores: &task.scores,
-        eff: efficiency(task),
+        eff: rounded_efficiency(task),
         markers: &task.markers,
         depends_on: &task.depends_on,
         linear_id: task.linear_id.as_ref(),
@@ -70,4 +70,8 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
 
 fn efficiency(task: &Task) -> f64 {
     f64::from(task.scores.b + task.scores.u) / (2.0 * f64::from(task.scores.d))
+}
+
+fn rounded_efficiency(task: &Task) -> f64 {
+    (efficiency(task) * 100.0).round() / 100.0
 }
