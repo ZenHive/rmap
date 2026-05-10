@@ -1,6 +1,4 @@
 use std::fmt::Write;
-use std::fs;
-use std::path::Path;
 
 use thiserror::Error;
 
@@ -11,25 +9,10 @@ const END_MARKER: &str = "<!-- TASKS:END -->";
 
 #[derive(Debug, Error)]
 pub enum RenderError {
-    #[error("{path}: {message}")]
-    Io { path: String, message: String },
     #[error("missing <!-- TASKS:END --> for marker starting at byte {start}")]
     MissingEndMarker { start: usize },
     #[error("invalid phase marker at byte {start}")]
     InvalidPhaseMarker { start: usize },
-}
-
-pub fn render_roadmap_file(roadmap_path: &Path, tasks: &Tasks) -> Result<(), RenderError> {
-    let roadmap = fs::read_to_string(roadmap_path).map_err(|err| RenderError::Io {
-        path: roadmap_path.display().to_string(),
-        message: err.to_string(),
-    })?;
-    let rendered = render_roadmap_str(&roadmap, tasks)?;
-
-    fs::write(roadmap_path, rendered).map_err(|err| RenderError::Io {
-        path: roadmap_path.display().to_string(),
-        message: err.to_string(),
-    })
 }
 
 pub fn render_roadmap_str(roadmap: &str, tasks: &Tasks) -> Result<String, RenderError> {
@@ -77,18 +60,23 @@ fn parse_phase(marker_line: &str) -> Option<u32> {
 
 fn render_phase_table(tasks: &Tasks, phase: u32) -> String {
     let mut table = String::new();
-    table.push_str("| Task | Status | Eff | Markers | Title |\n");
-    table.push_str("|------|--------|-----|---------|-------|\n");
+    table.push_str("| Task | Status | Notes |\n");
+    table.push_str("|------|--------|-------|\n");
 
     for task in tasks.task.iter().filter(|task| task.phase == phase) {
         writeln!(
             table,
-            "| {} | {} | {:.2} | {} | {} |",
+            "| Task {}{} | {} | 🎁 **{}** · {} [D:{}/B:{}/U:{} → Eff:{}] {} |",
             task.id,
-            task.status,
-            efficiency(task),
-            task.markers.join(", "),
-            task.title
+            marker_suffix(task),
+            status_symbol(&task.status),
+            task.bundle,
+            task.title,
+            task.scores.d,
+            task.scores.b,
+            task.scores.u,
+            format_efficiency(efficiency(task)),
+            priority_symbol(efficiency(task))
         )
         .expect("write to string");
     }
@@ -98,4 +86,58 @@ fn render_phase_table(tasks: &Tasks, phase: u32) -> String {
 
 fn efficiency(task: &Task) -> f64 {
     f64::from(task.scores.b + task.scores.u) / (2.0 * f64::from(task.scores.d))
+}
+
+fn marker_suffix(task: &Task) -> String {
+    let markers = task
+        .markers
+        .iter()
+        .filter_map(|marker| match marker.as_str() {
+            "parallel" => Some("`[P]`"),
+            "cx" => Some("`[CX]`"),
+            "csr" => Some("`[CSR]`"),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    if markers.is_empty() {
+        String::new()
+    } else {
+        format!(" {}", markers.join(" "))
+    }
+}
+
+fn status_symbol(status: &str) -> &str {
+    match status {
+        "pending" => "⬜",
+        "in_progress" => "🔄",
+        "blocked" => "🔶",
+        "done" => "✅",
+        "superseded" => "⛔",
+        _ => status,
+    }
+}
+
+fn priority_symbol(efficiency: f64) -> &'static str {
+    if efficiency >= 1.5 {
+        "🚀"
+    } else if efficiency >= 1.0 {
+        "📋"
+    } else {
+        "⚠️"
+    }
+}
+
+fn format_efficiency(value: f64) -> String {
+    let formatted = format!("{value:.2}");
+    let trimmed = formatted
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string();
+
+    if trimmed.contains('.') {
+        trimmed
+    } else {
+        format!("{trimmed}.0")
+    }
 }

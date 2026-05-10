@@ -39,3 +39,27 @@ fn toml_edit_round_trip_preserves_unmodified_tasks_file() {
 
     assert_eq!(document.to_string(), TASKS_WITH_COMMENTS);
 }
+
+#[test]
+fn golden_tasks_round_trip_without_spurious_diff() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden");
+    let mut cases = std::fs::read_dir(root)
+        .expect("read golden fixtures")
+        .map(|entry| entry.expect("read golden fixture entry").path())
+        .filter(|path| path.is_dir())
+        .collect::<Vec<_>>();
+    cases.sort();
+
+    for case in cases {
+        let path = case.join("tasks.toml");
+        let source = std::fs::read_to_string(&path).expect("read golden tasks.toml");
+        let document = DocumentMut::from_str(&source).expect("parse golden tasks.toml");
+
+        assert_eq!(
+            document.to_string(),
+            source,
+            "golden case {}",
+            case.display()
+        );
+    }
+}

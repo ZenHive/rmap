@@ -1,0 +1,45 @@
+schema_version = 1
+project = "ccxt_extract"
+default_branch = "development"
+
+[phases.12]
+name = "Response parsing contract"
+order = 12
+status = "pending"
+
+[bundles."12-simple"]
+phase = 12
+order = 1
+description = "Simple parse-method normalization"
+
+[bundles."12-orders"]
+phase = 12
+order = 2
+description = "Order parse-method normalization"
+
+[[task]]
+id = 74
+phase = 12
+bundle = "12-simple"
+status = "done"
+title = "parseTicker field map + coercion + enums"
+scores = { d = 4, b = 8, u = 8 }
+markers = ["parallel"]
+
+[[task]]
+id = 75
+phase = 12
+bundle = "12-orders"
+status = "pending"
+title = "parseOrder field map + status/side/type enums"
+scores = { d = 5, b = 9, u = 9 }
+markers = ["parallel"]
+
+[[task]]
+id = "78b"
+phase = 12
+bundle = "12-simple"
+status = "done"
+title = "parseOHLCV object-shape exchanges"
+scores = { d = 4, b = 8, u = 8 }
+markers = ["parallel"]

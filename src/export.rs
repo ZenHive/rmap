@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::schema::{Bundle, CrossRepo, Linear, Phase, Scores, Task, Tasks};
+use crate::schema::{Bundle, CrossRepo, Linear, Phase, Scores, Task, TaskId, Tasks};
 
 #[derive(Serialize)]
 struct ExportedTasks<'a> {
@@ -16,7 +16,7 @@ struct ExportedTasks<'a> {
 
 #[derive(Serialize)]
 struct ExportedTask<'a> {
-    id: u32,
+    id: &'a TaskId,
     phase: u32,
     bundle: &'a str,
     status: &'a str,
@@ -24,7 +24,7 @@ struct ExportedTask<'a> {
     scores: &'a Scores,
     eff: f64,
     markers: &'a [String],
-    depends_on: &'a [u32],
+    depends_on: &'a [TaskId],
     #[serde(skip_serializing_if = "Option::is_none")]
     linear_id: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -52,7 +52,7 @@ fn exported_tasks(tasks: &Tasks) -> ExportedTasks<'_> {
 
 fn exported_task(task: &Task) -> ExportedTask<'_> {
     ExportedTask {
-        id: task.id,
+        id: &task.id,
         phase: task.phase,
         bundle: &task.bundle,
         status: &task.status,

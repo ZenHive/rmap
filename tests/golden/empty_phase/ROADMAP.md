@@ -1,6 +1,6 @@
 Before
 <!-- TASKS:BEGIN phase=99 -->
-| Task | Status | Eff | Markers | Title |
-|------|--------|-----|---------|-------|
+| Task | Status | Notes |
+|------|--------|-------|
 <!-- TASKS:END -->
 After

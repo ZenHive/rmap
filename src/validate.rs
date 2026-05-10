@@ -4,7 +4,7 @@ use std::path::Path;
 
 use thiserror::Error;
 
-use crate::schema::Tasks;
+use crate::schema::{TaskId, Tasks};
 
 const SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const VALID_STATUSES: &[&str] = &["pending", "in_progress", "blocked", "done", "superseded"];
@@ -139,7 +139,7 @@ fn validate_linear_ids(path: &str, input: &str, tasks: &Tasks) -> Result<(), Val
 }
 
 fn validate_dependencies(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
-    let task_ids: HashSet<u32> = tasks.task.iter().map(|task| task.id).collect();
+    let task_ids: HashSet<TaskId> = tasks.task.iter().map(|task| task.id.clone()).collect();
 
     for task in &tasks.task {
         for dependency in &task.depends_on {
