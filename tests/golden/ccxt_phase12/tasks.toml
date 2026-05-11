@@ -25,6 +25,7 @@ status = "done"
 title = "parseTicker field map + coercion + enums"
 scores = { d = 4, b = 8, u = 8 }
 markers = ["parallel"]
+scored_at = "2026-05-01"
 
 [[task]]
 id = 75
@@ -34,6 +35,7 @@ status = "pending"
 title = "parseOrder field map + status/side/type enums"
 scores = { d = 5, b = 9, u = 9 }
 markers = ["parallel"]
+scored_at = "2026-05-01"
 
 [[task]]
 id = "78b"
@@ -43,3 +45,4 @@ status = "done"
 title = "parseOHLCV object-shape exchanges"
 scores = { d = 4, b = 8, u = 8 }
 markers = ["parallel"]
+scored_at = "2026-05-01"

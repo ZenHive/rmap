@@ -5,13 +5,16 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand, ValueEnum};
 use rmap::delegate::format_delegate_prompt;
 use rmap::diff::{diff_toml, format_diff};
+use rmap::doctor::DoctorReport;
 use rmap::export::{export_filtered_json_str, export_json_str, export_task_json_str};
-use rmap::mutate::update_status_str;
+use rmap::mutate::update_status_many_str;
 use rmap::next::{format_next_task, next_task};
 use rmap::paths::{ResolvedPaths, resolve_paths};
 use rmap::query::{TaskFilter, find_task, format_task, format_task_row, list_tasks};
 use rmap::render::render_roadmap_str;
 use rmap::schema_json::schema_json_str;
+use rmap::stale::{find_stale, parse_duration};
+use rmap::today_iso;
 use rmap::validate::{validate_tasks_file, validate_tasks_str};
 
 #[derive(Debug, Parser)]
@@ -79,12 +82,7 @@ enum Commands {
         #[arg(long)]
         tasks_path: Option<PathBuf>,
     },
-    Schema {
-        // `--json` is the only output mode; accepted for backward compatibility
-        // and clarity in scripts, but a no-op — `rmap schema` always emits JSON.
-        #[arg(long, hide = true)]
-        json: bool,
-    },
+    Schema,
     Diff {
         #[arg(long)]
         against: Option<String>,
@@ -103,6 +101,30 @@ enum Commands {
     Export {
         #[command(subcommand)]
         command: ExportCommands,
+    },
+    /// Aggregate health report: validation findings + stale + score-decay + render drift.
+    ///
+    /// Always exits 0 — informational. Use `rmap validate` for strict schema gating.
+    /// Exception: if tasks.toml is unparseable, exits non-zero (nothing to analyze).
+    Doctor {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+        #[arg(long)]
+        roadmap_path: Option<PathBuf>,
+    },
+    /// List in-progress tasks idle longer than the given duration.
+    Stale {
+        /// Duration threshold. Units: d (day), w (7d), m (30d), y (365d). Example: "30d", "2w", "6m", "1y".
+        #[arg(long)]
+        over: String,
+        /// Emit JSON envelope.
+        #[arg(long)]
+        json: bool,
+        /// Path to tasks.toml (overrides discovery).
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
     },
 }
 
@@ -235,7 +257,7 @@ fn run() -> Result<ExitCode> {
                 }
             }
         }
-        Commands::Schema { json: _ } => {
+        Commands::Schema => {
             println!("{}", schema_json_str()?);
         }
         Commands::Diff {
@@ -274,6 +296,52 @@ fn run() -> Result<ExitCode> {
             let tasks = validate_tasks_file(&paths.tasks_path)?;
             println!("{}", export_json_str(&tasks)?);
         }
+        Commands::Stale {
+            over,
+            json,
+            tasks_path,
+        } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+            let max_age = parse_duration(&over).map_err(|e| anyhow::anyhow!(e))?;
+            let today = today_iso();
+            let stale = find_stale(&tasks, max_age, &today);
+
+            if json {
+                println!("{}", export_filtered_json_str(&tasks, &stale)?);
+            } else {
+                for task in stale {
+                    println!("{}", format_task_row(task));
+                }
+            }
+        }
+        Commands::Doctor {
+            json,
+            tasks_path,
+            roadmap_path,
+        } => {
+            let paths = resolve_paths(tasks_path, roadmap_path, None)?;
+            let input = std::fs::read_to_string(&paths.tasks_path)
+                .with_context(|| format!("read {}", paths.tasks_path.display()))?;
+            // If tasks.toml won't parse at all, propagate the error (nothing to analyze).
+            let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &input)?;
+            let roadmap_input = std::fs::read_to_string(&paths.roadmap_path).ok();
+            let today = today_iso();
+
+            let report = DoctorReport::run(
+                &tasks,
+                &paths.tasks_path.display().to_string(),
+                &input,
+                roadmap_input.as_deref(),
+                &today,
+            );
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                print!("{report}");
+            }
+        }
     }
 
     Ok(ExitCode::SUCCESS)
@@ -301,14 +369,26 @@ fn render(paths: ResolvedPaths, dry: bool, stdout: bool) -> Result<()> {
 }
 
 fn update_status(paths: ResolvedPaths, task_id: &str, new_status: &str) -> Result<()> {
+    let ids: Vec<&str> = task_id
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if ids.is_empty() {
+        anyhow::bail!("no task ids provided (got {:?})", task_id);
+    }
+
     let input = std::fs::read_to_string(&paths.tasks_path)
         .with_context(|| format!("read {}", paths.tasks_path.display()))?;
-    let updated = update_status_str(
+
+    let updated = update_status_many_str(
         paths.tasks_path.display().to_string(),
         &input,
-        task_id,
+        &ids,
         new_status,
     )?;
+
     let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &updated)?;
     let (rendered_roadmap, rendered_data) = render_outputs(&paths, &tasks)?;
 

@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use rmap::render::render_roadmap_str;
+use rmap::render::render_roadmap_str_with_today;
 use rmap::validate::validate_tasks_str;
 
 const TASKS: &str = r#"
@@ -45,6 +45,7 @@ fn golden_render_fixtures_are_byte_equal() {
         let tasks_path = case.join("tasks.toml");
         let input_path = case.join("ROADMAP.input.md");
         let expected_path = case.join("ROADMAP.md");
+        let today_path = case.join("today.txt");
 
         let tasks_input = fs::read_to_string(&tasks_path).expect("read golden tasks.toml");
         let roadmap = fs::read_to_string(&input_path).expect("read golden input roadmap");
@@ -52,7 +53,17 @@ fn golden_render_fixtures_are_byte_equal() {
         let tasks = validate_tasks_str(tasks_path.display().to_string(), &tasks_input)
             .expect("golden tasks validate");
 
-        let rendered = render_roadmap_str(&roadmap, &tasks).expect("render golden roadmap");
+        let today = if today_path.exists() {
+            fs::read_to_string(&today_path)
+                .expect("read today.txt")
+                .trim()
+                .to_string()
+        } else {
+            rmap::today_iso()
+        };
+
+        let rendered =
+            render_roadmap_str_with_today(&roadmap, &tasks, &today).expect("render golden roadmap");
 
         assert_eq!(rendered, expected, "golden case {}", case.display());
     }
@@ -63,7 +74,8 @@ fn render_rejects_unclosed_marker() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
     let roadmap = "<!-- TASKS:BEGIN phase=12 -->\nstale generated content\n";
 
-    let err = render_roadmap_str(roadmap, &tasks).expect_err("unclosed marker is rejected");
+    let err = render_roadmap_str_with_today(roadmap, &tasks, "2026-05-11")
+        .expect_err("unclosed marker is rejected");
 
     assert!(err.to_string().contains("missing <!-- TASKS:END -->"));
 }

@@ -1,0 +1,31 @@
+schema_version = 1
+project = "score_decay_test"
+default_branch = "main"
+
+[phases.1]
+name = "Decay Test Phase"
+order = 1
+status = "in_progress"
+
+[bundles.decay]
+phase = 1
+order = 1
+description = "Score decay fixture"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "decay"
+status = "pending"
+title = "Old score — should show decay marker"
+scores = { d = 3, b = 8, u = 8 }
+scored_at = "2026-03-01"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "decay"
+status = "pending"
+title = "Recent score — no decay marker"
+scores = { d = 2, b = 6, u = 6 }
+scored_at = "2026-05-05"

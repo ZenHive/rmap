@@ -3,7 +3,7 @@ use std::fmt::Write;
 use thiserror::Error;
 
 use crate::schema::{Task, Tasks};
-use crate::scoring::{efficiency, format_efficiency};
+use crate::scoring::{efficiency, format_efficiency, score_decay_suffix};
 
 const BEGIN_MARKER: &str = "<!-- TASKS:BEGIN phase=";
 const END_MARKER: &str = "<!-- TASKS:END -->";
@@ -16,7 +16,12 @@ pub enum RenderError {
     InvalidPhaseMarker { start: usize },
 }
 
-pub fn render_roadmap_str(roadmap: &str, tasks: &Tasks) -> Result<String, RenderError> {
+/// Render with an explicit `today` date (`YYYY-MM-DD`). Pass `""` to disable decay suffixes.
+pub fn render_roadmap_str_with_today(
+    roadmap: &str,
+    tasks: &Tasks,
+    today: &str,
+) -> Result<String, RenderError> {
     let mut rendered = String::with_capacity(roadmap.len());
     let mut cursor = 0;
 
@@ -33,7 +38,7 @@ pub fn render_roadmap_str(roadmap: &str, tasks: &Tasks) -> Result<String, Render
             parse_phase(marker_line).ok_or(RenderError::InvalidPhaseMarker { start: begin })?;
 
         rendered.push_str(marker_line);
-        rendered.push_str(&render_phase_table(tasks, phase));
+        rendered.push_str(&render_phase_table(tasks, phase, today));
 
         let end = roadmap[marker_line_end..]
             .find(END_MARKER)
@@ -52,6 +57,11 @@ pub fn render_roadmap_str(roadmap: &str, tasks: &Tasks) -> Result<String, Render
     Ok(rendered)
 }
 
+/// Render using `today_iso()` (reads `RMAP_TODAY` env var or the system clock).
+pub fn render_roadmap_str(roadmap: &str, tasks: &Tasks) -> Result<String, RenderError> {
+    render_roadmap_str_with_today(roadmap, tasks, &crate::today_iso())
+}
+
 fn parse_phase(marker_line: &str) -> Option<u32> {
     let phase_start = marker_line.find(BEGIN_MARKER)? + BEGIN_MARKER.len();
     let phase_end = marker_line[phase_start..].find(" -->")? + phase_start;
@@ -59,15 +69,17 @@ fn parse_phase(marker_line: &str) -> Option<u32> {
     marker_line[phase_start..phase_end].parse().ok()
 }
 
-fn render_phase_table(tasks: &Tasks, phase: u32) -> String {
+fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
     let mut table = String::new();
     table.push_str("| Task | Status | Notes |\n");
     table.push_str("|------|--------|-------|\n");
 
     for task in tasks.task.iter().filter(|task| task.phase == phase) {
+        let eff = efficiency(task);
+        let decay = score_decay_suffix(task, today);
         writeln!(
             table,
-            "| Task {}{} | {} | 🎁 **{}** · {} [D:{}/B:{}/U:{} → Eff:{}] {} |",
+            "| Task {}{} | {} | 🎁 **{}** · {} [D:{}/B:{}/U:{} → Eff:{}{}] {} |",
             task.id,
             marker_suffix(task),
             status_symbol(&task.status),
@@ -76,8 +88,9 @@ fn render_phase_table(tasks: &Tasks, phase: u32) -> String {
             task.scores.d,
             task.scores.b,
             task.scores.u,
-            format_efficiency(efficiency(task)),
-            priority_symbol(efficiency(task))
+            format_efficiency(eff),
+            decay,
+            priority_symbol(eff)
         )
         .expect("write to string");
     }

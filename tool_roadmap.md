@@ -2,7 +2,7 @@
 
 Single Rust binary that manages `roadmap/tasks.toml` in any project (Elixir, Rust, Python, Go, anything). Renders portable views: `ROADMAP.md` (agent-readable, dense), `data.json` (dashboard-consumable), optionally HTML (human-readable).
 
-**Status.** Phases 1–5, 8, 9, and 10 shipped: `validate`, `render`, `data.json` export, `status` mutator, `next` selector, `show`, `list`, `schema --json`, `diff`, `delegate`, the `--check-render` pre-commit contract, and schema completeness (`[focus]`, task timestamps, `blocked_reason`, cycle detection). Phases 6–7 and 11 planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
+**Status.** Phases 1–5, 8, 9, 10, and 11a shipped: `validate`, `render`, `data.json` export, `status` mutator (single + bulk), `next` selector, `show`, `list`, `schema`, `diff`, `delegate`, `stale`, `doctor`, the `--check-render` pre-commit contract, schema completeness (`[focus]`, task timestamps, `blocked_reason`, cycle detection), and health surfaces (score-decay `?` suffix, stale-task surface, composite doctor report). Phases 6–7 and 11b planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
 
 ## Why Rust
 
@@ -88,37 +88,37 @@ Shipped commands (Phases 1–5) and planned ones (Phases 6–11). Planned comman
 rmap render                          # write ROADMAP.md + data.json from tasks.toml
 rmap render --dry                    # print would-write diff, no file changes
 rmap render --stdout                 # render ROADMAP.md to stdout (for diffing in hooks)
-rmap render --format mermaid         # [P11] phase-gantt block for human viewers
-rmap render --html                   # [P6]  single-project view → roadmap/dist/index.html
-rmap render --html --multi P1 P2     # [P6]  portfolio HTML across N repos/data.json paths
+rmap render --format mermaid         # [P11b] phase-gantt block for human viewers
+rmap render --html                   # [P6]   single-project view → roadmap/dist/index.html
+rmap render --html --multi P1 P2     # [P6]   portfolio HTML across N repos/data.json paths
 rmap export json                     # data.json to stdout (for piping)
 
-# validation (Phases 1, 5)
+# validation + health (Phases 1, 5, 11a)
 rmap validate                        # schema check + integrity (orphan deps, marker validity, cycles)
 rmap validate --check-render         # also verify ROADMAP.md is in sync; exit 2 on drift, 1 on schema error
-rmap doctor                          # [P11] health summary: drift, cycles, orphans, stale, score-decay
+rmap doctor [--json]                 # health summary: validate findings, stale, score-decay, drift — always exits 0
 
 # query / introspection (Phase 8) — agent read-API
 rmap next [--marker parallel] [--json]   # next highest-Eff unblocked pending
 rmap show <id> [--json]              # full task detail; --json for piping
 rmap list [--status S --marker M --phase N --json]   # generalized query
-rmap schema [--json]                 # emit JSON Schema for editor completion + agent self-description
+rmap schema                          # emit JSON Schema for editor completion + agent self-description
 rmap diff [--against <ref>] [--json]  # what changed in tasks.toml vs base ref (default: default_branch)
-rmap stale --over <duration>         # in_progress tasks idle > duration (needs Phase 10 timestamps)
+rmap stale --over <duration> [--json]   # in_progress tasks idle > duration
 
-# mutation (Phase 4 + Phase 11 extensions) — all routed through toml_edit
-rmap status <id[,id,id]> <new>       # flip status (bulk form added in Phase 11), re-render
-rmap mark <id> +cx -parallel         # [P11] add/remove markers without TOML editing
-rmap depend <id> on <id> [--cross-repo repo:N]     # [P11] add deps via mutation
+# mutation (Phase 4 + Phase 11a + Phase 11b extensions) — all routed through toml_edit
+rmap status <id[,id,id]> <new>       # flip status (bulk form shipped in Phase 11a), re-render
+rmap mark <id> +cx -parallel         # [P11b] add/remove markers without TOML editing
+rmap depend <id> on <id> [--cross-repo repo:N]     # [P11b] add deps via mutation
 rmap new                             # interactive task creation (dialoguer)
-rmap new --from-stdin                # [P11] non-interactive — agent piping
+rmap new --from-stdin                # [P11b] non-interactive — agent piping
 
 # delegation (Phase 9) — cloud-agent workflow
 rmap delegate <id> --to claude|codex|cursor        # emit paste-ready Markdown prompt: title + body + deps + AC + linked refs
 
 # live dev (Phase 7)
 rmap watch                           # FS watch on tasks.toml, render on change
-rmap watch --json                    # [P11] event stream for agent consumers
+rmap watch --json                    # [P11b] event stream for agent consumers
 ```
 
 ## Implementation phases
@@ -135,9 +135,10 @@ rmap watch --json                    # [P11] event stream for agent consumers
 | 8 | **Read API + self-description** | ✅ | `show`, `list`, `schema --json`, `diff`, `next --json` |
 | 9 | **Cloud delegation surface** | ✅ | `delegate`, schema adds `assignee` + `acceptance_criteria` |
 | 10 | **Schema completeness** | ✅ | Timestamps, `blocked_reason`, `[focus]`, cycle detection |
-| 11 | **Health + polish** | ⬜ | `doctor`, `stale`, mermaid render, bulk mutators, score-decay |
+| 11a | **Health + cleanup** | ✅ | `doctor`, `stale`, score-decay rendering, bulk `status`, drop `schema --json` no-op |
+| 11b | **Polish** | ⬜ | mermaid render, delegate per-agent footer, `new --from-stdin`, `mark`, `depend`, interactive `new`, `diff --verbose` |
 
-**Sequencing rationale.** Phases 9 and 10 are shipped: downstream agents have a paste-ready delegation prompt, richer task lifecycle data (timestamps + blocked reasons), focus-phase signaling for `rmap next`, and dependency cycle protection. Phase 11 compounds with health and polish — sequence inside the phase by D/B/U.
+**Sequencing rationale.** Phases 9, 10, and 11a are shipped: downstream agents have a paste-ready delegation prompt, richer task lifecycle data (timestamps + blocked reasons), focus-phase signaling for `rmap next`, dependency cycle protection, and a composite health surface (`doctor`) that aggregates validate findings, stale, score-decay, and drift. Phase 11b is the remaining polish — sequence by D/B/U.
 
 **Cross-cutting invariant (Phases 8–9).** The `--json` outputs of `show`, `list`, `next`, `schema`, and `diff` are the agent contract. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.
 
@@ -147,11 +148,13 @@ rmap watch --json                    # [P11] event stream for agent consumers
 - Cycle detection (mentioned for Phase 10) belongs in `validate.rs` alongside `validate_dependencies` — a DFS over `task.depends_on` collecting back-edges, with an error pointing at the cycle members.
 - `[focus].phase` becomes load-bearing for `rmap next` and dashboards (Phase 6) — wire it through `schema::Tasks` as `Option<Focus>` with `#[serde(deny_unknown_fields)]` and have `next::next_task` prefer focus-phase tasks when set.
 
-**Phase 11 follow-ups (discovered during Phase 8–9 review).**
+**Phase 11b follow-ups (carried forward + discovered during Phase 11a review).**
 
 - `rmap delegate` instructions footer is currently hardcoded. Parameterize per target: Cursor can run the harness pre-PR, Codex cannot reach hex.pm, Claude is local. Source-of-truth lives in `cloud-delegation:cloud-agent-environments` skill; mirror the per-agent reachability into the delegate prompt template.
 - Consider surfacing diff value-level before/after for high-signal fields (`status`, `scores`) via `rmap diff --verbose` — currently only the field name is reported. Keep field-key set as the default to avoid noise in pre-commit hook output.
-- `rmap schema` accepts `--json` as a no-op flag for backward compatibility; once no callers depend on the flag, drop it. Track in CHANGELOG before removal.
+- `rmap doctor` could grow `--threshold-days <N>` to override the hardcoded 30-day stale/decay cutoff. Defer until a real consumer asks; the constants live in `src/doctor.rs` (`STALE_THRESHOLD_DAYS`, `DECAY_THRESHOLD_DAYS`) and `src/scoring.rs::score_decay_suffix`.
+- `rmap doctor --json`'s `DoctorFinding` enum is tagged with `kind: "..."` (snake_case). When extending, follow the additive rule — new variants are fine; renaming a `kind` value would break agent consumers and requires a `schema_version` bump.
+- `today_iso()` reads `RMAP_TODAY` for test determinism, then falls back to system clock. Document this in CLAUDE.md so future tests don't reinvent date injection.
 
 ## HTML render design (Phase 6)
 

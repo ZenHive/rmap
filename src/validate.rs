@@ -39,6 +39,54 @@ pub fn validate_tasks_file(path: &Path) -> Result<Tasks, ValidateError> {
     validate_tasks_str(path.display().to_string(), &input)
 }
 
+/// Runs every semantic check against an already-parsed `Tasks` and collects ALL findings
+/// instead of short-circuiting on the first error.
+///
+/// The schema-parse step is excluded — by definition `tasks` is already parsed.
+/// All other checks run in order; their errors accumulate into the returned Vec.
+pub fn collect_findings(tasks: &Tasks, path: &str, input: &str) -> Vec<ValidateError> {
+    let mut findings: Vec<ValidateError> = Vec::new();
+
+    if let Err(e) = validate_schema_version(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_statuses(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_markers(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_assignees(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_linear_ids(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_timestamps(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_blocked_reasons(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_dependencies(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_dependency_cycles(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_cross_repo_relations(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_phase_and_bundle_references(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_focus_phase(path, input, tasks) {
+        findings.push(e);
+    }
+
+    findings
+}
+
 pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks, ValidateError> {
     let path = path.into();
     let tasks: Tasks = toml::from_str(input).map_err(|err| parse_error(&path, input, err))?;

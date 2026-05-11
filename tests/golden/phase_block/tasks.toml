@@ -21,6 +21,7 @@ title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }
 markers = ["parallel"]
 shipped_in = "PR #21"
+scored_at = "2026-05-01"
 
 [[task]]
 id = 75
@@ -30,3 +31,4 @@ status = "pending"
 title = "parseOrder field map"
 scores = { d = 6, b = 8, u = 8 }
 depends_on = [74]
+scored_at = "2026-05-01"

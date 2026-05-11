@@ -252,7 +252,7 @@ fn render_command_updates_roadmap_file() {
     assert!(rendered.contains("Keep me."));
     assert!(
         rendered.contains(
-            "| Task 1 | ⬜ | 🎁 **foundation** · Add validation [D:2/B:8/U:8 → Eff:4.0] 🎯 |"
+            "| Task 1 | ⬜ | 🎁 **foundation** · Add validation [D:2/B:8/U:8 → Eff:4.0?] 🎯 |"
         ),
         "{rendered}"
     );
@@ -703,9 +703,8 @@ fn list_command_filters_tasks_and_prints_json_envelope() {
 fn schema_json_command_emits_parseable_schema_for_tasks_file() {
     let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
         .arg("schema")
-        .arg("--json")
         .output()
-        .expect("run rmap schema --json");
+        .expect("run rmap schema");
 
     assert!(
         output.status.success(),
@@ -729,29 +728,22 @@ fn schema_json_command_emits_parseable_schema_for_tasks_file() {
 }
 
 #[test]
-fn schema_command_emits_json_without_explicit_flag() {
-    let with_flag = Command::new(env!("CARGO_BIN_EXE_rmap"))
+fn schema_command_rejects_removed_json_flag() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
         .arg("schema")
         .arg("--json")
         .output()
         .expect("run rmap schema --json");
-    let without_flag = Command::new(env!("CARGO_BIN_EXE_rmap"))
-        .arg("schema")
-        .output()
-        .expect("run rmap schema");
 
-    assert!(with_flag.status.success(), "expected success with --json");
     assert!(
-        without_flag.status.success(),
-        "expected success without --json"
+        !output.status.success(),
+        "expected non-zero exit when --json flag is passed to schema"
     );
-    assert_eq!(
-        with_flag.stdout, without_flag.stdout,
-        "--json should be a no-op; outputs must match"
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--json") || stderr.contains("unexpected"),
+        "expected clap to mention --json or unexpected argument in stderr, got: {stderr}"
     );
-    let schema: serde_json::Value =
-        serde_json::from_slice(&without_flag.stdout).expect("stdout is valid json");
-    assert_eq!(schema["title"], "Tasks");
 }
 
 #[test]
@@ -876,6 +868,167 @@ scores = { d = 6, b = 8, u = 8 }
     );
 }
 
+const MULTI_STATUS_TASKS: &str = r#"
+schema_version = 1
+project = "multi_test"
+default_branch = "main"
+
+[phases.1]
+name = "Alpha"
+order = 1
+status = "pending"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha bundle"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Task One"
+scores = { d = 1, b = 5, u = 5 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Task Two"
+scores = { d = 1, b = 5, u = 5 }
+
+[[task]]
+id = 3
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Task Three"
+scores = { d = 1, b = 5, u = 5 }
+"#;
+
+#[test]
+fn status_command_multi_id_flips_all_tasks() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", MULTI_STATUS_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    // Render first so ROADMAP.md is current (avoids re-render error).
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1,2,3")
+        .arg("done")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status 1,2,3 done");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    // All three tasks must now be done.
+    let done_count = tasks.matches("status = \"done\"").count();
+    assert_eq!(done_count, 3, "expected 3 done tasks, got:\n{tasks}");
+}
+
+#[test]
+fn status_command_unknown_id_aborts_entire_write() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", MULTI_STATUS_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    let original = fs::read_to_string(&tasks_path).expect("read original tasks");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1,99")
+        .arg("done")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status 1,99 done");
+
+    assert!(
+        !output.status.success(),
+        "expected failure for unknown id 99"
+    );
+
+    // File must be byte-equal to the original — no partial write.
+    let after = fs::read_to_string(&tasks_path).expect("read tasks after failed run");
+    assert_eq!(
+        original, after,
+        "file must not be modified when any id is unknown"
+    );
+}
+
+#[test]
+fn status_command_single_id_still_works() {
+    // Confirm the existing single-ID path is unaffected by the comma-split change.
+    // This mirrors the existing status_command_updates_tasks_and_rerenders_outputs test
+    // but uses MULTI_STATUS_TASKS for isolation.
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", MULTI_STATUS_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("2")
+        .arg("done")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status 2 done");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let done_count = tasks.matches("status = \"done\"").count();
+    assert_eq!(done_count, 1, "expected exactly 1 done task:\n{tasks}");
+    assert!(
+        tasks.contains("id = 2\nphase = 1\nbundle = \"alpha\"\nstatus = \"done\""),
+        "{tasks}"
+    );
+}
+
 fn write_temp_tasks(file_name: &str, contents: &str) -> PathBuf {
     let dir = temp_dir();
     write_file(&dir, file_name, contents)
@@ -917,5 +1070,498 @@ fn git(dir: &std::path::Path, args: &[&str]) {
         args,
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+// ---------------------------------------------------------------------------
+// stale command fixtures
+// ---------------------------------------------------------------------------
+
+const STALE_TASKS: &str = r#"
+schema_version = 1
+project = "stale_test"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "in_progress"
+title = "Old in-progress task"
+scores = { d = 2, b = 4, u = 4 }
+started_at = "2026-03-01"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "in_progress"
+title = "Fresh in-progress task"
+scores = { d = 2, b = 4, u = 4 }
+started_at = "2026-05-05"
+
+[[task]]
+id = 3
+phase = 1
+bundle = "core"
+status = "done"
+title = "Done task with old date"
+scores = { d = 2, b = 4, u = 4 }
+started_at = "2026-01-01"
+
+[[task]]
+id = 4
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Pending task no started_at"
+scores = { d = 2, b = 4, u = 4 }
+"#;
+
+const FRESH_TASKS: &str = r#"
+schema_version = 1
+project = "fresh_test"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "in_progress"
+title = "Fresh task A"
+scores = { d = 2, b = 4, u = 4 }
+started_at = "2026-05-10"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "in_progress"
+title = "Fresh task B"
+scores = { d = 2, b = 4, u = 4 }
+started_at = "2026-05-09"
+"#;
+
+// ---------------------------------------------------------------------------
+// stale command tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn stale_command_lists_in_progress_tasks_older_than_threshold() {
+    let path = write_temp_tasks("stale_tasks.toml", STALE_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("stale")
+        .arg("--over")
+        .arg("30d")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap stale");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Task 1 is stale (71 days old)
+    assert!(
+        stdout.contains("Task 1"),
+        "expected Task 1 in output:\n{stdout}"
+    );
+    // Task 2 is fresh (6 days)
+    assert!(
+        !stdout.contains("Task 2"),
+        "Task 2 should not appear:\n{stdout}"
+    );
+    // Task 3 is done, not in_progress
+    assert!(
+        !stdout.contains("Task 3"),
+        "Task 3 should not appear:\n{stdout}"
+    );
+    // Task 4 is pending
+    assert!(
+        !stdout.contains("Task 4"),
+        "Task 4 should not appear:\n{stdout}"
+    );
+}
+
+#[test]
+fn stale_command_empty_result_exits_zero() {
+    let path = write_temp_tasks("fresh_tasks.toml", FRESH_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("stale")
+        .arg("--over")
+        .arg("30d")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap stale");
+
+    assert!(
+        output.status.success(),
+        "expected exit 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.trim().is_empty(),
+        "expected empty stdout, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn stale_command_emits_filtered_json() {
+    let path = write_temp_tasks("stale_tasks_json.toml", STALE_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("stale")
+        .arg("--over")
+        .arg("30d")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap stale --json");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be valid JSON");
+    let task_arr = json["task"].as_array().expect("'task' should be an array");
+    assert_eq!(
+        task_arr.len(),
+        1,
+        "expected exactly 1 stale task, got: {task_arr:?}"
+    );
+    assert_eq!(task_arr[0]["id"], 1, "expected Task 1 in JSON output");
+}
+
+#[test]
+fn stale_command_rejects_malformed_duration() {
+    let path = write_temp_tasks("stale_bad_dur.toml", STALE_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("stale")
+        .arg("--over")
+        .arg("7")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap stale --over 7");
+
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit for malformed duration"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("duration") || stderr.contains("invalid"),
+        "expected duration error in stderr:\n{stderr}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// doctor command fixtures
+// ---------------------------------------------------------------------------
+
+/// All tasks scored within 30d of 2026-05-11 (scored_at = 2026-04-15, 26 days ago).
+const DOCTOR_CLEAN_TASKS: &str = r#"
+schema_version = 1
+project = "doctor_test"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 10
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Clean task A"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-04-15"
+
+[[task]]
+id = 11
+phase = 1
+bundle = "core"
+status = "done"
+title = "Clean task B"
+scores = { d = 1, b = 3, u = 3 }
+scored_at = "2026-04-20"
+"#;
+
+/// One stale in-progress task (started 2026-01-01, 130d idle at 2026-05-11) and one task
+/// with missing scored_at.
+const DOCTOR_DIRTY_TASKS: &str = r#"
+schema_version = 1
+project = "doctor_dirty"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 20
+phase = 1
+bundle = "core"
+status = "in_progress"
+title = "Stale task"
+scores = { d = 2, b = 4, u = 4 }
+started_at = "2026-01-01"
+scored_at = "2026-04-20"
+
+[[task]]
+id = 21
+phase = 1
+bundle = "core"
+status = "pending"
+title = "No score date"
+scores = { d = 1, b = 3, u = 3 }
+"#;
+
+const DOCTOR_ROADMAP: &str = r#"# Roadmap
+
+<!-- TASKS:BEGIN phase=1 -->
+stale
+<!-- TASKS:END -->
+"#;
+
+// ---------------------------------------------------------------------------
+// doctor command tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn doctor_command_clean_fixture_reports_no_findings() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", DOCTOR_CLEAN_TASKS);
+    write_file(&dir, "ROADMAP.md", DOCTOR_ROADMAP);
+
+    // Sync ROADMAP.md so there is no drift finding.
+    let render = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap render");
+    assert!(
+        render.status.success(),
+        "render failed: {}",
+        String::from_utf8_lossy(&render.stderr)
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap doctor");
+
+    assert!(
+        output.status.success(),
+        "expected exit 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("all checks passed"),
+        "expected clean message, got:\n{stdout}"
+    );
+}
+
+#[test]
+fn doctor_command_surfaces_stale_and_decay() {
+    let path = write_temp_tasks("doctor_dirty.toml", DOCTOR_DIRTY_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor dirty");
+
+    assert!(
+        output.status.success(),
+        "expected exit 0 (informational), stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Stale finding for task 20
+    assert!(
+        stdout.contains("Stale"),
+        "expected Stale section:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("task 20"),
+        "expected task 20 in stale section:\n{stdout}"
+    );
+    // Score decay for task 21 (missing scored_at)
+    assert!(
+        stdout.contains("Score decay"),
+        "expected Score decay section:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("task 21"),
+        "expected task 21 in decay section:\n{stdout}"
+    );
+}
+
+#[test]
+fn doctor_command_detects_drift() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", DOCTOR_CLEAN_TASKS);
+    // Write a stale ROADMAP.md — not rendered yet, so it's out of sync.
+    write_file(&dir, "ROADMAP.md", DOCTOR_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap doctor drift");
+
+    assert!(
+        output.status.success(),
+        "expected exit 0 even when drift detected, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Drift") || stdout.contains("out of sync"),
+        "expected drift finding:\n{stdout}"
+    );
+}
+
+#[test]
+fn doctor_command_emits_json() {
+    let path = write_temp_tasks("doctor_dirty_json.toml", DOCTOR_DIRTY_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor --json");
+
+    assert!(
+        output.status.success(),
+        "expected exit 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be valid JSON");
+
+    assert_eq!(json["ok"], false, "expected ok: false");
+
+    let findings = json["findings"].as_array().expect("findings array");
+    let kinds: Vec<&str> = findings.iter().filter_map(|f| f["kind"].as_str()).collect();
+    assert!(
+        kinds.contains(&"stale"),
+        "expected stale finding in JSON:\n{kinds:?}"
+    );
+    assert!(
+        kinds.contains(&"score_decay"),
+        "expected score_decay finding in JSON:\n{kinds:?}"
+    );
+}
+
+#[test]
+fn doctor_command_clean_fixture_json_ok() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", DOCTOR_CLEAN_TASKS);
+    write_file(&dir, "ROADMAP.md", DOCTOR_ROADMAP);
+
+    // Sync ROADMAP.md.
+    let render = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap render");
+    assert!(render.status.success(), "render failed");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap doctor --json clean");
+
+    assert!(output.status.success(), "expected exit 0");
+
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be valid JSON");
+    assert_eq!(json["ok"], true, "expected ok: true");
+    assert_eq!(
+        json["findings"].as_array().expect("findings array").len(),
+        0,
+        "expected empty findings"
     );
 }

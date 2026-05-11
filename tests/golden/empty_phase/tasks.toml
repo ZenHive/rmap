@@ -20,3 +20,4 @@ status = "done"
 title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }
 markers = ["parallel"]
+scored_at = "2026-05-01"
