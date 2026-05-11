@@ -99,6 +99,11 @@ pub fn diff_metadata(base: &Tasks, current: &Tasks) -> Vec<MetadataDiff> {
     if base.default_branch != current.default_branch {
         diff.push(scalar_change("default_branch"));
     }
+    diff.extend(diff_optional(
+        "focus",
+        base.focus.as_ref(),
+        current.focus.as_ref(),
+    ));
     match (&base.linear, &current.linear) {
         (None, None) => {}
         (None, Some(_)) => diff.push(MetadataDiff {
@@ -154,6 +159,27 @@ fn scalar_change(key: &str) -> MetadataDiff {
     MetadataDiff {
         key: key.to_string(),
         status: DiffStatus::Changed,
+    }
+}
+
+fn diff_optional<T: PartialEq>(
+    key: &str,
+    base: Option<&T>,
+    current: Option<&T>,
+) -> Option<MetadataDiff> {
+    match (base, current) {
+        (None, None) => None,
+        (None, Some(_)) => Some(MetadataDiff {
+            key: key.to_string(),
+            status: DiffStatus::Added,
+        }),
+        (Some(_), None) => Some(MetadataDiff {
+            key: key.to_string(),
+            status: DiffStatus::Removed,
+        }),
+        (Some(base_value), Some(current_value)) => {
+            (base_value != current_value).then(|| scalar_change(key))
+        }
     }
 }
 

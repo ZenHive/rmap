@@ -284,7 +284,9 @@ fn ensure_iso_date(
     Err(semantic_error(
         path,
         line_containing(input, &format!("{field} = \"{value}\"")).unwrap_or(FIRST_LINE_NUMBER),
-        format!("{field} \"{value}\" must be an ISO-8601 date (YYYY-MM-DD)"),
+        format!(
+            "{field} \"{value}\" must match YYYY-MM-DD format (4-digit year, 2-digit month, 2-digit day)"
+        ),
     ))
 }
 

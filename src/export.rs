@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::schema::{Bundle, CrossRepo, Linear, Phase, Scores, Task, TaskId, Tasks};
+use crate::schema::{Bundle, CrossRepo, Focus, Linear, Phase, Scores, Task, TaskId, Tasks};
 use crate::scoring::efficiency;
 
 #[derive(Serialize)]
@@ -8,6 +8,8 @@ struct ExportedTasks<'a> {
     schema_version: u32,
     project: &'a str,
     default_branch: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    focus: Option<&'a Focus>,
     #[serde(skip_serializing_if = "Option::is_none")]
     linear: Option<&'a Linear>,
     phases: &'a std::collections::BTreeMap<String, Phase>,
@@ -73,6 +75,7 @@ fn exported_tasks_with<'a>(
         schema_version: tasks.schema_version,
         project: &tasks.project,
         default_branch: &tasks.default_branch,
+        focus: tasks.focus.as_ref(),
         linear: tasks.linear.as_ref(),
         phases: &tasks.phases,
         bundles: &tasks.bundles,

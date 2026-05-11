@@ -179,6 +179,55 @@ workspace_url = "https://linear.app/efries"
 "#;
 
 #[test]
+fn focus_add_remove_and_change_show_up_in_metadata_diff() {
+    let no_focus = r#"
+schema_version = 1
+project = "ccxt_extract"
+default_branch = "development"
+
+[phases.12]
+name = "P"
+order = 12
+status = "pending"
+
+[bundles.simple]
+phase = 12
+order = 1
+description = "S"
+"#;
+    let focus_12 = no_focus.replace("[phases.12]", "[focus]\nphase = 12\n\n[phases.12]");
+    let focus_13 = no_focus
+        .replace(
+            "[phases.12]\nname = \"P\"\norder = 12\nstatus = \"pending\"",
+            "[focus]\nphase = 13\n\n[phases.12]\nname = \"P\"\norder = 12\nstatus = \"pending\"\n\n[phases.13]\nname = \"Q\"\norder = 13\nstatus = \"pending\"",
+        );
+
+    let none = validate_tasks_str("none", no_focus).expect("valid");
+    let p12 = validate_tasks_str("p12", &focus_12).expect("valid");
+    let p13 = validate_tasks_str("p13", &focus_13).expect("valid");
+
+    let added = diff_metadata(&none, &p12);
+    let removed = diff_metadata(&p12, &none);
+    let changed = diff_metadata(&p12, &p13);
+
+    assert!(
+        added
+            .iter()
+            .any(|d| d.key == "focus" && d.status == DiffStatus::Added)
+    );
+    assert!(
+        removed
+            .iter()
+            .any(|d| d.key == "focus" && d.status == DiffStatus::Removed)
+    );
+    assert!(
+        changed
+            .iter()
+            .any(|d| d.key == "focus" && d.status == DiffStatus::Changed)
+    );
+}
+
+#[test]
 fn linear_subfield_changes_report_with_field_granularity() {
     let base = validate_tasks_str("base", LINEAR_BASE).expect("valid base tasks");
     let current = validate_tasks_str("current", LINEAR_TEAM_CHANGED).expect("valid current tasks");

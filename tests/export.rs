@@ -65,6 +65,30 @@ fn exports_validated_tasks_with_computed_efficiency() {
 }
 
 #[test]
+fn exports_top_level_focus_when_set() {
+    let input = TASKS.replace("[linear]", "[focus]\nphase = 12\n\n[linear]");
+    let tasks = validate_tasks_str("roadmap/tasks.toml", &input).expect("valid tasks");
+
+    let json = export_json_str(&tasks).expect("export json");
+    let value: serde_json::Value = serde_json::from_str(&json).expect("valid json");
+
+    assert_eq!(value["focus"]["phase"], 12);
+}
+
+#[test]
+fn omits_focus_key_when_absent() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
+
+    let json = export_json_str(&tasks).expect("export json");
+    let value: serde_json::Value = serde_json::from_str(&json).expect("valid json");
+
+    assert!(
+        value.get("focus").is_none(),
+        "focus should be omitted, got {value}"
+    );
+}
+
+#[test]
 fn rejects_eff_in_source_toml() {
     let input = TASKS.replace(
         "scores = { d = 5, b = 8, u = 8 }",

@@ -273,7 +273,7 @@ fn rejects_invalid_timestamp_format() {
 
     let message = err.to_string();
     assert!(message.contains("created_at"));
-    assert!(message.contains("ISO-8601"));
+    assert!(message.contains("YYYY-MM-DD format"));
 }
 
 #[test]
