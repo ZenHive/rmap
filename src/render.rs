@@ -3,6 +3,7 @@ use std::fmt::Write;
 use thiserror::Error;
 
 use crate::schema::{Task, Tasks};
+use crate::scoring::{efficiency, format_efficiency};
 
 const BEGIN_MARKER: &str = "<!-- TASKS:BEGIN phase=";
 const END_MARKER: &str = "<!-- TASKS:END -->";
@@ -84,10 +85,6 @@ fn render_phase_table(tasks: &Tasks, phase: u32) -> String {
     table
 }
 
-fn efficiency(task: &Task) -> f64 {
-    f64::from(task.scores.b + task.scores.u) / (2.0 * f64::from(task.scores.d))
-}
-
 fn marker_suffix(task: &Task) -> String {
     let markers = task
         .markers
@@ -127,19 +124,5 @@ fn priority_symbol(efficiency: f64) -> &'static str {
         "📋"
     } else {
         "⚠️"
-    }
-}
-
-fn format_efficiency(value: f64) -> String {
-    let formatted = format!("{value:.2}");
-    let trimmed = formatted
-        .trim_end_matches('0')
-        .trim_end_matches('.')
-        .to_string();
-
-    if trimmed.contains('.') {
-        trimmed
-    } else {
-        format!("{trimmed}.0")
     }
 }

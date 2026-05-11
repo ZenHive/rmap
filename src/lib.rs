@@ -1,7 +1,11 @@
+pub mod diff;
 pub mod export;
 pub mod mutate;
 pub mod next;
 pub mod paths;
+pub mod query;
 pub mod render;
 pub mod schema;
+pub mod schema_json;
+pub mod scoring;
 pub mod validate;

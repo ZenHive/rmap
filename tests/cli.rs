@@ -462,6 +462,312 @@ fn next_command_prints_nothing_and_exits_zero_when_no_task_matches() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "");
 }
 
+#[test]
+fn next_json_prints_task_object_or_null() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--json")
+        .arg("--marker")
+        .arg("parallel")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --json");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    assert_eq!(value["id"], 75);
+    assert_eq!(value["eff"], 1.8);
+
+    let no_match = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--json")
+        .arg("--marker")
+        .arg("csr")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --json with no match");
+
+    assert!(
+        no_match.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&no_match.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&no_match.stdout).expect("stdout is valid json");
+    assert_eq!(value, serde_json::Value::Null);
+}
+
+#[test]
+fn show_command_prints_human_and_json_views() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let human = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("75")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap show");
+
+    assert!(
+        human.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&human.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&human.stdout);
+    assert!(stdout.contains("Task 75"), "{stdout}");
+    assert!(stdout.contains("parseOrder field map"), "{stdout}");
+    assert!(stdout.contains("depends_on: 74"), "{stdout}");
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("75")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap show --json");
+
+    assert!(
+        json.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&json.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    assert_eq!(value["id"], 75);
+    assert_eq!(value["title"], "parseOrder field map");
+    assert_eq!(value["eff"], 1.8);
+}
+
+#[test]
+fn show_unknown_task_exits_one() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("999")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap show unknown task");
+
+    assert_eq!(output.status.code(), Some(1), "expected unknown task error");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("task 999 not found"));
+}
+
+#[test]
+fn list_command_filters_tasks_and_prints_json_envelope() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let human = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("list")
+        .arg("--status")
+        .arg("pending")
+        .arg("--marker")
+        .arg("parallel")
+        .arg("--phase")
+        .arg("12")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap list");
+
+    assert!(
+        human.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&human.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&human.stdout);
+    assert!(stdout.contains("Task 75"), "{stdout}");
+    assert!(!stdout.contains("Task 74"), "{stdout}");
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("list")
+        .arg("--status")
+        .arg("pending")
+        .arg("--marker")
+        .arg("parallel")
+        .arg("--phase")
+        .arg("12")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap list --json");
+
+    assert!(
+        json.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&json.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    assert_eq!(value["project"], "ccxt_extract");
+    assert_eq!(value["task"].as_array().expect("task array").len(), 1);
+    assert_eq!(value["task"][0]["id"], 75);
+}
+
+#[test]
+fn schema_json_command_emits_parseable_schema_for_tasks_file() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("schema")
+        .arg("--json")
+        .output()
+        .expect("run rmap schema --json");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let schema: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    assert_eq!(schema["title"], "Tasks");
+    assert!(schema["properties"]["task"].is_object());
+
+    let tasks =
+        rmap::validate::validate_tasks_str("roadmap/tasks.toml", VALID_TASKS).expect("valid tasks");
+    let tasks_json = serde_json::to_value(tasks).expect("tasks serialize to json");
+    let compiled = jsonschema::JSONSchema::compile(&schema).expect("schema compiles");
+
+    assert!(
+        compiled.is_valid(&tasks_json),
+        "emitted schema should validate serialized tasks"
+    );
+}
+
+#[test]
+fn diff_command_reports_added_removed_and_changed_tasks_against_git_ref() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(&dir.join("roadmap"), "tasks.toml", PHASE4_TASKS);
+    write_file(
+        &dir,
+        "ROADMAP.md",
+        ROADMAP.replace("phase=1", "phase=12").as_str(),
+    );
+    git(&dir, &["init", "-b", "main"]);
+    git(&dir, &["add", "roadmap/tasks.toml", "ROADMAP.md"]);
+    git(
+        &dir,
+        &[
+            "-c",
+            "user.email=rmap@example.test",
+            "-c",
+            "user.name=rmap",
+            "commit",
+            "-m",
+            "initial",
+        ],
+    );
+
+    let current = PHASE4_TASKS
+        .replace(
+            "status = \"pending\"\ntitle = \"parseOrder field map\"",
+            "status = \"done\"\ntitle = \"parseOrder field map\"",
+        )
+        .replace("depends_on = [74]\n", "")
+        .replace(
+            "status = \"pending\"\n\n[bundles.simple]",
+            "status = \"in_progress\"\n\n[bundles.simple]",
+        )
+        .replace(
+            r#"
+[[task]]
+id = 74
+phase = 12
+bundle = "simple"
+status = "done"
+title = "parseTicker field map"
+scores = { d = 4, b = 8, u = 8 }
+"#,
+            "",
+        )
+        + r#"
+
+[[task]]
+id = "78b"
+phase = 12
+bundle = "simple"
+status = "pending"
+title = "parseOHLCV object-shape exchanges"
+scores = { d = 6, b = 8, u = 8 }
+"#;
+    fs::write(dir.join("roadmap/tasks.toml"), current).expect("write current tasks");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("diff")
+        .arg("--against")
+        .arg("main")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap diff");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("changed phases.12"), "{stdout}");
+    assert!(stdout.contains("removed Task 74"), "{stdout}");
+    assert!(stdout.contains("changed Task 75: status"), "{stdout}");
+    assert!(stdout.contains("added Task 78b"), "{stdout}");
+
+    let json_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("diff")
+        .arg("--against")
+        .arg("main")
+        .arg("--json")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap diff --json");
+
+    assert!(
+        json_output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&json_output.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&json_output.stdout).expect("stdout is valid json");
+    let metadata = value["metadata"].as_array().expect("metadata array");
+    assert!(
+        metadata
+            .iter()
+            .any(|entry| entry["key"] == "phases.12" && entry["status"] == "changed"),
+        "{value}"
+    );
+    let tasks = value["tasks"].as_array().expect("tasks array");
+    assert!(
+        tasks
+            .iter()
+            .any(|entry| entry["id"] == 74 && entry["status"] == "removed"),
+        "{value}"
+    );
+    assert!(
+        tasks.iter().any(|entry| entry["id"] == 75
+            && entry["status"] == "changed"
+            && entry["changed_fields"] == serde_json::json!(["status", "depends_on"])),
+        "{value}"
+    );
+    assert!(
+        tasks
+            .iter()
+            .any(|entry| entry["id"] == "78b" && entry["status"] == "added"),
+        "{value}"
+    );
+}
+
 fn write_temp_tasks(file_name: &str, contents: &str) -> PathBuf {
     let dir = temp_dir();
     write_file(&dir, file_name, contents)
@@ -488,4 +794,20 @@ fn write_file(dir: &std::path::Path, file_name: &str, contents: &str) -> PathBuf
     let path = dir.join(file_name);
     fs::write(&path, contents).expect("write test tasks file");
     path
+}
+
+fn git(dir: &std::path::Path, args: &[&str]) {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .expect("run git");
+
+    assert!(
+        output.status.success(),
+        "git {:?} failed\nstdout: {}\nstderr: {}",
+        args,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }

@@ -31,8 +31,12 @@ Module layout:
 - `export.rs` — separate `ExportedTask` struct that adds the computed `eff` field for the JSON output. `eff` is never stored in `tasks.toml` or in `schema::Task` — it's derived from `(b+u)/(2d)` and rounded to 2 decimals on emit.
 - `mutate.rs` — `rmap status` path. Loads with `toml_edit::DocumentMut` (NOT `toml::from_str`) to preserve comments/whitespace, mutates the `status` cell in place, then re-parses through `validate_tasks_str` to reject invalid mutations before the file is written.
 - `next.rs` — pure selector: highest-Eff `pending` task whose `depends_on` are all `done`, optionally filtered by marker. No I/O.
+- `query.rs` — `rmap show` / `rmap list` read paths. `TaskFilter` + `find_task` + `list_tasks` are pure; `format_task` / `format_task_row` produce human stdout. JSON output is delegated to `export.rs` so the agent-contract envelope stays consistent.
+- `diff.rs` — `rmap diff` engine. `diff_toml(base, current)` returns a `TomlDiff { metadata, tasks }` envelope (also `Serialize` for `--json`). `diff_metadata` walks scalar/optional/map fields (`schema_version`, `project`, `default_branch`, `linear.team_key`, `linear.workspace_url`, `phases.<key>`, `bundles.<key>`); `diff_tasks` walks the `[[task]]` array. Both emit `Added | Removed | Changed` granularity — value-level before/after is intentionally not surfaced, only the field-key set that drifted. `task_map` keys by `TaskId::Display`, so `Number(74)` and `Text("74")` collide across base/current (intentional — authors don't mix forms).
+- `schema_json.rs` — emits a JSON Schema for `Tasks` via `schemars` derives on every type in `schema.rs`. The schema covers `tasks.toml` shape, not the `data.json` shape (which adds the computed `eff`).
+- `scoring.rs` — shared `efficiency(&Task) -> f64` and `format_efficiency(f64) -> String`. All renderers and read commands import from here so the (b+u)/(2d) formula has one definition.
 - `paths.rs` — walks ancestors of `cwd` to find `roadmap/tasks.toml`. Project root is the directory containing `roadmap/`. CLI flags (`--tasks-path`, `--roadmap-path`, `--data-path`) override discovery.
-- `main.rs` — `clap` derive CLI. Top-level `run()` returns `Result<ExitCode>`; specifically `--check-render` returns exit code **2 on render drift** (distinct from exit 1 on validation errors) so pre-commit hooks can distinguish "needs re-render" from "schema broken."
+- `main.rs` — `clap` derive CLI. Top-level `run()` returns `Result<ExitCode>`; specifically `--check-render` returns exit code **2 on render drift** (distinct from exit 1 on validation errors) so pre-commit hooks can distinguish "needs re-render" from "schema broken." `rmap diff` shells out to `git show <ref>:<repo-relative-path>` — diff is read-only on the working tree and a git repo.
 
 ## Load-bearing invariants
 
@@ -44,6 +48,9 @@ These are easy to violate without breaking tests immediately:
 - **`schema_version = 1` is required.** Refuse to render unknown versions; `validate.rs` emits a `rmap migrate` hint. Bump on any breaking schema change.
 - **`linear_id` validation is conditional.** If the `[linear]` table is absent, `linear_id` format is not checked — Linear is opt-in per project.
 - **Status / marker / relation enums live as `&[&str]` constants in `validate.rs`** (`VALID_STATUSES`, `VALID_MARKERS`, `VALID_CROSS_REPO_RELATIONS`). Any new value must also be added to the render-time match arms in `render.rs` (status symbols, marker suffixes) — they don't share a source.
+- **`schema --json` is the agent self-description boundary (Phase 8).** The schema comes from `schemars` derives on the live `schema::Tasks` types — adding a `#[serde]` rename or a new field changes the schema automatically. Don't hand-author a parallel schema. The CI test `schema_json_command_emits_parseable_schema_for_tasks_file` validates the example `tasks.toml` against the emitted schema; it fails loudly if derive output drifts from serialize output.
+- **`--json` outputs of `show` / `list` / `next` / `schema` / `diff` are the agent contract.** Add fields freely; never rename or remove without a `schema_version` bump.
+- **`rmap diff --against` defaults to `current.default_branch`.** Explicit `--against <ref>` overrides. Don't hardcode `"main"`; the loaded TOML is the source of truth for branch naming.
 
 ## Tests
 
@@ -53,4 +60,4 @@ These are easy to violate without breaking tests immediately:
 
 ## Scope discipline
 
-`tool_roadmap.md` documents the intended phases. Implemented today: validate, render, export json, status (mutator), next. Deliberately out of scope (per `tool_roadmap.md`): Linear API calls, web server, git integration beyond reading the working tree, shell completions, CI workflow, multi-user sync. Don't add these without checking the roadmap first.
+`tool_roadmap.md` documents the intended phases. Implemented today: validate, render, export json, status (mutator), next, show, list, schema --json, diff. Deliberately out of scope (per `tool_roadmap.md`): Linear API calls, web server, git integration beyond `git show <ref>:<path>` for `rmap diff`, shell completions, CI workflow, multi-user sync. Don't add these without checking the roadmap first.

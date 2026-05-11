@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Tasks {
     pub schema_version: u32,
@@ -18,14 +19,14 @@ pub struct Tasks {
     pub task: Vec<Task>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Linear {
     pub team_key: String,
     pub workspace_url: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Phase {
     pub name: String,
@@ -33,7 +34,7 @@ pub struct Phase {
     pub status: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Bundle {
     pub phase: u32,
@@ -41,7 +42,7 @@ pub struct Bundle {
     pub description: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Task {
     pub id: TaskId,
@@ -61,7 +62,7 @@ pub struct Task {
     pub cross_repo: Vec<CrossRepo>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Scores {
     pub d: u32,
@@ -69,7 +70,7 @@ pub struct Scores {
     pub u: u32,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CrossRepo {
     pub repo: String,
@@ -78,7 +79,7 @@ pub struct CrossRepo {
     pub relation: String,
 }
 
-#[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Eq, Hash, JsonSchema, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum TaskId {
     Number(u32),

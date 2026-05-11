@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 use crate::schema::{Bundle, CrossRepo, Linear, Phase, Scores, Task, TaskId, Tasks};
+use crate::scoring::efficiency;
 
 #[derive(Serialize)]
 struct ExportedTasks<'a> {
@@ -38,7 +39,22 @@ pub fn export_json_str(tasks: &Tasks) -> serde_json::Result<String> {
     serde_json::to_string_pretty(&exported_tasks(tasks))
 }
 
+pub fn export_filtered_json_str(tasks: &Tasks, task: &[&Task]) -> serde_json::Result<String> {
+    serde_json::to_string_pretty(&exported_tasks_with(tasks, task.iter().copied()))
+}
+
+pub fn export_task_json_str(task: Option<&Task>) -> serde_json::Result<String> {
+    serde_json::to_string_pretty(&task.map(exported_task))
+}
+
 fn exported_tasks(tasks: &Tasks) -> ExportedTasks<'_> {
+    exported_tasks_with(tasks, tasks.task.iter())
+}
+
+fn exported_tasks_with<'a>(
+    tasks: &'a Tasks,
+    task: impl IntoIterator<Item = &'a Task>,
+) -> ExportedTasks<'a> {
     ExportedTasks {
         schema_version: tasks.schema_version,
         project: &tasks.project,
@@ -46,7 +62,7 @@ fn exported_tasks(tasks: &Tasks) -> ExportedTasks<'_> {
         linear: tasks.linear.as_ref(),
         phases: &tasks.phases,
         bundles: &tasks.bundles,
-        task: tasks.task.iter().map(exported_task).collect(),
+        task: task.into_iter().map(exported_task).collect(),
     }
 }
 
@@ -66,10 +82,6 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
         body: task.body.as_ref(),
         cross_repo: &task.cross_repo,
     }
-}
-
-fn efficiency(task: &Task) -> f64 {
-    f64::from(task.scores.b + task.scores.u) / (2.0 * f64::from(task.scores.d))
 }
 
 fn rounded_efficiency(task: &Task) -> f64 {

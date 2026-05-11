@@ -2,7 +2,7 @@
 
 Single Rust binary that manages `roadmap/tasks.toml` in any project (Elixir, Rust, Python, Go, anything). Renders portable views: `ROADMAP.md` (agent-readable, dense), `data.json` (dashboard-consumable), optionally HTML (human-readable).
 
-**Status.** Phases 1–5 shipped: `validate`, `render`, `data.json` export, `status` mutator, `next` selector, and the `--check-render` pre-commit contract. Phases 6–11 planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
+**Status.** Phases 1–5 and 8 shipped: `validate`, `render`, `data.json` export, `status` mutator, `next` selector, `show`, `list`, `schema --json`, `diff`, and the `--check-render` pre-commit contract. Phases 6–7 and 9–11 planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
 
 ## Why Rust
 
@@ -99,11 +99,11 @@ rmap validate --check-render         # also verify ROADMAP.md is in sync; exit 2
 rmap doctor                          # [P11] health summary: drift, cycles, orphans, stale, score-decay
 
 # query / introspection (Phase 8) — agent read-API
-rmap next [--marker parallel] [--for codex] [--json]   # next highest-Eff unblocked pending
+rmap next [--marker parallel] [--json]   # next highest-Eff unblocked pending
 rmap show <id> [--json]              # full task detail; --json for piping
-rmap list [--status S --marker M --phase N --assignee A --json]   # generalized query
+rmap list [--status S --marker M --phase N --json]   # generalized query
 rmap schema [--json]                 # emit JSON Schema for editor completion + agent self-description
-rmap diff [--against main]           # what changed in tasks.toml vs base ref
+rmap diff [--against <ref>] [--json]  # what changed in tasks.toml vs base ref (default: default_branch)
 rmap stale --over <duration>         # in_progress tasks idle > duration (needs Phase 10 timestamps)
 
 # mutation (Phase 4 + Phase 11 extensions) — all routed through toml_edit
@@ -132,14 +132,14 @@ rmap watch --json                    # [P11] event stream for agent consumers
 | 5 | Pre-commit contract | ✅ | `validate --check-render` exits **2** on drift, **1** on schema error |
 | 6 | HTML render | ⬜ | Single-project + portfolio dashboards as one self-contained file (see *HTML render design*) |
 | 7 | `rmap watch` *(optional)* | ⬜ | FS watch for live dev |
-| 8 | **Read API + self-description** | ⬜ | `show`, `list`, `schema --json`, `diff` |
+| 8 | **Read API + self-description** | ✅ | `show`, `list`, `schema --json`, `diff`, `next --json` |
 | 9 | **Cloud delegation surface** | ⬜ | `delegate`, schema adds `assignee` + `acceptance_criteria` |
 | 10 | **Schema completeness** | ⬜ | Timestamps, `blocked_reason`, `[focus]`, cycle detection |
 | 11 | **Health + polish** | ⬜ | `doctor`, `stale`, mermaid render, bulk mutators, score-decay |
 
-**Sequencing rationale.** Phase 8 first: today `rmap` only mutates. Every downstream agent (`task-driver`, `audit-review`, the dashboard) wants a read API more than it wants more mutators. Phase 9 next: it unblocks the cloud-agent delegation workflow that's already the user's main consumer of roadmap data. Phases 10–11 compound but don't unblock anything — sequence inside each phase by D/B/U.
+**Sequencing rationale.** Phase 8 is shipped: downstream agents now have a read API before more mutators. Phase 9 next: it unblocks the cloud-agent delegation workflow that's already the user's main consumer of roadmap data. Phases 10–11 compound but don't unblock anything — sequence inside each phase by D/B/U.
 
-**Cross-cutting invariant (Phases 8–9).** The `--json` outputs of `show`, `list`, `next`, and `schema` are the agent contract. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.
+**Cross-cutting invariant (Phases 8–9).** The `--json` outputs of `show`, `list`, `next`, `schema`, and `diff` are the agent contract. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.
 
 ## HTML render design (Phase 6)
 
