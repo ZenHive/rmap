@@ -73,9 +73,25 @@ Fields the dashboard depends on **once they ship** (rmap Phases 9–11): `assign
 
 **Defer until 2-3 repos use `rmap`** so the `tasks.toml` + `data.json` shape has stabilized. Building the dashboard before the data shape is settled = wasted iteration on UI you'll need to rewrite.
 
+## Relationship to `rmap render --html` (static snapshot)
+
+`rmap` Phase 6 ships a **static HTML render** of the same data — single self-contained file, no infrastructure. The two surfaces are complementary, not redundant:
+
+| | Static HTML (`rmap render --html`) | Live dashboard (this) |
+|---|---|---|
+| **Output** | One self-contained file (<50KB, no CDN) | Phoenix app on a local port |
+| **Updates** | Snapshot at render time | Live via FS watcher + PubSub |
+| **Audience** | Sharing: email, S3 link, PR attachment, leadership | Daily driving on the desktop |
+| **Filters** | Client-side against embedded data island | Server-side, URL-synced |
+| **Cross-repo** | `--multi` flag re-renders one HTML across N data.json files | DAG view across the discovered fleet |
+| **Lives where** | Inside the rmap binary; ships with every install | Separate Phoenix app, must be running |
+
+Both consume the same `data.json` and pin to the same `schema_version`. The HTML render is the **portable** view; the dashboard is the **always-on** view. See `tool_roadmap.md` § "HTML render design (Phase 6)" for the static-render spec.
+
 ## Out of scope (deliberately)
 
 - No task editing in the dashboard. Source of truth is `tasks.toml` per repo. Dashboard is read-only — author tasks via `rmap new` or by hand.
 - No authentication. Local-only personal tool.
 - No mobile-first responsive design. Desktop browser is the target surface.
 - No notifications / push. Cron-backed weekly digest is a future option, not core.
+- **No static / shareable snapshot export.** That's `rmap render --html`'s job (Phase 6). The dashboard is live-only — if you need a snapshot to email or archive, run rmap.

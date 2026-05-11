@@ -89,7 +89,8 @@ rmap render                          # write ROADMAP.md + data.json from tasks.t
 rmap render --dry                    # print would-write diff, no file changes
 rmap render --stdout                 # render ROADMAP.md to stdout (for diffing in hooks)
 rmap render --format mermaid         # [P11] phase-gantt block for human viewers
-rmap render --html                   # [P6]  priv/roadmap/index.html static viewer
+rmap render --html                   # [P6]  single-project view → roadmap/dist/index.html
+rmap render --html --multi P1 P2     # [P6]  portfolio HTML across N repos/data.json paths
 rmap export json                     # data.json to stdout (for piping)
 
 # validation (Phases 1, 5)
@@ -129,7 +130,7 @@ rmap watch --json                    # [P11] event stream for agent consumers
 | 3 | Export `data.json` | ✅ | Dashboard ingestion target with computed `eff` |
 | 4 | Mutators | ✅ | `rmap status`, `rmap next` |
 | 5 | Pre-commit contract | ✅ | `validate --check-render` exits **2** on drift, **1** on schema error |
-| 6 | HTML render *(optional)* | ⬜ | `priv/roadmap/index.html` static viewer |
+| 6 | HTML render | ⬜ | Single-project + portfolio dashboards as one self-contained file (see *HTML render design*) |
 | 7 | `rmap watch` *(optional)* | ⬜ | FS watch for live dev |
 | 8 | **Read API + self-description** | ⬜ | `show`, `list`, `schema --json`, `diff` |
 | 9 | **Cloud delegation surface** | ⬜ | `delegate`, schema adds `assignee` + `acceptance_criteria` |
@@ -139,6 +140,67 @@ rmap watch --json                    # [P11] event stream for agent consumers
 **Sequencing rationale.** Phase 8 first: today `rmap` only mutates. Every downstream agent (`task-driver`, `audit-review`, the dashboard) wants a read API more than it wants more mutators. Phase 9 next: it unblocks the cloud-agent delegation workflow that's already the user's main consumer of roadmap data. Phases 10–11 compound but don't unblock anything — sequence inside each phase by D/B/U.
 
 **Cross-cutting invariant (Phases 8–9).** The `--json` outputs of `show`, `list`, `next`, and `schema` are the agent contract. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.
+
+## HTML render design (Phase 6)
+
+Same source flow: `tasks.toml` → `data.json` → HTML. The HTML is a **derived view**, not a replacement for `ROADMAP.md`. Markdown stays canonical for git diffs, terminal scanning, and skill consumption. HTML is for humans skimming progress and for shareable snapshots that survive outside a checkout.
+
+**Audience: both agents and humans.** Humans read the visual layout. Agents read the rendered HTML by extracting the embedded data island (see invariant 2 below). The same artifact serves both.
+
+### Output modes
+
+- `rmap render --html` — single-project view at `roadmap/dist/index.html` (gitignored).
+- `rmap render --html --multi P1 P2 …` — portfolio view across N repos. Each `Pn` is either a project root (rmap discovers its `roadmap/data.json`) or a path to a `data.json` directly. Output: `roadmap/dist/portfolio.html` in the current working repo, or `--out <path>` to redirect.
+
+### Layout (single project)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ rmap   Phase 1: 8/10 ▓▓▓▓▓▓▓▓░░    Phase 2: 3/7 ▓▓▓░░░░          │
+│ markers: [all][chain][api][docs]   status: [✓][→][⏸][⛔]          │
+├──────────────────┬──────────────────┬────────────────────────────┤
+│  PENDING         │  IN PROGRESS     │  DONE                      │
+│  ┌────────────┐  │  ┌────────────┐  │  ┌──────────────────┐      │
+│  │ #14  eff:6 │  │  │ #12  eff:5 │  │  │ #11 render-html  │      │
+│  │ html-out   │  │  │ dep-graph  │  │  │ #10 export-json  │      │
+│  │ ⊃ #12 #11  │  │  │ ●chain    │  │  └──────────────────┘      │
+│  │ ●chain ●ui │  │  └────────────┘  │                            │
+│  └────────────┘  │                  │                            │
+├──────────────────┴──────────────────┴────────────────────────────┤
+│ DEPENDENCY GRAPH (SVG, layered DAG)                        [+]   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+Vertical phases stacked; each phase header carries a progress bar so a top-down skim conveys the whole project in 5 seconds. Within a phase, three horizontal status columns (pending / in_progress / done) read left→right as progress. A sticky filter bar exposes marker chips and status toggles. The dependency graph sits below, collapsed by default.
+
+### Portfolio layout
+
+Same shell, but the top level is **repos-as-rows**: each row is a mini progress strip (phase-bar summary) + the top 3 open tasks by `eff`. A top-of-page panel renders **cross-repo blockers** driven by the `cross_repo` field — arrows between repo cards visualize "X blocks Y across the fleet." Click a repo row → expands inline to the single-project layout.
+
+### Design invariants
+
+1. **Self-contained single file.** Inline CSS + vanilla JS. No CDN, no framework, no external assets, no build step. <50KB target per page. Opens offline; uploads to S3 as one blob; attaches to email; survives indefinitely without a server.
+2. **Embedded data island.** A `<script id="rmap-data" type="application/json">…</script>` carries the full `data.json` verbatim inside the HTML. Agents extract structured data without DOM scraping; client-side filters read from this island. This is the single most important choice for "agents read it too" — the visual layer never becomes the bottleneck for an agent reading the file.
+3. **Semantic data attributes** on every task element: `data-id`, `data-status`, `data-eff`, `data-markers`, `data-depends-on`, `data-phase`. Stable selectors, greppable, future-proof.
+4. **Color = status, chips = markers.** Status carries the primary visual signal (done=green, in_progress=blue, pending=slate, blocked=amber). Markers render as small muted text chips, not loud colors. Status colors must remain WCAG AA at body text size; print stylesheet falls back to status symbols (`✓ → ⏸ ⛔`) for monochrome output.
+5. **Dep graph as SVG, layered DAG.** Topological layers, downward arrows. Collapsed by default. SVG (not Canvas) because nodes are selectable, text is searchable, and each node carries `data-id` for agent introspection. In portfolio mode, cross-repo edges render distinctly (dashed + repo label) from in-repo edges.
+6. **Print stylesheet** included. Leadership prints, hands around, marks up. Status symbols + grayscale layout, no progress bars (they don't print well — replaced with `N/M done` numerals).
+
+### What stays out
+
+- No dark mode toggle, no user preferences, no animations, no tooltips that hide content.
+- No JS framework dependency. No npm. No bundler. Vanilla JS, hand-written, single file.
+- No per-user customization. The HTML is a report artifact, not an app.
+- No live updates — that's the Phoenix dashboard's job (see `dashboard_roadmap.md`). `rmap render --html` produces a **static snapshot** taken at render time.
+- No template authoring surface. The HTML template ships inside the rmap binary alongside the markdown template. Both evolve in lockstep with the schema.
+
+### Boundary with the Phoenix dashboard
+
+`rmap render --html` is the **portable static** view: one file, offline-readable, share-friendly, zero infrastructure. The Phoenix LiveView dashboard (`dashboard_roadmap.md`) is the **always-on live** view: real-time file watchers, filter persistence, cross-repo aggregation across an entire fleet. Different surfaces for different rhythms — both consume the same `data.json` schema, both pin to `schema_version`.
+
+When to use which:
+- **Static HTML** — share a snapshot in email, attach to a PR, hand to leadership, archive a milestone, work offline.
+- **Live dashboard** — daily driving on the desktop while authoring + flipping statuses across repos.
 
 ## Crate dependencies
 

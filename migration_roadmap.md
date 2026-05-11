@@ -26,7 +26,7 @@ Adopting the data-first roadmap workflow in this repo specifically. Companion to
 5. **Pre-commit guard:** `scripts/check-roadmap-sync.sh` runs `rmap validate --check-render` and exits non-zero if `tasks.toml` was edited without re-rendering. Wire via existing hook setup (no new framework).
 6. **Round-trip test:** flip Task 74 status in `tasks.toml`, rerun `rmap render`, confirm only the relevant row changed in ROADMAP.md.
 7. **Migrate remaining phases** one at a time. Order: current focus phase first (active editing), then in reverse chronological order (recent phases more likely to need flips).
-8. **Update `.gitignore`** with `roadmap/data.json` and `priv/roadmap/`.
+8. **Update `.gitignore`** with `roadmap/data.json` and `roadmap/dist/` (the HTML render output dir from rmap Phase 6).
 9. **(Deferred)** Update skills to read `tasks.toml` directly. Prefer `rmap` commands over hand-parsing TOML — keeps skills schema-version-aware automatically:
    - `task-driver`: replace `ROADMAP.md` grep with `rmap next --json` (rmap Phase 8). Add `rmap show <id> --json` for body/AC lookup.
    - `audit-review`: replace markdown regex-rewrite with `rmap status N done` (already shipped). Use `rmap diff` (Phase 8) to summarize roadmap changes per PR.
