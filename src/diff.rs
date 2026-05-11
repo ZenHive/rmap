@@ -237,6 +237,11 @@ fn changed_fields(base: &Task, current: &Task) -> Vec<String> {
         acceptance_criteria,
         shipped_in,
         body,
+        created_at,
+        started_at,
+        done_at,
+        scored_at,
+        blocked_reason,
         cross_repo,
     );
 

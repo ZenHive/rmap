@@ -95,6 +95,114 @@ fn no_matching_next_task_returns_none() {
 }
 
 #[test]
+fn focus_phase_wins_over_higher_eff_in_other_phases() {
+    let input = r#"
+schema_version = 1
+project = "ccxt_extract"
+default_branch = "development"
+
+[focus]
+phase = 13
+
+[phases.12]
+name = "Phase 12"
+order = 12
+status = "in_progress"
+
+[phases.13]
+name = "Phase 13"
+order = 13
+status = "pending"
+
+[bundles.simple]
+phase = 12
+order = 1
+description = "Simple"
+
+[bundles.thirteen]
+phase = 13
+order = 1
+description = "Thirteen"
+
+[[task]]
+id = 50
+phase = 12
+bundle = "simple"
+status = "pending"
+title = "Higher-Eff task in phase 12"
+scores = { d = 2, b = 10, u = 10 }
+
+[[task]]
+id = 60
+phase = 13
+bundle = "thirteen"
+status = "pending"
+title = "Lower-Eff task in focus phase"
+scores = { d = 6, b = 8, u = 8 }
+"#;
+
+    let tasks = rmap::validate::validate_tasks_str("tasks.toml", input).expect("valid");
+
+    let task = next_task(&tasks, None).expect("next task");
+
+    assert_eq!(task.id.to_string(), "60");
+}
+
+#[test]
+fn focus_phase_falls_back_when_no_candidate_in_focus() {
+    let input = r#"
+schema_version = 1
+project = "ccxt_extract"
+default_branch = "development"
+
+[focus]
+phase = 13
+
+[phases.12]
+name = "Phase 12"
+order = 12
+status = "in_progress"
+
+[phases.13]
+name = "Phase 13"
+order = 13
+status = "pending"
+
+[bundles.simple]
+phase = 12
+order = 1
+description = "Simple"
+
+[bundles.thirteen]
+phase = 13
+order = 1
+description = "Thirteen"
+
+[[task]]
+id = 50
+phase = 12
+bundle = "simple"
+status = "pending"
+title = "Phase 12 candidate"
+scores = { d = 4, b = 8, u = 8 }
+
+[[task]]
+id = 60
+phase = 13
+bundle = "thirteen"
+status = "done"
+title = "Done in focus phase"
+scores = { d = 6, b = 8, u = 8 }
+"#;
+
+    let tasks = rmap::validate::validate_tasks_str("tasks.toml", input).expect("valid");
+
+    let task = next_task(&tasks, None).expect("next task");
+
+    assert_eq!(task.id.to_string(), "50");
+}
+
+#[test]
 fn ties_preserve_toml_order() {
     let input = TASKS.replace(
         r#"scores = { d = 6, b = 8, u = 8 }

@@ -184,3 +184,172 @@ fn rejects_task_that_references_unknown_bundle() {
     let message = err.to_string();
     assert!(message.contains("task 74 references unknown bundle \"order_normalization\""));
 }
+
+#[test]
+fn rejects_dependency_cycle_between_tasks() {
+    let input = r#"
+schema_version = 1
+project = "ccxt_extract"
+default_branch = "development"
+
+[phases.12]
+name = "Cycle phase"
+order = 12
+status = "pending"
+
+[bundles.simple]
+phase = 12
+order = 1
+description = "Simple"
+
+[[task]]
+id = 1
+phase = 12
+bundle = "simple"
+status = "pending"
+title = "A"
+scores = { d = 1, b = 1, u = 1 }
+depends_on = [2]
+
+[[task]]
+id = 2
+phase = 12
+bundle = "simple"
+status = "pending"
+title = "B"
+scores = { d = 1, b = 1, u = 1 }
+depends_on = [1]
+"#;
+
+    let err = validate_tasks_str("roadmap/tasks.toml", input).expect_err("cycle is rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("dependency cycle"));
+    assert!(message.contains("1"));
+    assert!(message.contains("2"));
+}
+
+#[test]
+fn rejects_self_dependency_cycle() {
+    let input = r#"
+schema_version = 1
+project = "ccxt_extract"
+default_branch = "development"
+
+[phases.12]
+name = "Self-cycle"
+order = 12
+status = "pending"
+
+[bundles.simple]
+phase = 12
+order = 1
+description = "Simple"
+
+[[task]]
+id = 1
+phase = 12
+bundle = "simple"
+status = "pending"
+title = "Self"
+scores = { d = 1, b = 1, u = 1 }
+depends_on = [1]
+"#;
+
+    let err = validate_tasks_str("roadmap/tasks.toml", input).expect_err("self-cycle is rejected");
+
+    assert!(err.to_string().contains("dependency cycle"));
+}
+
+#[test]
+fn rejects_invalid_timestamp_format() {
+    let input = VALID_TASKS.replace(
+        "scores = { d = 5, b = 8, u = 8 }",
+        "scores = { d = 5, b = 8, u = 8 }\ncreated_at = \"2026-1-1\"",
+    );
+
+    let err =
+        validate_tasks_str("roadmap/tasks.toml", &input).expect_err("invalid timestamp rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("created_at"));
+    assert!(message.contains("ISO-8601"));
+}
+
+#[test]
+fn accepts_well_formed_timestamps() {
+    let input = VALID_TASKS.replace(
+        "scores = { d = 5, b = 8, u = 8 }",
+        r#"scores = { d = 5, b = 8, u = 8 }
+created_at = "2026-04-01"
+started_at = "2026-04-12"
+done_at = "2026-04-30"
+scored_at = "2026-04-15""#,
+    );
+
+    let tasks = validate_tasks_str("roadmap/tasks.toml", &input).expect("valid timestamps");
+
+    assert_eq!(tasks.task[0].created_at.as_deref(), Some("2026-04-01"));
+    assert_eq!(tasks.task[0].started_at.as_deref(), Some("2026-04-12"));
+    assert_eq!(tasks.task[0].done_at.as_deref(), Some("2026-04-30"));
+    assert_eq!(tasks.task[0].scored_at.as_deref(), Some("2026-04-15"));
+}
+
+#[test]
+fn rejects_blocked_status_without_blocked_reason() {
+    let input = VALID_TASKS.replace("status = \"pending\"", "status = \"blocked\"");
+
+    let err = validate_tasks_str("roadmap/tasks.toml", &input)
+        .expect_err("blocked without reason rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("blocked but missing blocked_reason"));
+}
+
+#[test]
+fn accepts_blocked_status_with_reason() {
+    let input = VALID_TASKS.replace(
+        "status = \"pending\"\ntitle = \"parseOrder field map\"",
+        "status = \"blocked\"\nblocked_reason = \"waiting on legal\"\ntitle = \"parseOrder field map\"",
+    );
+
+    let tasks = validate_tasks_str("roadmap/tasks.toml", &input).expect("blocked with reason");
+
+    assert_eq!(tasks.task[1].status, "blocked");
+    assert_eq!(
+        tasks.task[1].blocked_reason.as_deref(),
+        Some("waiting on legal")
+    );
+}
+
+#[test]
+fn rejects_focus_phase_referencing_unknown_phase() {
+    let input = VALID_TASKS.replace(
+        "[linear]",
+        r#"[focus]
+phase = 99
+
+[linear]"#,
+    );
+
+    let err =
+        validate_tasks_str("roadmap/tasks.toml", &input).expect_err("unknown focus phase rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("[focus].phase 99"));
+}
+
+#[test]
+fn accepts_focus_phase_matching_declared_phase() {
+    let input = VALID_TASKS.replace(
+        "[linear]",
+        r#"[focus]
+phase = 12
+
+[linear]"#,
+    );
+
+    let tasks = validate_tasks_str("roadmap/tasks.toml", &input).expect("valid focus");
+
+    assert_eq!(tasks.focus.expect("focus").phase, 12);
+}

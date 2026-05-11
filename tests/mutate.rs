@@ -49,11 +49,11 @@ fn update_status_changes_only_target_status_and_preserves_comments() {
 
 #[test]
 fn update_status_supports_string_task_ids() {
-    let updated =
-        update_status_str("roadmap/tasks.toml", TASKS, "78b", "blocked").expect("update status");
+    let updated = update_status_str("roadmap/tasks.toml", TASKS, "78b", "in_progress")
+        .expect("update status");
 
     assert!(
-        updated.contains("id = \"78b\"\nphase = 12\nbundle = \"simple\"\nstatus = \"blocked\"")
+        updated.contains("id = \"78b\"\nphase = 12\nbundle = \"simple\"\nstatus = \"in_progress\"")
     );
 }
 

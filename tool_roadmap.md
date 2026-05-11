@@ -2,7 +2,7 @@
 
 Single Rust binary that manages `roadmap/tasks.toml` in any project (Elixir, Rust, Python, Go, anything). Renders portable views: `ROADMAP.md` (agent-readable, dense), `data.json` (dashboard-consumable), optionally HTML (human-readable).
 
-**Status.** Phases 1–5, 8, and 9 shipped: `validate`, `render`, `data.json` export, `status` mutator, `next` selector, `show`, `list`, `schema --json`, `diff`, `delegate`, and the `--check-render` pre-commit contract. Phases 6–7 and 10–11 planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
+**Status.** Phases 1–5, 8, 9, and 10 shipped: `validate`, `render`, `data.json` export, `status` mutator, `next` selector, `show`, `list`, `schema --json`, `diff`, `delegate`, the `--check-render` pre-commit contract, and schema completeness (`[focus]`, task timestamps, `blocked_reason`, cycle detection). Phases 6–7 and 11 planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
 
 ## Why Rust
 
@@ -134,10 +134,10 @@ rmap watch --json                    # [P11] event stream for agent consumers
 | 7 | `rmap watch` *(optional)* | ⬜ | FS watch for live dev |
 | 8 | **Read API + self-description** | ✅ | `show`, `list`, `schema --json`, `diff`, `next --json` |
 | 9 | **Cloud delegation surface** | ✅ | `delegate`, schema adds `assignee` + `acceptance_criteria` |
-| 10 | **Schema completeness** | ⬜ | Timestamps, `blocked_reason`, `[focus]`, cycle detection |
+| 10 | **Schema completeness** | ✅ | Timestamps, `blocked_reason`, `[focus]`, cycle detection |
 | 11 | **Health + polish** | ⬜ | `doctor`, `stale`, mermaid render, bulk mutators, score-decay |
 
-**Sequencing rationale.** Phase 9 is shipped: downstream agents now have a paste-ready delegation prompt in addition to the read API. Phase 10 next: it tightens schema completeness for richer agent workflows. Phase 11 compounds after that with health and polish — sequence inside each phase by D/B/U.
+**Sequencing rationale.** Phases 9 and 10 are shipped: downstream agents have a paste-ready delegation prompt, richer task lifecycle data (timestamps + blocked reasons), focus-phase signaling for `rmap next`, and dependency cycle protection. Phase 11 compounds with health and polish — sequence inside the phase by D/B/U.
 
 **Cross-cutting invariant (Phases 8–9).** The `--json` outputs of `show`, `list`, `next`, `schema`, and `diff` are the agent contract. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.
 

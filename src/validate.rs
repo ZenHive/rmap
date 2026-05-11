@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -48,9 +48,13 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_markers(&path, input, &tasks)?;
     validate_assignees(&path, input, &tasks)?;
     validate_linear_ids(&path, input, &tasks)?;
+    validate_timestamps(&path, input, &tasks)?;
+    validate_blocked_reasons(&path, input, &tasks)?;
     validate_dependencies(&path, input, &tasks)?;
+    validate_dependency_cycles(&path, input, &tasks)?;
     validate_cross_repo_relations(&path, input, &tasks)?;
     validate_phase_and_bundle_references(&path, input, &tasks)?;
+    validate_focus_phase(&path, input, &tasks)?;
 
     Ok(tasks)
 }
@@ -179,6 +183,160 @@ fn validate_dependencies(path: &str, input: &str, tasks: &Tasks) -> Result<(), V
     }
 
     Ok(())
+}
+
+fn validate_dependency_cycles(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    let graph: HashMap<TaskId, &[TaskId]> = tasks
+        .task
+        .iter()
+        .map(|task| (task.id.clone(), task.depends_on.as_slice()))
+        .collect();
+
+    let mut state: HashMap<TaskId, VisitState> = HashMap::new();
+    let mut stack: Vec<TaskId> = Vec::new();
+
+    for task in &tasks.task {
+        if state.contains_key(&task.id) {
+            continue;
+        }
+
+        if let Some(cycle) = detect_cycle(&task.id, &graph, &mut state, &mut stack) {
+            let members = cycle
+                .iter()
+                .map(TaskId::to_string)
+                .collect::<Vec<_>>()
+                .join(" -> ");
+            return Err(semantic_error(
+                path,
+                line_containing(input, "depends_on").unwrap_or(FIRST_LINE_NUMBER),
+                format!("dependency cycle detected: {members}"),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum VisitState {
+    InProgress,
+    Done,
+}
+
+fn detect_cycle(
+    node: &TaskId,
+    graph: &HashMap<TaskId, &[TaskId]>,
+    state: &mut HashMap<TaskId, VisitState>,
+    stack: &mut Vec<TaskId>,
+) -> Option<Vec<TaskId>> {
+    state.insert(node.clone(), VisitState::InProgress);
+    stack.push(node.clone());
+
+    if let Some(dependencies) = graph.get(node) {
+        for dependency in *dependencies {
+            match state.get(dependency) {
+                Some(VisitState::Done) => continue,
+                Some(VisitState::InProgress) => {
+                    let start = stack.iter().position(|id| id == dependency).unwrap_or(0);
+                    let mut cycle = stack[start..].to_vec();
+                    cycle.push(dependency.clone());
+                    return Some(cycle);
+                }
+                None => {
+                    if let Some(cycle) = detect_cycle(dependency, graph, state, stack) {
+                        return Some(cycle);
+                    }
+                }
+            }
+        }
+    }
+
+    stack.pop();
+    state.insert(node.clone(), VisitState::Done);
+    None
+}
+
+fn validate_timestamps(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        ensure_iso_date(path, input, "created_at", task.created_at.as_deref())?;
+        ensure_iso_date(path, input, "started_at", task.started_at.as_deref())?;
+        ensure_iso_date(path, input, "done_at", task.done_at.as_deref())?;
+        ensure_iso_date(path, input, "scored_at", task.scored_at.as_deref())?;
+    }
+
+    Ok(())
+}
+
+fn ensure_iso_date(
+    path: &str,
+    input: &str,
+    field: &str,
+    value: Option<&str>,
+) -> Result<(), ValidateError> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+
+    if is_iso_8601_date(value) {
+        return Ok(());
+    }
+
+    Err(semantic_error(
+        path,
+        line_containing(input, &format!("{field} = \"{value}\"")).unwrap_or(FIRST_LINE_NUMBER),
+        format!("{field} \"{value}\" must be an ISO-8601 date (YYYY-MM-DD)"),
+    ))
+}
+
+fn is_iso_8601_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 10 {
+        return false;
+    }
+
+    let digits =
+        |range: std::ops::Range<usize>| range.into_iter().all(|i| bytes[i].is_ascii_digit());
+
+    digits(0..4) && bytes[4] == b'-' && digits(5..7) && bytes[7] == b'-' && digits(8..10)
+}
+
+fn validate_blocked_reasons(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        if task.status != "blocked" {
+            continue;
+        }
+
+        if task.blocked_reason.is_some() {
+            continue;
+        }
+
+        return Err(semantic_error(
+            path,
+            line_containing(input, "status = \"blocked\"").unwrap_or(FIRST_LINE_NUMBER),
+            format!("task {} is blocked but missing blocked_reason", task.id),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_focus_phase(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    let Some(focus) = &tasks.focus else {
+        return Ok(());
+    };
+
+    if tasks.phases.contains_key(&focus.phase.to_string()) {
+        return Ok(());
+    }
+
+    Err(semantic_error(
+        path,
+        line_containing(input, &format!("phase = {}", focus.phase)).unwrap_or(FIRST_LINE_NUMBER),
+        format!(
+            "[focus].phase {} does not match any [phases.N] entry",
+            focus.phase
+        ),
+    ))
 }
 
 fn validate_cross_repo_relations(

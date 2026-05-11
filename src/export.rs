@@ -36,6 +36,16 @@ struct ExportedTask<'a> {
     shipped_in: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     body: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    created_at: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    started_at: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    done_at: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scored_at: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    blocked_reason: Option<&'a String>,
     cross_repo: &'a [CrossRepo],
 }
 
@@ -86,6 +96,11 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
         acceptance_criteria: &task.acceptance_criteria,
         shipped_in: task.shipped_in.as_ref(),
         body: task.body.as_ref(),
+        created_at: task.created_at.as_ref(),
+        started_at: task.started_at.as_ref(),
+        done_at: task.done_at.as_ref(),
+        scored_at: task.scored_at.as_ref(),
+        blocked_reason: task.blocked_reason.as_ref(),
         cross_repo: &task.cross_repo,
     }
 }

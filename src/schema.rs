@@ -10,6 +10,7 @@ pub struct Tasks {
     pub schema_version: u32,
     pub project: String,
     pub default_branch: String,
+    pub focus: Option<Focus>,
     pub linear: Option<Linear>,
     #[serde(default)]
     pub phases: BTreeMap<String, Phase>,
@@ -17,6 +18,12 @@ pub struct Tasks {
     pub bundles: BTreeMap<String, Bundle>,
     #[serde(default)]
     pub task: Vec<Task>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Focus {
+    pub phase: u32,
 }
 
 #[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -61,6 +68,11 @@ pub struct Task {
     pub acceptance_criteria: Vec<String>,
     pub shipped_in: Option<String>,
     pub body: Option<String>,
+    pub created_at: Option<String>,
+    pub started_at: Option<String>,
+    pub done_at: Option<String>,
+    pub scored_at: Option<String>,
+    pub blocked_reason: Option<String>,
     #[serde(default)]
     pub cross_repo: Vec<CrossRepo>,
 }
