@@ -210,48 +210,35 @@ fn task_map(tasks: &Tasks) -> BTreeMap<String, &Task> {
         .collect()
 }
 
+// Single-point-of-edit for per-field diff granularity. When `schema::Task` gains
+// a field, add it here (and to `export::ExportedTask`) — otherwise `rmap diff`
+// silently misses the field. `id` is intentionally absent (it's the map key).
 fn changed_fields(base: &Task, current: &Task) -> Vec<String> {
     let mut fields = Vec::new();
 
-    if base.phase != current.phase {
-        fields.push("phase".to_string());
+    macro_rules! diff_fields {
+        ($($field:ident),* $(,)?) => {
+            $(if base.$field != current.$field {
+                fields.push(stringify!($field).to_string());
+            })*
+        };
     }
-    if base.bundle != current.bundle {
-        fields.push("bundle".to_string());
-    }
-    if base.status != current.status {
-        fields.push("status".to_string());
-    }
-    if base.title != current.title {
-        fields.push("title".to_string());
-    }
-    if base.scores != current.scores {
-        fields.push("scores".to_string());
-    }
-    if base.markers != current.markers {
-        fields.push("markers".to_string());
-    }
-    if base.depends_on != current.depends_on {
-        fields.push("depends_on".to_string());
-    }
-    if base.linear_id != current.linear_id {
-        fields.push("linear_id".to_string());
-    }
-    if base.assignee != current.assignee {
-        fields.push("assignee".to_string());
-    }
-    if base.acceptance_criteria != current.acceptance_criteria {
-        fields.push("acceptance_criteria".to_string());
-    }
-    if base.shipped_in != current.shipped_in {
-        fields.push("shipped_in".to_string());
-    }
-    if base.body != current.body {
-        fields.push("body".to_string());
-    }
-    if base.cross_repo != current.cross_repo {
-        fields.push("cross_repo".to_string());
-    }
+
+    diff_fields!(
+        phase,
+        bundle,
+        status,
+        title,
+        scores,
+        markers,
+        depends_on,
+        linear_id,
+        assignee,
+        acceptance_criteria,
+        shipped_in,
+        body,
+        cross_repo,
+    );
 
     fields
 }

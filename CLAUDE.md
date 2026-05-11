@@ -53,6 +53,7 @@ These are easy to violate without breaking tests immediately:
 - **`--json` outputs of `show` / `list` / `next` / `schema` / `diff` are the agent contract.** Add fields freely; never rename or remove without a `schema_version` bump.
 - **`delegate` is read-only and agent-targeted.** It emits Markdown because humans transport the prompt to cloud agents, but the zielgruppe is the target agent. `--to` is an explicit routing override; any stored `assignee` is context, not an enforcement gate.
 - **`rmap diff --against` defaults to `current.default_branch`.** Explicit `--against <ref>` overrides. Don't hardcode `"main"`; the loaded TOML is the source of truth for branch naming.
+- **`diff::changed_fields` per-field comparison is hand-maintained.** When you add a field to `schema::Task`, also add it to the `diff_fields!` invocation in `diff::changed_fields` AND to `export::ExportedTask` — otherwise `rmap diff` silently misses the field and `rmap show --json` / `list --json` won't surface it. The macro consolidates the comparisons into one list but is not auto-derived; touch all three files in the same commit when extending `Task`.
 
 ## Tests
 

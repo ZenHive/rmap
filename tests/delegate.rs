@@ -83,14 +83,19 @@ scores = { d = 5, b = 9, u = 9 }
 #[test]
 fn formats_full_delegate_prompt_for_agent_target() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
-    let prompt = format_delegate_prompt(&tasks, "75", "codex").expect("task 75");
+    // Delegate to a target that differs from the stored assignee to exercise
+    // the override-surfacing path.
+    let prompt = format_delegate_prompt(&tasks, "75", "claude").expect("task 75");
 
     assert!(
         prompt.contains("# Task 75: parseOrder field map"),
         "{prompt}"
     );
-    assert!(prompt.contains("Target agent: codex"), "{prompt}");
-    assert!(prompt.contains("Stored assignee: codex"), "{prompt}");
+    assert!(prompt.contains("Target agent: claude"), "{prompt}");
+    assert!(
+        prompt.contains("Stored assignee: codex (overridden)"),
+        "{prompt}"
+    );
     assert!(prompt.contains("Project: ccxt_extract"), "{prompt}");
     assert!(
         prompt.contains("Scores: D:5/B:9/U:9 -> Eff:1.8"),
@@ -118,6 +123,15 @@ fn formats_full_delegate_prompt_for_agent_target() {
         prompt.contains("Inspect the repo before editing."),
         "{prompt}"
     );
+}
+
+#[test]
+fn omits_stored_assignee_when_target_matches() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
+    let prompt = format_delegate_prompt(&tasks, "75", "codex").expect("task 75");
+
+    assert!(prompt.contains("Target agent: codex"), "{prompt}");
+    assert!(!prompt.contains("Stored assignee:"), "{prompt}");
 }
 
 #[test]

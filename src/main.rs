@@ -80,7 +80,9 @@ enum Commands {
         tasks_path: Option<PathBuf>,
     },
     Schema {
-        #[arg(long)]
+        // `--json` is the only output mode; accepted for backward compatibility
+        // and clarity in scripts, but a no-op — `rmap schema` always emits JSON.
+        #[arg(long, hide = true)]
         json: bool,
     },
     Diff {
@@ -233,11 +235,7 @@ fn run() -> Result<ExitCode> {
                 }
             }
         }
-        Commands::Schema { json } => {
-            if !json {
-                bail!("schema currently supports --json only");
-            }
-
+        Commands::Schema { json: _ } => {
             println!("{}", schema_json_str()?);
         }
         Commands::Diff {

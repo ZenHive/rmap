@@ -141,6 +141,18 @@ rmap watch --json                    # [P11] event stream for agent consumers
 
 **Cross-cutting invariant (Phases 8–9).** The `--json` outputs of `show`, `list`, `next`, `schema`, and `diff` are the agent contract. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.
 
+**Phase 10 follow-ups (discovered during Phase 8–9 review).**
+
+- When adding new `Task` fields (`created_at`, `started_at`, `done_at`, `blocked_reason`, `scored_at`), each one must land in three places in the same commit: `schema::Task`, the `diff_fields!` invocation in `diff::changed_fields`, and `export::ExportedTask`. The `schemars` derive auto-tracks the schema, but the diff macro and export struct are hand-maintained. CLAUDE.md carries the invariant note.
+- Cycle detection (mentioned for Phase 10) belongs in `validate.rs` alongside `validate_dependencies` — a DFS over `task.depends_on` collecting back-edges, with an error pointing at the cycle members.
+- `[focus].phase` becomes load-bearing for `rmap next` and dashboards (Phase 6) — wire it through `schema::Tasks` as `Option<Focus>` with `#[serde(deny_unknown_fields)]` and have `next::next_task` prefer focus-phase tasks when set.
+
+**Phase 11 follow-ups (discovered during Phase 8–9 review).**
+
+- `rmap delegate` instructions footer is currently hardcoded. Parameterize per target: Cursor can run the harness pre-PR, Codex cannot reach hex.pm, Claude is local. Source-of-truth lives in `cloud-delegation:cloud-agent-environments` skill; mirror the per-agent reachability into the delegate prompt template.
+- Consider surfacing diff value-level before/after for high-signal fields (`status`, `scores`) via `rmap diff --verbose` — currently only the field name is reported. Keep field-key set as the default to avoid noise in pre-commit hook output.
+- `rmap schema` accepts `--json` as a no-op flag for backward compatibility; once no callers depend on the flag, drop it. Track in CHANGELOG before removal.
+
 ## HTML render design (Phase 6)
 
 Same source flow: `tasks.toml` → `data.json` → HTML. The HTML is a **derived view**, not a replacement for `ROADMAP.md`. Markdown stays canonical for git diffs, terminal scanning, and skill consumption. HTML is for humans skimming progress and for shareable snapshots that survive outside a checkout.

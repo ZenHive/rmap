@@ -580,7 +580,7 @@ fn delegate_command_prints_agent_prompt() {
         .arg("delegate")
         .arg("75")
         .arg("--to")
-        .arg("codex")
+        .arg("claude")
         .arg("--tasks-path")
         .arg(&path)
         .output()
@@ -596,8 +596,11 @@ fn delegate_command_prints_agent_prompt() {
         stdout.contains("# Task 75: parseOrder field map"),
         "{stdout}"
     );
-    assert!(stdout.contains("Target agent: codex"), "{stdout}");
-    assert!(stdout.contains("Stored assignee: codex"), "{stdout}");
+    assert!(stdout.contains("Target agent: claude"), "{stdout}");
+    assert!(
+        stdout.contains("Stored assignee: codex (overridden)"),
+        "{stdout}"
+    );
     assert!(
         stdout.contains("- Task 74 [done] parseTicker field map"),
         "{stdout}"
@@ -723,6 +726,32 @@ fn schema_json_command_emits_parseable_schema_for_tasks_file() {
         compiled.is_valid(&tasks_json),
         "emitted schema should validate serialized tasks"
     );
+}
+
+#[test]
+fn schema_command_emits_json_without_explicit_flag() {
+    let with_flag = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("schema")
+        .arg("--json")
+        .output()
+        .expect("run rmap schema --json");
+    let without_flag = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("schema")
+        .output()
+        .expect("run rmap schema");
+
+    assert!(with_flag.status.success(), "expected success with --json");
+    assert!(
+        without_flag.status.success(),
+        "expected success without --json"
+    );
+    assert_eq!(
+        with_flag.stdout, without_flag.stdout,
+        "--json should be a no-op; outputs must match"
+    );
+    let schema: serde_json::Value =
+        serde_json::from_slice(&without_flag.stdout).expect("stdout is valid json");
+    assert_eq!(schema["title"], "Tasks");
 }
 
 #[test]
