@@ -21,19 +21,22 @@ On boot:
 
 ## Sections (ordered by frequency of use)
 
-1. **Next up** — `pending` + unblocked + matches active filters, sorted by Eff descending. Top 10 per project, all projects collapsed-by-default with an "expand" toggle.
-2. **In progress** — `in_progress` tasks with branch name and worktree path (`~/_DATA/worktrees/<repo>/<id>/`). One row each. Click to copy worktree path to clipboard.
-3. **Blocked** — grouped by reason (`depends_on` pending in same/other repo, `cross_repo` blocker, free-form `blocked_reason` from `tasks.toml`).
+1. **Next up** — `pending` + unblocked + matches active filters, sorted by Eff descending. Top 10 per project, all projects collapsed-by-default with an "expand" toggle. When `[focus].phase` is set in `tasks.toml`, tasks in the focus phase float above out-of-focus ones at equal Eff.
+2. **In progress** — `in_progress` tasks with branch name, worktree path (`~/_DATA/worktrees/<repo>/<id>/`), and `assignee`. One row each. Click to copy worktree path to clipboard. Filterable by assignee for "what's Codex on right now."
+3. **Blocked** — grouped by reason: `depends_on` pending in same/other repo, `cross_repo` blocker, or free-form `blocked_reason` (required field when `status = "blocked"` per rmap Phase 10).
 4. **Cross-repo** — DAG view of `cross_repo: { repo, task_id }` edges. Visual: "ccxt_extract Task 78 unblocks ccxt_client Task 42." Use `vis-network` (npm via `npm_ex`) or `d3-dag`.
-5. **Recently shipped** — `done` tasks with `shipped_in` within last 7d, grouped by repo, click-through to PR link.
+5. **Recently shipped** — `done` tasks where `done_at` is within last 7d (rmap Phase 10 timestamp; falls back to git log of `tasks.toml` for older entries), grouped by repo, click-through to PR link via `shipped_in`.
+6. **Stale work** — `in_progress` tasks with `started_at` more than 14d ago. Mirrors `rmap stale --over 14d` output; surfaces forgotten branches without requiring a terminal.
 
 ## Filters (always-on left rail)
 
 - **Repo** — multi-select from discovered projects
 - **Status** — pending / in_progress / blocked / done
 - **Marker** — parallel / cx / csr (multi-select)
+- **Assignee** — human / claude / codex / cursor (multi-select; needs rmap Phase 9 `assignee` field)
 - **Min Eff** — slider 0.0-3.0
-- **Phase** — per-project phase picker (only relevant when one repo selected)
+- **Phase** — per-project phase picker (only relevant when one repo selected; defaults to each repo's `[focus].phase` when present)
+- **Score freshness** — toggle "hide tasks where `scored_at` > 30d" (needs rmap Phase 10–11 score-decay)
 - **Search** — substring match on task title
 
 Filter state lives in URL params so bookmarks survive reloads.
@@ -61,6 +64,10 @@ Single-app project (not umbrella). Bind to a port not in `~/.claude/tidewave-por
 ## Schema dependency
 
 The dashboard parses `data.json` against the schema emitted by `rmap`. Pin the parser to `schema_version: 1`. When `rmap` bumps the schema, the dashboard's parser bumps in lockstep — keep them in the same release cadence.
+
+**Source of truth for the schema** is `rmap schema --json` (rmap Phase 8). The dashboard's parser should consume that JSON Schema at build time rather than maintaining a hand-written struct. Removes the drift class entirely.
+
+Fields the dashboard depends on **once they ship** (rmap Phases 9–11): `assignee`, `acceptance_criteria`, `created_at`, `started_at`, `done_at`, `scored_at`, `blocked_reason`, `[focus].phase`. Treat each as optional with a graceful fallback until the rmap phase that adds it lands across consumer repos.
 
 ## Build order
 

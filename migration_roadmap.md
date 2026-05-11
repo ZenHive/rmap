@@ -27,9 +27,10 @@ Adopting the data-first roadmap workflow in this repo specifically. Companion to
 6. **Round-trip test:** flip Task 74 status in `tasks.toml`, rerun `rmap render`, confirm only the relevant row changed in ROADMAP.md.
 7. **Migrate remaining phases** one at a time. Order: current focus phase first (active editing), then in reverse chronological order (recent phases more likely to need flips).
 8. **Update `.gitignore`** with `roadmap/data.json` and `priv/roadmap/`.
-9. **(Deferred)** Update skills to read `tasks.toml` directly:
-   - `task-driver`: parse `tasks.toml`, return next-Eff unblocked pending task. Today it greps ROADMAP.md.
-   - `audit-review`: invoke `rmap status N done` instead of regex-rewriting markdown.
+9. **(Deferred)** Update skills to read `tasks.toml` directly. Prefer `rmap` commands over hand-parsing TOML — keeps skills schema-version-aware automatically:
+   - `task-driver`: replace `ROADMAP.md` grep with `rmap next --json` (rmap Phase 8). Add `rmap show <id> --json` for body/AC lookup.
+   - `audit-review`: replace markdown regex-rewrite with `rmap status N done` (already shipped). Use `rmap diff` (Phase 8) to summarize roadmap changes per PR.
+   - `linear-workflow` / cloud delegation: use `rmap delegate <id> --to <agent>` (Phase 9) to generate the prompt payload instead of templating by hand.
    - `task-prioritization` include: update doc references if the canonical scoring location moves.
 10. **Decide ROADMAP.livemd fate.** If keeping: have it read `roadmap/data.json` (consume the same source the dashboard does, no parallel parsing logic). If deprecating: archive note in CHANGELOG + remove from CLAUDE.md references.
 
@@ -71,10 +72,17 @@ CLAUDE.md § "Documentation invariants" rule 6 says: *"a ccxt_extract task is no
 
 Audit existing ROADMAP.md for prose-form cross-repo notes ("blocks ccxt_client Task X", "depends on ccxt_client Y") and convert them to the structured field.
 
+## Optional schema fields (defer)
+
+`rmap` Phases 9–10 add `assignee`, `acceptance_criteria`, `created_at`, `started_at`, `done_at`, `scored_at`, and `blocked_reason`. **Do not backfill these during migration.** They're all optional; populate going forward as tasks transition states. Backfilling 130+ tasks burns a day for low marginal value — the recently-active tasks accrue timestamps naturally as you flip statuses post-migration.
+
+Exception: `blocked_reason` becomes required once rmap Phase 10 ships. Any task currently `status = "blocked"` needs a one-liner reason added at that point — that's a focused sweep, not a backfill.
+
 ## Validation gates
 
 - After Phase 12 pilot migration: full skill roundtrip — `task-driver` picks a Phase 12 task correctly, `audit-review` flips status, `commit-review` parses correctly. If any skill breaks, the rendering template needs adjustment, not the skill.
 - After full migration: synthetic drift test — edit `tasks.toml`, skip `rmap render`, attempt commit, confirm pre-commit hook blocks.
+- After full migration: `rmap doctor` (rmap Phase 11) returns clean — no orphan deps, no cycles, no stale `in_progress` older than the migration date.
 - After portfolio dashboard ships: dashboard successfully consumes ccxt_extract's `data.json` and renders all phases correctly.
 
 ## Estimated effort
