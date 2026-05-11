@@ -29,6 +29,10 @@ struct ExportedTask<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     linear_id: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    assignee: Option<&'a String>,
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    acceptance_criteria: &'a [String],
+    #[serde(skip_serializing_if = "Option::is_none")]
     shipped_in: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     body: Option<&'a String>,
@@ -78,6 +82,8 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
         markers: &task.markers,
         depends_on: &task.depends_on,
         linear_id: task.linear_id.as_ref(),
+        assignee: task.assignee.as_ref(),
+        acceptance_criteria: &task.acceptance_criteria,
         shipped_in: task.shipped_in.as_ref(),
         body: task.body.as_ref(),
         cross_repo: &task.cross_repo,

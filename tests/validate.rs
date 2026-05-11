@@ -28,6 +28,8 @@ title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }
 markers = ["parallel"]
 linear_id = "INE-247"
+assignee = "claude"
+acceptance_criteria = ["Ticker fields are normalized"]
 shipped_in = "PR #21"
 
 [[task]]
@@ -49,6 +51,11 @@ fn valid_tasks_toml_deserializes_and_validates() {
     assert_eq!(tasks.project, "ccxt_extract");
     assert_eq!(tasks.task.len(), 2);
     assert_eq!(tasks.task[0].id, 74);
+    assert_eq!(tasks.task[0].assignee.as_deref(), Some("claude"));
+    assert_eq!(
+        tasks.task[0].acceptance_criteria,
+        vec!["Ticker fields are normalized"]
+    );
     assert_eq!(tasks.task[1].depends_on, vec![74]);
 }
 
@@ -71,7 +78,7 @@ fn rejects_invalid_status() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("status is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:35"));
+    assert!(message.contains("roadmap/tasks.toml:37"));
     assert!(message.contains("invalid status \"shipped\""));
 }
 
@@ -87,13 +94,23 @@ fn rejects_invalid_marker() {
 }
 
 #[test]
+fn rejects_invalid_assignee() {
+    let input = VALID_TASKS.replace("assignee = \"claude\"", "assignee = \"bot\"");
+
+    let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("assignee is rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("invalid assignee \"bot\""));
+}
+
+#[test]
 fn rejects_linear_id_that_does_not_match_team_key() {
     let input = VALID_TASKS.replace("linear_id = \"INE-300\"", "linear_id = \"OPS-300\"");
 
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("linear id is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:39"));
+    assert!(message.contains("roadmap/tasks.toml:41"));
     assert!(message.contains("linear_id \"OPS-300\" must match INE-<integer>"));
 }
 
@@ -122,7 +139,7 @@ fn rejects_orphan_dependencies() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("dependency is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:38"));
+    assert!(message.contains("roadmap/tasks.toml:40"));
     assert!(message.contains("task 75 depends on unknown task 999"));
 }
 

@@ -1,3 +1,4 @@
+pub mod delegate;
 pub mod diff;
 pub mod export;
 pub mod mutate;

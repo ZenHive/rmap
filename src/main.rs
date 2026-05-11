@@ -2,7 +2,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use anyhow::{Context, Result, bail};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
+use rmap::delegate::format_delegate_prompt;
 use rmap::diff::{diff_toml, format_diff};
 use rmap::export::{export_filtered_json_str, export_json_str, export_task_json_str};
 use rmap::mutate::update_status_str;
@@ -90,10 +91,34 @@ enum Commands {
         #[arg(long)]
         tasks_path: Option<PathBuf>,
     },
+    Delegate {
+        id: String,
+        #[arg(long)]
+        to: DelegateTarget,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+    },
     Export {
         #[command(subcommand)]
         command: ExportCommands,
     },
+}
+
+#[derive(Clone, Debug, ValueEnum)]
+enum DelegateTarget {
+    Claude,
+    Codex,
+    Cursor,
+}
+
+impl std::fmt::Display for DelegateTarget {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Claude => formatter.write_str("claude"),
+            Self::Codex => formatter.write_str("codex"),
+            Self::Cursor => formatter.write_str("cursor"),
+        }
+    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -235,6 +260,14 @@ fn run() -> Result<ExitCode> {
             } else {
                 println!("{}", format_diff(&diff));
             }
+        }
+        Commands::Delegate { id, to, tasks_path } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+            let prompt = format_delegate_prompt(&tasks, &id, &to.to_string())
+                .ok_or_else(|| anyhow::anyhow!("task {id} not found"))?;
+
+            print!("{prompt}");
         }
         Commands::Export {
             command: ExportCommands::Json { tasks_path },

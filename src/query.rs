@@ -57,6 +57,19 @@ pub fn format_task(task: &Task) -> String {
         lines.push(format!("linear_id: {linear_id}"));
     }
 
+    if let Some(assignee) = &task.assignee {
+        lines.push(format!("assignee: {assignee}"));
+    }
+
+    if !task.acceptance_criteria.is_empty() {
+        lines.push("acceptance_criteria:".to_string());
+        lines.extend(
+            task.acceptance_criteria
+                .iter()
+                .map(|criterion| format!("- {criterion}")),
+        );
+    }
+
     if let Some(shipped_in) = &task.shipped_in {
         lines.push(format!("shipped_in: {shipped_in}"));
     }

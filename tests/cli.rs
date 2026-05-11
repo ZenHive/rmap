@@ -76,6 +76,8 @@ title = "parseOrder field map"
 scores = { d = 5, b = 9, u = 9 }
 depends_on = [74]
 markers = ["parallel"]
+assignee = "codex"
+acceptance_criteria = ["parseOrder accepts spot payloads"]
 "#;
 
 #[test]
@@ -547,6 +549,11 @@ fn show_command_prints_human_and_json_views() {
     assert_eq!(value["id"], 75);
     assert_eq!(value["title"], "parseOrder field map");
     assert_eq!(value["eff"], 1.8);
+    assert_eq!(value["assignee"], "codex");
+    assert_eq!(
+        value["acceptance_criteria"],
+        serde_json::json!(["parseOrder accepts spot payloads"])
+    );
 }
 
 #[test]
@@ -563,6 +570,78 @@ fn show_unknown_task_exits_one() {
 
     assert_eq!(output.status.code(), Some(1), "expected unknown task error");
     assert!(String::from_utf8_lossy(&output.stderr).contains("task 999 not found"));
+}
+
+#[test]
+fn delegate_command_prints_agent_prompt() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("75")
+        .arg("--to")
+        .arg("codex")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap delegate");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("# Task 75: parseOrder field map"),
+        "{stdout}"
+    );
+    assert!(stdout.contains("Target agent: codex"), "{stdout}");
+    assert!(stdout.contains("Stored assignee: codex"), "{stdout}");
+    assert!(
+        stdout.contains("- Task 74 [done] parseTicker field map"),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("- [ ] parseOrder accepts spot payloads"),
+        "{stdout}"
+    );
+}
+
+#[test]
+fn delegate_unknown_task_exits_one() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("999")
+        .arg("--to")
+        .arg("codex")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap delegate unknown task");
+
+    assert_eq!(output.status.code(), Some(1), "expected unknown task error");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("task 999 not found"));
+}
+
+#[test]
+fn delegate_rejects_unknown_target() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("75")
+        .arg("--to")
+        .arg("bad-agent")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap delegate with invalid target");
+
+    assert!(!output.status.success(), "expected clap validation error");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("invalid value"));
 }
 
 #[test]

@@ -237,6 +237,12 @@ fn changed_fields(base: &Task, current: &Task) -> Vec<String> {
     if base.linear_id != current.linear_id {
         fields.push("linear_id".to_string());
     }
+    if base.assignee != current.assignee {
+        fields.push("assignee".to_string());
+    }
+    if base.acceptance_criteria != current.acceptance_criteria {
+        fields.push("acceptance_criteria".to_string());
+    }
     if base.shipped_in != current.shipped_in {
         fields.push("shipped_in".to_string());
     }

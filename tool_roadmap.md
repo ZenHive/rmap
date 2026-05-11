@@ -2,7 +2,7 @@
 
 Single Rust binary that manages `roadmap/tasks.toml` in any project (Elixir, Rust, Python, Go, anything). Renders portable views: `ROADMAP.md` (agent-readable, dense), `data.json` (dashboard-consumable), optionally HTML (human-readable).
 
-**Status.** Phases 1–5 and 8 shipped: `validate`, `render`, `data.json` export, `status` mutator, `next` selector, `show`, `list`, `schema --json`, `diff`, and the `--check-render` pre-commit contract. Phases 6–7 and 9–11 planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
+**Status.** Phases 1–5, 8, and 9 shipped: `validate`, `render`, `data.json` export, `status` mutator, `next` selector, `show`, `list`, `schema --json`, `diff`, `delegate`, and the `--check-render` pre-commit contract. Phases 6–7 and 10–11 planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
 
 ## Why Rust
 
@@ -114,7 +114,7 @@ rmap new                             # interactive task creation (dialoguer)
 rmap new --from-stdin                # [P11] non-interactive — agent piping
 
 # delegation (Phase 9) — cloud-agent workflow
-rmap delegate <id> --to claude|codex|cursor        # emit paste-ready prompt: title + body + deps + AC + linked PRs
+rmap delegate <id> --to claude|codex|cursor        # emit paste-ready Markdown prompt: title + body + deps + AC + linked refs
 
 # live dev (Phase 7)
 rmap watch                           # FS watch on tasks.toml, render on change
@@ -133,11 +133,11 @@ rmap watch --json                    # [P11] event stream for agent consumers
 | 6 | HTML render | ⬜ | Single-project + portfolio dashboards as one self-contained file (see *HTML render design*) |
 | 7 | `rmap watch` *(optional)* | ⬜ | FS watch for live dev |
 | 8 | **Read API + self-description** | ✅ | `show`, `list`, `schema --json`, `diff`, `next --json` |
-| 9 | **Cloud delegation surface** | ⬜ | `delegate`, schema adds `assignee` + `acceptance_criteria` |
+| 9 | **Cloud delegation surface** | ✅ | `delegate`, schema adds `assignee` + `acceptance_criteria` |
 | 10 | **Schema completeness** | ⬜ | Timestamps, `blocked_reason`, `[focus]`, cycle detection |
 | 11 | **Health + polish** | ⬜ | `doctor`, `stale`, mermaid render, bulk mutators, score-decay |
 
-**Sequencing rationale.** Phase 8 is shipped: downstream agents now have a read API before more mutators. Phase 9 next: it unblocks the cloud-agent delegation workflow that's already the user's main consumer of roadmap data. Phases 10–11 compound but don't unblock anything — sequence inside each phase by D/B/U.
+**Sequencing rationale.** Phase 9 is shipped: downstream agents now have a paste-ready delegation prompt in addition to the read API. Phase 10 next: it tightens schema completeness for richer agent workflows. Phase 11 compounds after that with health and polish — sequence inside each phase by D/B/U.
 
 **Cross-cutting invariant (Phases 8–9).** The `--json` outputs of `show`, `list`, `next`, `schema`, and `diff` are the agent contract. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.
 

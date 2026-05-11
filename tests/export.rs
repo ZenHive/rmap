@@ -29,6 +29,8 @@ title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }
 markers = ["parallel"]
 linear_id = "INE-247"
+assignee = "codex"
+acceptance_criteria = ["Ticker fields are normalized"]
 
 [[task]]
 id = 75
@@ -53,6 +55,11 @@ fn exports_validated_tasks_with_computed_efficiency() {
     assert_eq!(value["linear"]["team_key"], "INE");
     assert_eq!(value["task"][0]["id"], 74);
     assert_eq!(value["task"][0]["eff"], 1.6);
+    assert_eq!(value["task"][0]["assignee"], "codex");
+    assert_eq!(
+        value["task"][0]["acceptance_criteria"],
+        serde_json::json!(["Ticker fields are normalized"])
+    );
     assert_eq!(value["task"][1]["id"], 75);
     assert_eq!(value["task"][1]["eff"], 1.33);
 }

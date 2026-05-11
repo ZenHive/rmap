@@ -9,6 +9,7 @@ use crate::schema::{TaskId, Tasks};
 const SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const VALID_STATUSES: &[&str] = &["pending", "in_progress", "blocked", "done", "superseded"];
 const VALID_MARKERS: &[&str] = &["parallel", "cx", "csr"];
+const VALID_ASSIGNEES: &[&str] = &["human", "claude", "codex", "cursor"];
 const VALID_CROSS_REPO_RELATIONS: &[&str] = &["blocks", "blocked_by", "related"];
 const FIRST_LINE_NUMBER: usize = 1;
 
@@ -45,6 +46,7 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_schema_version(&path, input, &tasks)?;
     validate_statuses(&path, input, &tasks)?;
     validate_markers(&path, input, &tasks)?;
+    validate_assignees(&path, input, &tasks)?;
     validate_linear_ids(&path, input, &tasks)?;
     validate_dependencies(&path, input, &tasks)?;
     validate_cross_repo_relations(&path, input, &tasks)?;
@@ -105,6 +107,27 @@ fn validate_markers(path: &str, input: &str, tasks: &Tasks) -> Result<(), Valida
                 format!("invalid marker \"{marker}\""),
             ));
         }
+    }
+
+    Ok(())
+}
+
+fn validate_assignees(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        let Some(assignee) = &task.assignee else {
+            continue;
+        };
+
+        if VALID_ASSIGNEES.contains(&assignee.as_str()) {
+            continue;
+        }
+
+        return Err(semantic_error(
+            path,
+            line_containing(input, &format!("assignee = \"{assignee}\""))
+                .unwrap_or(FIRST_LINE_NUMBER),
+            format!("invalid assignee \"{assignee}\""),
+        ));
     }
 
     Ok(())
