@@ -2,11 +2,20 @@ use std::fmt::Write;
 
 use thiserror::Error;
 
+use crate::next::next_task;
 use crate::schema::{Task, Tasks};
-use crate::scoring::{efficiency, format_efficiency, score_decay_suffix};
+use crate::scoring::{days_since, efficiency, format_efficiency, score_decay_suffix};
 
 const BEGIN_MARKER: &str = "<!-- TASKS:BEGIN phase=";
 const END_MARKER: &str = "<!-- TASKS:END -->";
+
+const FOCUS_BEGIN_MARKER: &str = "<!-- FOCUS:BEGIN -->";
+const FOCUS_END_MARKER: &str = "<!-- FOCUS:END -->";
+
+/// Tasks whose `done_at` is within this many days of `today` count as "recently
+/// shipped" in the FOCUS block. Older shipments don't appear; the line falls
+/// back to "no recent shipments".
+const SHIPPED_WINDOW_DAYS: i64 = 7;
 
 #[derive(Debug, Error)]
 pub enum RenderError {
@@ -14,6 +23,8 @@ pub enum RenderError {
     MissingEndMarker { start: usize },
     #[error("invalid phase marker at byte {start}")]
     InvalidPhaseMarker { start: usize },
+    #[error("missing <!-- FOCUS:END --> for marker starting at byte {start}")]
+    MissingFocusEndMarker { start: usize },
 }
 
 /// Render with an explicit `today` date (`YYYY-MM-DD`). Pass `""` to disable decay suffixes.
@@ -22,6 +33,139 @@ pub fn render_roadmap_str_with_today(
     tasks: &Tasks,
     today: &str,
 ) -> Result<String, RenderError> {
+    let after_focus = render_focus_pass(roadmap, tasks, today)?;
+    render_tasks_pass(&after_focus, tasks, today)
+}
+
+/// Render using `today_iso()` (reads `RMAP_TODAY` env var or the system clock).
+pub fn render_roadmap_str(roadmap: &str, tasks: &Tasks) -> Result<String, RenderError> {
+    render_roadmap_str_with_today(roadmap, tasks, &crate::today_iso())
+}
+
+fn render_focus_pass(roadmap: &str, tasks: &Tasks, today: &str) -> Result<String, RenderError> {
+    let Some(begin) = roadmap.find(FOCUS_BEGIN_MARKER) else {
+        return Ok(roadmap.to_string());
+    };
+    let marker_line_end = roadmap[begin..]
+        .find('\n')
+        .map(|offset| begin + offset + '\n'.len_utf8())
+        .unwrap_or(roadmap.len());
+    let end = roadmap[marker_line_end..]
+        .find(FOCUS_END_MARKER)
+        .map(|offset| marker_line_end + offset)
+        .ok_or(RenderError::MissingFocusEndMarker { start: begin })?;
+    let end_line_end = roadmap[end..]
+        .find('\n')
+        .map(|offset| end + offset + '\n'.len_utf8())
+        .unwrap_or(roadmap.len());
+
+    let mut rendered = String::with_capacity(roadmap.len());
+    rendered.push_str(&roadmap[..marker_line_end]);
+    rendered.push_str(&render_focus_body(tasks, today));
+    rendered.push_str(&roadmap[end..end_line_end]);
+    rendered.push_str(&roadmap[end_line_end..]);
+    Ok(rendered)
+}
+
+fn render_focus_body(tasks: &Tasks, today: &str) -> String {
+    let mut body = String::new();
+    match tasks.focus.as_ref() {
+        Some(focus) => {
+            let phase = focus.phase;
+            writeln!(body, "{}", focus_header_line(tasks, phase)).expect("write to string");
+            body.push('\n');
+            writeln!(body, "{}", last_shipped_line(tasks, phase, today)).expect("write to string");
+            body.push('\n');
+            writeln!(body, "{}", up_next_line(tasks)).expect("write to string");
+        }
+        None => {
+            writeln!(body, "**Focus phase:** not set — add [focus] to tasks.toml")
+                .expect("write to string");
+        }
+    }
+    body
+}
+
+fn focus_header_line(tasks: &Tasks, focus_phase: u32) -> String {
+    let in_phase: Vec<&Task> = tasks
+        .task
+        .iter()
+        .filter(|task| task.phase == focus_phase)
+        .collect();
+    let total = in_phase.len();
+    let done = in_phase.iter().filter(|task| task.status == "done").count();
+    let in_progress = in_phase
+        .iter()
+        .filter(|task| task.status == "in_progress")
+        .count();
+    let name = tasks
+        .phases
+        .get(&focus_phase.to_string())
+        .map(|phase| phase.name.clone())
+        .unwrap_or_else(|| format!("phase {focus_phase}"));
+    format!(
+        "**Focus phase:** {focus_phase} — {name} ({done} of {total} done · {in_progress} in progress)"
+    )
+}
+
+fn last_shipped_line(tasks: &Tasks, focus_phase: u32, today: &str) -> String {
+    let recent: Vec<&Task> = tasks
+        .task
+        .iter()
+        .filter(|task| task.phase == focus_phase && task.status == "done")
+        .filter(|task| {
+            task.done_at
+                .as_deref()
+                .and_then(|done_at| days_since(today, done_at))
+                .map(|days| (0..=SHIPPED_WINDOW_DAYS).contains(&days))
+                .unwrap_or(false)
+        })
+        .collect();
+
+    if recent.is_empty() {
+        return "**Last shipped:** no recent shipments".to_string();
+    }
+
+    let latest = recent
+        .iter()
+        .filter_map(|task| task.done_at.as_deref())
+        .max()
+        .unwrap_or("");
+
+    let same_day: Vec<&Task> = recent
+        .iter()
+        .copied()
+        .filter(|task| task.done_at.as_deref() == Some(latest))
+        .collect();
+
+    let names = same_day
+        .iter()
+        .map(|task| format!("Task {} — {}", task.id, task.title))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    format!("**Last shipped:** {names} on {latest}")
+}
+
+fn up_next_line(tasks: &Tasks) -> String {
+    match next_task(tasks, None) {
+        Some(task) => {
+            let eff = efficiency(task);
+            format!(
+                "**Up next:** Task {} — {} [D:{}/B:{}/U:{} → Eff:{}]",
+                task.id,
+                task.title,
+                task.scores.d,
+                task.scores.b,
+                task.scores.u,
+                format_efficiency(eff)
+            )
+        }
+        None => "**Up next:** none — focus phase complete or all blocked".to_string(),
+    }
+}
+
+fn render_tasks_pass(roadmap: &str, tasks: &Tasks, today: &str) -> Result<String, RenderError> {
     let mut rendered = String::with_capacity(roadmap.len());
     let mut cursor = 0;
 
@@ -55,11 +199,6 @@ pub fn render_roadmap_str_with_today(
 
     rendered.push_str(&roadmap[cursor..]);
     Ok(rendered)
-}
-
-/// Render using `today_iso()` (reads `RMAP_TODAY` env var or the system clock).
-pub fn render_roadmap_str(roadmap: &str, tasks: &Tasks) -> Result<String, RenderError> {
-    render_roadmap_str_with_today(roadmap, tasks, &crate::today_iso())
 }
 
 fn parse_phase(marker_line: &str) -> Option<u32> {
