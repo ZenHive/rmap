@@ -1,0 +1,57 @@
+schema_version = 1
+project = "skills_demo"
+default_branch = "main"
+
+[focus]
+phase = 1
+
+[phases.1]
+name = "Bootstrapping"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Initial work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+status = "done"
+title = "set up project"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"
+done_at = "2026-05-10"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "alpha"
+status = "in_progress"
+title = "wire up plumbing"
+scores = { d = 3, b = 5, u = 5 }
+scored_at = "2026-05-10"
+started_at = "2026-05-11"
+
+[[task]]
+id = 3
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "ship feature"
+scores = { d = 4, b = 8, u = 8 }
+scored_at = "2026-05-10"
+depends_on = [1]
+acceptance_criteria = ["feature works end-to-end", "documented in README"]
+
+[[task]]
+id = 4
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "polish & cleanup"
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+depends_on = [2]
