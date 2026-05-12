@@ -1029,6 +1029,482 @@ fn status_command_single_id_still_works() {
     );
 }
 
+#[test]
+fn mark_command_adds_and_removes_markers_atomically() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", PHASE4_TASKS);
+    write_file(
+        &dir,
+        "ROADMAP.md",
+        ROADMAP.replace("phase=1", "phase=12").as_str(),
+    );
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    // Task 75 starts with markers = ["parallel"]. Add `cx`, drop `parallel`.
+    // (Flags precede the positional `+x`/`-x` ops because clap's
+    // `allow_hyphen_values` would otherwise capture `--tasks-path` as a value.)
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("mark")
+        .arg("75")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .arg("+cx")
+        .arg("-parallel")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap mark 75 +cx -parallel");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    // toml_edit preserves whitespace from the original `["parallel"]` decor when
+    // mutating the array in place, so allow a trailing space inside the brackets.
+    let cx_count = tasks.matches("\"cx\"").count();
+    let parallel_count = tasks.matches("\"parallel\"").count();
+    assert_eq!(cx_count, 1, "expected exactly one cx marker:\n{tasks}");
+    assert_eq!(parallel_count, 0, "parallel should be removed:\n{tasks}");
+}
+
+#[test]
+fn mark_command_is_idempotent_on_repeated_add_or_remove() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", PHASE4_TASKS);
+    write_file(
+        &dir,
+        "ROADMAP.md",
+        ROADMAP.replace("phase=1", "phase=12").as_str(),
+    );
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    // Adding a marker that already exists, then removing one that's absent.
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("mark")
+        .arg("75")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .arg("+parallel")
+        .arg("-cx")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap mark 75 +parallel -cx");
+
+    assert!(
+        output.status.success(),
+        "idempotent ops should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read tasks");
+    let parallel_count = tasks.matches("\"parallel\"").count();
+    assert_eq!(parallel_count, 1, "expected one parallel marker:\n{tasks}");
+    assert!(!tasks.contains("\"cx\""), "cx must not appear:\n{tasks}");
+}
+
+#[test]
+fn mark_command_rejects_invalid_marker_name_with_no_partial_write() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", PHASE4_TASKS);
+    write_file(
+        &dir,
+        "ROADMAP.md",
+        ROADMAP.replace("phase=1", "phase=12").as_str(),
+    );
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    let original = fs::read_to_string(&tasks_path).expect("read original");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("mark")
+        .arg("75")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .arg("+bogus")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap mark 75 +bogus");
+
+    assert!(
+        !output.status.success(),
+        "expected validation failure for invalid marker name"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("invalid marker"),
+        "stderr should mention invalid marker, got: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read after");
+    assert_eq!(original, after, "file must be unchanged after failed mark");
+}
+
+#[test]
+fn mark_command_rejects_invalid_op_prefix() {
+    let path = write_temp_tasks("phase4_mark.toml", PHASE4_TASKS);
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("mark")
+        .arg("75")
+        .arg("--tasks-path")
+        .arg(&path)
+        .arg("parallel") // missing + or -
+        .output()
+        .expect("run rmap mark with bad op prefix");
+
+    assert!(
+        !output.status.success(),
+        "expected failure for missing +/- prefix"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("invalid marker op"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn mark_command_unknown_task_id_aborts_write() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", PHASE4_TASKS);
+    write_file(
+        &dir,
+        "ROADMAP.md",
+        ROADMAP.replace("phase=1", "phase=12").as_str(),
+    );
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    let original = fs::read_to_string(&tasks_path).expect("read original");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("mark")
+        .arg("999")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .arg("+cx")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap mark 999 +cx");
+
+    assert!(!output.status.success(), "unknown id should fail");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("unknown task id 999"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let after = fs::read_to_string(&tasks_path).expect("read after");
+    assert_eq!(original, after, "file must be unchanged");
+}
+
+#[test]
+fn depend_command_adds_in_repo_dependency() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", MULTI_STATUS_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("depend")
+        .arg("2")
+        .arg("on")
+        .arg("1")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap depend 2 on 1");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(
+        tasks.contains("depends_on = [1]"),
+        "expected depends_on = [1] on task 2:\n{tasks}"
+    );
+
+    // Idempotent — second invocation must not duplicate.
+    let again = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("depend")
+        .arg("2")
+        .arg("on")
+        .arg("1")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap depend 2 on 1 (repeat)");
+    assert!(again.status.success(), "repeat must succeed (idempotent)");
+    let tasks2 = fs::read_to_string(&tasks_path).expect("read after repeat");
+    assert_eq!(
+        tasks2.matches("depends_on").count(),
+        1,
+        "depends_on should appear once, got:\n{tasks2}"
+    );
+}
+
+#[test]
+fn depend_command_adds_cross_repo_dependency_with_default_relation() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", MULTI_STATUS_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    // Explicit relation.
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("depend")
+        .arg("2")
+        .arg("--cross-repo")
+        .arg("other_repo:42:blocked_by")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap depend 2 --cross-repo other_repo:42:blocked_by");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(tasks.contains("repo = \"other_repo\""), "{tasks}");
+    assert!(tasks.contains("relation = \"blocked_by\""), "{tasks}");
+
+    // Default-relation form on a different task.
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("depend")
+        .arg("3")
+        .arg("--cross-repo")
+        .arg("other_repo:99")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap depend 3 --cross-repo other_repo:99");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let tasks = fs::read_to_string(&tasks_path).expect("read tasks");
+    assert!(
+        tasks.contains("relation = \"blocks\""),
+        "expected default relation 'blocks':\n{tasks}"
+    );
+}
+
+#[test]
+fn depend_command_rejects_cycle() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", MULTI_STATUS_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    // First: 2 depends on 1. OK.
+    let first = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("depend")
+        .arg("2")
+        .arg("on")
+        .arg("1")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap depend 2 on 1");
+    assert!(first.status.success());
+
+    let before = fs::read_to_string(&tasks_path).expect("read before cycle attempt");
+
+    // Now: 1 depends on 2 — closes a cycle.
+    let cycle = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("depend")
+        .arg("1")
+        .arg("on")
+        .arg("2")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap depend 1 on 2");
+
+    assert!(!cycle.status.success(), "cycle attempt must fail");
+    assert!(
+        String::from_utf8_lossy(&cycle.stderr).contains("cycle"),
+        "stderr should mention cycle, got: {}",
+        String::from_utf8_lossy(&cycle.stderr)
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read after cycle attempt");
+    assert_eq!(
+        before, after,
+        "tasks.toml must be unchanged after failed cycle write"
+    );
+}
+
+#[test]
+fn depend_command_unknown_task_id_aborts_write() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", MULTI_STATUS_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    let original = fs::read_to_string(&tasks_path).expect("read original");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("depend")
+        .arg("999")
+        .arg("on")
+        .arg("1")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap depend 999 on 1");
+
+    assert!(!output.status.success(), "unknown id should fail");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("unknown task id 999"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let after = fs::read_to_string(&tasks_path).expect("read after");
+    assert_eq!(original, after, "file must be unchanged");
+}
+
+#[test]
+fn depend_command_requires_at_least_one_dependency() {
+    let path = write_temp_tasks("phase_dep_args.toml", MULTI_STATUS_TASKS);
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("depend")
+        .arg("1")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap depend 1 (no targets)");
+
+    assert!(!output.status.success(), "depend with no target must fail");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("no dependency specified"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn depend_command_rejects_malformed_cross_repo_spec() {
+    let path = write_temp_tasks("phase_dep_bad_cross.toml", MULTI_STATUS_TASKS);
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("depend")
+        .arg("1")
+        .arg("--cross-repo")
+        .arg("missing_colon")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap depend with malformed --cross-repo");
+
+    assert!(
+        !output.status.success(),
+        "malformed --cross-repo must fail"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("invalid cross-repo spec"),
+        "stderr should mention invalid cross-repo spec, got: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn depend_command_rejects_on_without_target() {
+    let path = write_temp_tasks("phase_dep_dangling_on.toml", MULTI_STATUS_TASKS);
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("depend")
+        .arg("1")
+        .arg("on")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap depend 1 on (no target)");
+
+    assert!(!output.status.success(), "missing target must fail");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("missing target task id after `on`"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn write_temp_tasks(file_name: &str, contents: &str) -> PathBuf {
     let dir = temp_dir();
     write_file(&dir, file_name, contents)

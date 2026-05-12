@@ -2,7 +2,7 @@
 
 Single Rust binary that manages `roadmap/tasks.toml` in any project (Elixir, Rust, Python, Go, anything). Renders portable views: `ROADMAP.md` (agent-readable, dense), `data.json` (dashboard-consumable), optionally HTML (human-readable).
 
-**Status.** Phases 1–5, 8, 9, 10, and 11a shipped: `validate`, `render`, `data.json` export, `status` mutator (single + bulk), `next` selector, `show`, `list`, `schema`, `diff`, `delegate`, `stale`, `doctor`, the `--check-render` pre-commit contract, schema completeness (`[focus]`, task timestamps, `blocked_reason`, cycle detection), and health surfaces (score-decay `?` suffix, stale-task surface, composite doctor report). Phases 6–7 and 11b planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
+**Status.** Phases 1–5, 8, 9, 10, and 11a shipped, plus the `mark` and `depend` mutators from 11b: `validate`, `render`, `data.json` export, `status`/`mark`/`depend` mutators (status: single + bulk), `next` selector, `show`, `list`, `schema`, `diff`, `delegate`, `stale`, `doctor`, the `--check-render` pre-commit contract, schema completeness (`[focus]`, task timestamps, `blocked_reason`, cycle detection), and health surfaces (score-decay `?` suffix, stale-task surface, composite doctor report). Phases 6–7 and the remainder of 11b (mermaid render, delegate per-agent footer, `new`/`new --from-stdin`, `diff --verbose`) are planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
 
 ## Why Rust
 
@@ -108,9 +108,9 @@ rmap stale --over <duration> [--json]   # in_progress tasks idle > duration
 
 # mutation (Phase 4 + Phase 11a + Phase 11b extensions) — all routed through toml_edit
 rmap status <id[,id,id]> <new>       # flip status (bulk form shipped in Phase 11a), re-render
-rmap mark <id> +cx -parallel         # [P11b] add/remove markers without TOML editing
-rmap depend <id> on <id> [--cross-repo repo:N]     # [P11b] add deps via mutation
-rmap new                             # interactive task creation (dialoguer)
+rmap mark <id> +cx -parallel         # add/remove markers without TOML editing
+rmap depend <id> on <id> [--cross-repo <repo>:<task_id>[:<relation>]]   # add deps via mutation
+rmap new                             # [P11b] interactive task creation (dialoguer)
 rmap new --from-stdin                # [P11b] non-interactive — agent piping
 
 # delegation (Phase 9) — cloud-agent workflow
@@ -136,9 +136,9 @@ rmap watch --json                    # [P11b] event stream for agent consumers
 | 9 | **Cloud delegation surface** | ✅ | `delegate`, schema adds `assignee` + `acceptance_criteria` |
 | 10 | **Schema completeness** | ✅ | Timestamps, `blocked_reason`, `[focus]`, cycle detection |
 | 11a | **Health + cleanup** | ✅ | `doctor`, `stale`, score-decay rendering, bulk `status`, drop `schema --json` no-op |
-| 11b | **Polish** | ⬜ | mermaid render, delegate per-agent footer, `new --from-stdin`, `mark`, `depend`, interactive `new`, `diff --verbose` |
+| 11b | **Polish** | 🔄 | `mark` ✅, `depend` ✅. Remaining: mermaid render, delegate per-agent footer, `new --from-stdin`, interactive `new`, `diff --verbose` |
 
-**Sequencing rationale.** Phases 9, 10, and 11a are shipped: downstream agents have a paste-ready delegation prompt, richer task lifecycle data (timestamps + blocked reasons), focus-phase signaling for `rmap next`, dependency cycle protection, and a composite health surface (`doctor`) that aggregates validate findings, stale, score-decay, and drift. Phase 11b is the remaining polish — sequence by D/B/U.
+**Sequencing rationale.** Phases 9, 10, 11a, and the `mark`/`depend` slice of 11b are shipped: downstream agents have a paste-ready delegation prompt, richer task lifecycle data (timestamps + blocked reasons), focus-phase signaling for `rmap next`, dependency cycle protection, a composite health surface (`doctor`) that aggregates validate findings, stale, score-decay, and drift, and a complete mutator surface (`status`, `mark`, `depend`) so agents can drive their own state without TOML editing. Remaining 11b polish is the human-render/IO surface (mermaid, interactive `new`, `new --from-stdin`, `diff --verbose`, delegate per-agent footer) — sequence by D/B/U.
 
 **Cross-cutting invariant (Phases 8–9).** The `--json` outputs of `show`, `list`, `next`, `schema`, and `diff` are the agent contract. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.
 

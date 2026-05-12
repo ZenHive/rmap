@@ -7,7 +7,9 @@ use rmap::delegate::format_delegate_prompt;
 use rmap::diff::{diff_toml, format_diff};
 use rmap::doctor::DoctorReport;
 use rmap::export::{export_filtered_json_str, export_json_str, export_task_json_str};
-use rmap::mutate::update_status_many_str;
+use rmap::mutate::{
+    CrossRepoSpec, MarkerOp, add_dependency_str, update_markers_str, update_status_many_str,
+};
 use rmap::next::{format_next_task, next_task};
 use rmap::paths::{ResolvedPaths, resolve_paths};
 use rmap::query::{TaskFilter, find_task, format_task, format_task_row, list_tasks};
@@ -113,6 +115,47 @@ enum Commands {
         tasks_path: Option<PathBuf>,
         #[arg(long)]
         roadmap_path: Option<PathBuf>,
+    },
+    /// Add or remove markers on a task: `rmap mark 75 +cx -parallel`.
+    ///
+    /// Each `ops` token must start with `+` (add) or `-` (remove). Add is a no-op
+    /// when the marker is already present; remove is a no-op when absent.
+    /// The full file is re-validated after edit and any invalid marker name
+    /// (per `VALID_MARKERS`) aborts the write.
+    Mark {
+        id: String,
+        /// `+marker` to add, `-marker` to remove. One or more, applied left-to-right.
+        #[arg(required = true, num_args = 1.., allow_hyphen_values = true)]
+        ops: Vec<String>,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+        #[arg(long)]
+        roadmap_path: Option<PathBuf>,
+        #[arg(long)]
+        data_path: Option<PathBuf>,
+    },
+    /// Add a dependency to a task.
+    ///
+    /// In-repo: `rmap depend 75 on 74`. Cross-repo: `rmap depend 75 --cross-repo
+    /// ccxt_client:42:blocks` (relation defaults to `blocks` if omitted). Both
+    /// forms can be combined in a single call. Cycles and unknown ids are
+    /// rejected via re-validation.
+    Depend {
+        id: String,
+        /// Literal `on` keyword separating the in-repo dependency. Required when
+        /// the next positional is the target task id.
+        on: Option<String>,
+        /// Target task id when adding an in-repo dependency.
+        other: Option<String>,
+        /// Cross-repo dependency: `<repo>:<task_id>[:<relation>]`.
+        #[arg(long)]
+        cross_repo: Option<String>,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+        #[arg(long)]
+        roadmap_path: Option<PathBuf>,
+        #[arg(long)]
+        data_path: Option<PathBuf>,
     },
     /// List in-progress tasks idle longer than the given duration.
     Stale {
@@ -296,6 +339,34 @@ fn run() -> Result<ExitCode> {
             let tasks = validate_tasks_file(&paths.tasks_path)?;
             println!("{}", export_json_str(&tasks)?);
         }
+        Commands::Mark {
+            id,
+            ops,
+            tasks_path,
+            roadmap_path,
+            data_path,
+        } => {
+            let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
+            update_markers(paths, &id, &ops)?;
+        }
+        Commands::Depend {
+            id,
+            on,
+            other,
+            cross_repo,
+            tasks_path,
+            roadmap_path,
+            data_path,
+        } => {
+            let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
+            add_dependency(
+                paths,
+                &id,
+                on.as_deref(),
+                other.as_deref(),
+                cross_repo.as_deref(),
+            )?;
+        }
         Commands::Stale {
             over,
             json,
@@ -364,6 +435,78 @@ fn render(paths: ResolvedPaths, dry: bool, stdout: bool) -> Result<()> {
 
     write_outputs(&paths, rendered_roadmap, rendered_data)?;
     println!("rendered");
+
+    Ok(())
+}
+
+fn update_markers(paths: ResolvedPaths, task_id: &str, op_tokens: &[String]) -> Result<()> {
+    let ops: Vec<MarkerOp<'_>> = op_tokens
+        .iter()
+        .map(|token| MarkerOp::parse(token))
+        .collect::<Result<_, _>>()?;
+
+    let input = std::fs::read_to_string(&paths.tasks_path)
+        .with_context(|| format!("read {}", paths.tasks_path.display()))?;
+
+    let updated = update_markers_str(
+        paths.tasks_path.display().to_string(),
+        &input,
+        task_id,
+        &ops,
+    )?;
+
+    let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &updated)?;
+    let (rendered_roadmap, rendered_data) = render_outputs(&paths, &tasks)?;
+
+    std::fs::write(&paths.tasks_path, updated)
+        .with_context(|| format!("write {}", paths.tasks_path.display()))?;
+    write_outputs(&paths, rendered_roadmap, rendered_data)?;
+    println!("updated");
+
+    Ok(())
+}
+
+fn add_dependency(
+    paths: ResolvedPaths,
+    task_id: &str,
+    on_token: Option<&str>,
+    other: Option<&str>,
+    cross_repo_spec: Option<&str>,
+) -> Result<()> {
+    let in_repo: Option<&str> = match (on_token, other) {
+        (Some("on"), Some(other_id)) => Some(other_id),
+        (Some("on"), None) => {
+            bail!("missing target task id after `on` (use `rmap depend <id> on <other-id>`)")
+        }
+        (Some(kw), _) => bail!(
+            "unexpected positional {:?} — expected `on <task_id>`",
+            kw
+        ),
+        // Clap fills optional positionals in declaration order, so `on` is always
+        // None before `other`; the wildcard is defensive against future clap changes.
+        (None, _) => None,
+    };
+
+    let cross_repo = cross_repo_spec.map(CrossRepoSpec::parse).transpose()?;
+
+    let input = std::fs::read_to_string(&paths.tasks_path)
+        .with_context(|| format!("read {}", paths.tasks_path.display()))?;
+
+    let updated = add_dependency_str(
+        paths.tasks_path.display().to_string(),
+        &input,
+        task_id,
+        in_repo,
+        cross_repo.as_ref(),
+    )?;
+
+    let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &updated)?;
+    let (rendered_roadmap, rendered_data) = render_outputs(&paths, &tasks)?;
+
+    std::fs::write(&paths.tasks_path, updated)
+        .with_context(|| format!("write {}", paths.tasks_path.display()))?;
+    write_outputs(&paths, rendered_roadmap, rendered_data)?;
+    println!("updated");
 
     Ok(())
 }
