@@ -1,12 +1,19 @@
+use std::collections::HashSet;
 use std::fmt;
 
 use crate::render::render_roadmap_str_with_today;
-use crate::schema::{TaskId, Tasks};
+use crate::schema::{Scores, TaskId, Tasks};
 use crate::scoring::{SCORE_DECAY_DAYS, days_since};
 use crate::stale::find_stale;
 use crate::validate;
 
 const STALE_THRESHOLD_DAYS: u32 = 30;
+
+/// Minimum D or B at which a pending/in_progress task without `acceptance_criteria`
+/// triggers the `missing_acceptance_criteria` doctor finding. Substantive tasks should
+/// declare what "done" means; trivial tasks can rely on title-as-prompt.
+const AC_DIFFICULTY_THRESHOLD: u32 = 5;
+const AC_BENEFIT_THRESHOLD: u32 = 8;
 
 #[derive(serde::Serialize)]
 pub struct DoctorReport {
@@ -28,6 +35,15 @@ pub enum DoctorFinding {
     ScoreDecay {
         id: String,
         scored_at: Option<String>,
+    },
+    DegenerateBundle {
+        bundle: String,
+        phase: u32,
+        task_count: usize,
+    },
+    MissingAcceptanceCriteria {
+        id: String,
+        scores: Scores,
     },
     Drift,
 }
@@ -81,7 +97,48 @@ impl DoctorReport {
             }
         }
 
-        // 4. render drift — only if a roadmap was provided
+        // 4. degenerate bundles — bundle covers every task of its declared phase.
+        // Adds zero information beyond the phase itself; real bundles span multiple
+        // phases or cluster a strict subset sharing infrastructure.
+        for (name, bundle) in &tasks.bundles {
+            let bundle_ids: HashSet<&TaskId> = tasks
+                .task
+                .iter()
+                .filter(|t| t.bundle == *name)
+                .map(|t| &t.id)
+                .collect();
+            if bundle_ids.is_empty() {
+                continue;
+            }
+            let phase_ids: HashSet<&TaskId> = tasks
+                .task
+                .iter()
+                .filter(|t| t.phase == bundle.phase)
+                .map(|t| &t.id)
+                .collect();
+            if bundle_ids == phase_ids {
+                findings.push(DoctorFinding::DegenerateBundle {
+                    bundle: name.clone(),
+                    phase: bundle.phase,
+                    task_count: bundle_ids.len(),
+                });
+            }
+        }
+
+        // 5. missing acceptance_criteria on substantive active tasks
+        for task in &tasks.task {
+            let substantive =
+                task.scores.d >= AC_DIFFICULTY_THRESHOLD || task.scores.b >= AC_BENEFIT_THRESHOLD;
+            let active = task.status == "pending" || task.status == "in_progress";
+            if substantive && active && task.acceptance_criteria.is_empty() {
+                findings.push(DoctorFinding::MissingAcceptanceCriteria {
+                    id: task_id_display(&task.id),
+                    scores: task.scores.clone(),
+                });
+            }
+        }
+
+        // 6. render drift — only if a roadmap was provided
         if let Some(roadmap) = roadmap_input
             && let Ok(rendered) = render_roadmap_str_with_today(roadmap, tasks, today)
             && rendered != roadmap
@@ -176,6 +233,59 @@ impl fmt::Display for DoctorReport {
             for (id, scored_at) in decay_findings {
                 let label = scored_at.unwrap_or("<missing>");
                 writeln!(f, "  - task {id} — scored_at: {label}")?;
+            }
+        }
+
+        let degenerate_findings: Vec<(&str, u32, usize)> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::DegenerateBundle {
+                    bundle,
+                    phase,
+                    task_count,
+                } = fi
+                {
+                    Some((bundle.as_str(), *phase, *task_count))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !degenerate_findings.is_empty() {
+            writeln!(f, "\nDegenerate bundles (cover entire phase):")?;
+            for (bundle, phase, count) in degenerate_findings {
+                writeln!(
+                    f,
+                    "  - Bundle \"{bundle}\" contains all {count} tasks of phase {phase}; consider clustering across phases or removing the bundle."
+                )?;
+            }
+        }
+
+        let missing_ac_findings: Vec<(&str, &Scores)> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::MissingAcceptanceCriteria { id, scores } = fi {
+                    Some((id.as_str(), scores))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !missing_ac_findings.is_empty() {
+            writeln!(
+                f,
+                "\nMissing acceptance_criteria (D >= {AC_DIFFICULTY_THRESHOLD} or B >= {AC_BENEFIT_THRESHOLD}):"
+            )?;
+            for (id, scores) in missing_ac_findings {
+                writeln!(
+                    f,
+                    "  - task {id} [D:{}/B:{}/U:{}] — add acceptance_criteria",
+                    scores.d, scores.b, scores.u
+                )?;
             }
         }
 

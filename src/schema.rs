@@ -77,7 +77,7 @@ pub struct Task {
     pub cross_repo: Vec<CrossRepo>,
 }
 
-#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Scores {
     pub d: u32,

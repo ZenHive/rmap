@@ -1474,10 +1474,7 @@ fn depend_command_rejects_malformed_cross_repo_spec() {
         .output()
         .expect("run rmap depend with malformed --cross-repo");
 
-    assert!(
-        !output.status.success(),
-        "malformed --cross-repo must fail"
-    );
+    assert!(!output.status.success(), "malformed --cross-repo must fail");
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("invalid cross-repo spec"),
         "stderr should mention invalid cross-repo spec, got: {}",
@@ -1773,6 +1770,8 @@ fn stale_command_rejects_malformed_duration() {
 // ---------------------------------------------------------------------------
 
 /// All tasks scored within 30d of 2026-05-11 (scored_at = 2026-04-15, 26 days ago).
+/// Two bundles in the same phase so neither covers the full phase (avoids the
+/// degenerate-bundle doctor lint).
 const DOCTOR_CLEAN_TASKS: &str = r#"
 schema_version = 1
 project = "doctor_test"
@@ -1788,6 +1787,11 @@ phase = 1
 order = 1
 description = "Core work"
 
+[bundles.secondary]
+phase = 1
+order = 2
+description = "Secondary work"
+
 [[task]]
 id = 10
 phase = 1
@@ -1800,7 +1804,7 @@ scored_at = "2026-04-15"
 [[task]]
 id = 11
 phase = 1
-bundle = "core"
+bundle = "secondary"
 status = "done"
 title = "Clean task B"
 scores = { d = 1, b = 3, u = 3 }
@@ -1808,7 +1812,9 @@ scored_at = "2026-04-20"
 "#;
 
 /// One stale in-progress task (started 2026-01-01, 130d idle at 2026-05-11) and one task
-/// with missing scored_at.
+/// with missing scored_at. Two bundles in the same phase so neither covers the full
+/// phase, and scores are all D<5 and B<8 so the missing-AC lint doesn't fire either —
+/// keeps this fixture targeting just stale + score-decay.
 const DOCTOR_DIRTY_TASKS: &str = r#"
 schema_version = 1
 project = "doctor_dirty"
@@ -1824,6 +1830,11 @@ phase = 1
 order = 1
 description = "Core work"
 
+[bundles.secondary]
+phase = 1
+order = 2
+description = "Secondary work"
+
 [[task]]
 id = 20
 phase = 1
@@ -1837,7 +1848,7 @@ scored_at = "2026-04-20"
 [[task]]
 id = 21
 phase = 1
-bundle = "core"
+bundle = "secondary"
 status = "pending"
 title = "No score date"
 scores = { d = 1, b = 3, u = 3 }
@@ -2039,5 +2050,175 @@ fn doctor_command_clean_fixture_json_ok() {
         json["findings"].as_array().expect("findings array").len(),
         0,
         "expected empty findings"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// doctor lint fixtures (degenerate_bundle, missing_acceptance_criteria)
+// ---------------------------------------------------------------------------
+
+/// Bundle "everything" covers all 3 tasks of phase 1 → degenerate. Task 30 is
+/// substantive (d=5) and pending without acceptance_criteria → missing-AC.
+/// Task 31 is high-B (b=8) and in_progress without AC → missing-AC. Task 32 is
+/// done so it's skipped by the AC lint even though it would otherwise trigger.
+const DOCTOR_LINT_TASKS: &str = r#"
+schema_version = 1
+project = "doctor_lints"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.everything]
+phase = 1
+order = 1
+description = "Covers everything in phase 1"
+
+[[task]]
+id = 30
+phase = 1
+bundle = "everything"
+status = "pending"
+title = "Substantive D=5 without AC"
+scores = { d = 5, b = 4, u = 4 }
+scored_at = "2026-04-20"
+
+[[task]]
+id = 31
+phase = 1
+bundle = "everything"
+status = "in_progress"
+title = "High-B without AC"
+scores = { d = 3, b = 8, u = 5 }
+started_at = "2026-05-05"
+scored_at = "2026-04-20"
+
+[[task]]
+id = 32
+phase = 1
+bundle = "everything"
+status = "done"
+title = "Substantive but done — should be skipped"
+scores = { d = 6, b = 9, u = 7 }
+scored_at = "2026-04-20"
+done_at = "2026-05-01"
+"#;
+
+#[test]
+fn doctor_command_surfaces_degenerate_bundle() {
+    let path = write_temp_tasks("doctor_lint_degen.toml", DOCTOR_LINT_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor lint");
+
+    assert!(
+        output.status.success(),
+        "expected exit 0 (informational), stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Degenerate bundles"),
+        "expected Degenerate bundles section:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("\"everything\""),
+        "expected bundle name in finding:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("phase 1"),
+        "expected phase reference in finding:\n{stdout}"
+    );
+}
+
+#[test]
+fn doctor_command_surfaces_missing_acceptance_criteria() {
+    let path = write_temp_tasks("doctor_lint_ac.toml", DOCTOR_LINT_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor lint ac");
+
+    assert!(
+        output.status.success(),
+        "expected exit 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Missing acceptance_criteria"),
+        "expected Missing acceptance_criteria section:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("task 30"),
+        "expected task 30 (d=5) in finding:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("task 31"),
+        "expected task 31 (b=8) in finding:\n{stdout}"
+    );
+    // Task 32 is done — should be skipped.
+    assert!(
+        !stdout.contains("task 32"),
+        "expected task 32 (done) to be skipped:\n{stdout}"
+    );
+}
+
+#[test]
+fn doctor_command_lint_findings_in_json() {
+    let path = write_temp_tasks("doctor_lint_json.toml", DOCTOR_LINT_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor --json lint");
+
+    assert!(
+        output.status.success(),
+        "expected exit 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be valid JSON");
+    assert_eq!(json["ok"], false, "expected ok: false");
+
+    let findings = json["findings"].as_array().expect("findings array");
+    let kinds: Vec<&str> = findings.iter().filter_map(|f| f["kind"].as_str()).collect();
+
+    assert!(
+        kinds.contains(&"degenerate_bundle"),
+        "expected degenerate_bundle in JSON kinds:\n{kinds:?}"
+    );
+    assert!(
+        kinds.contains(&"missing_acceptance_criteria"),
+        "expected missing_acceptance_criteria in JSON kinds:\n{kinds:?}"
+    );
+
+    // Verify the missing_acceptance_criteria finding carries the embedded Scores.
+    let ac_finding = findings
+        .iter()
+        .find(|f| f["kind"].as_str() == Some("missing_acceptance_criteria"))
+        .expect("missing_acceptance_criteria finding present");
+    assert!(
+        ac_finding["scores"]["d"].is_number(),
+        "expected scores.d field on finding:\n{ac_finding}"
     );
 }
