@@ -359,3 +359,28 @@ fn verbose_metadata_emits_before_after_for_whitelisted_keys() {
         .expect("phases.12 changed");
     assert!(phases.values.is_none());
 }
+
+#[test]
+fn verbose_added_and_removed_task_entries_carry_no_values() {
+    // BASE_TASKS / CURRENT_TASKS produce one Added, one Removed, and one Changed.
+    // Verbose mode must leave Added/Removed `values` at None — there's no
+    // before/after for a wholesale add or remove.
+    let base = validate_tasks_str("base", BASE_TASKS).expect("valid base tasks");
+    let current = validate_tasks_str("current", CURRENT_TASKS).expect("valid current tasks");
+
+    let diff = diff_tasks(&base, &current, true);
+
+    for entry in &diff {
+        match entry.status {
+            DiffStatus::Added | DiffStatus::Removed => {
+                assert!(
+                    entry.values.is_none(),
+                    "{:?} entry {:?} should carry no values",
+                    entry.status,
+                    entry.id,
+                );
+            }
+            DiffStatus::Changed => {}
+        }
+    }
+}

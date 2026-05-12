@@ -253,8 +253,8 @@ fn metadata_values<T: Serialize>(
     }
     Some(vec![ChangedValue {
         field: key.to_string(),
-        before: serde_json::to_value(before).unwrap_or(Value::Null),
-        after: serde_json::to_value(after).unwrap_or(Value::Null),
+        before: serde_json::to_value(before).expect("schema types always serialize"),
+        after: serde_json::to_value(after).expect("schema types always serialize"),
     }])
 }
 
@@ -367,8 +367,8 @@ fn task_changes(
                 if verbose && TASK_VERBOSE_WHITELIST.contains(&name) {
                     values.push(ChangedValue {
                         field: name.to_string(),
-                        before: serde_json::to_value(&base.$field).unwrap_or(Value::Null),
-                        after: serde_json::to_value(&current.$field).unwrap_or(Value::Null),
+                        before: serde_json::to_value(&base.$field).expect("schema types always serialize"),
+                        after: serde_json::to_value(&current.$field).expect("schema types always serialize"),
                     });
                 }
             })*
