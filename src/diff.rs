@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use serde::Serialize;
+use serde_json::Value;
 
 use crate::schema::{Bundle, Linear, Phase, Task, TaskId, Tasks};
 
@@ -12,20 +13,31 @@ pub enum DiffStatus {
     Changed,
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
+pub struct ChangedValue {
+    pub field: String,
+    pub before: Value,
+    pub after: Value,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
 pub struct TaskDiff {
     pub id: TaskId,
     pub status: DiffStatus,
     pub changed_fields: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub values: Option<Vec<ChangedValue>>,
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct MetadataDiff {
     pub key: String,
     pub status: DiffStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub values: Option<Vec<ChangedValue>>,
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct TomlDiff {
     pub metadata: Vec<MetadataDiff>,
     pub tasks: Vec<TaskDiff>,
@@ -37,14 +49,43 @@ impl TomlDiff {
     }
 }
 
-pub fn diff_toml(base: &Tasks, current: &Tasks) -> TomlDiff {
+// Verbose-mode whitelists. Members are surfaced via `values: [{field, before, after}]`
+// on Changed entries when `--verbose` is on. Renaming or removing a member is a
+// breaking change to the agent contract — bump `schema_version` first.
+const TASK_VERBOSE_WHITELIST: &[&str] = &[
+    "phase",
+    "bundle",
+    "status",
+    "title",
+    "scores",
+    "markers",
+    "depends_on",
+    "linear_id",
+    "assignee",
+    "shipped_in",
+    "created_at",
+    "started_at",
+    "done_at",
+    "scored_at",
+    "blocked_reason",
+];
+const METADATA_VERBOSE_WHITELIST: &[&str] = &[
+    "schema_version",
+    "project",
+    "default_branch",
+    "focus",
+    "linear.team_key",
+    "linear.workspace_url",
+];
+
+pub fn diff_toml(base: &Tasks, current: &Tasks, verbose: bool) -> TomlDiff {
     TomlDiff {
-        metadata: diff_metadata(base, current),
-        tasks: diff_tasks(base, current),
+        metadata: diff_metadata(base, current, verbose),
+        tasks: diff_tasks(base, current, verbose),
     }
 }
 
-pub fn diff_tasks(base: &Tasks, current: &Tasks) -> Vec<TaskDiff> {
+pub fn diff_tasks(base: &Tasks, current: &Tasks, verbose: bool) -> Vec<TaskDiff> {
     let current_by_id = task_map(current);
     let mut seen = HashSet::new();
     let mut diff = Vec::new();
@@ -55,12 +96,13 @@ pub fn diff_tasks(base: &Tasks, current: &Tasks) -> Vec<TaskDiff> {
 
         match current_by_id.get(&key) {
             Some(current_task) => {
-                let changed_fields = changed_fields(task, current_task);
+                let (changed_fields, values) = task_changes(task, current_task, verbose);
                 if !changed_fields.is_empty() {
                     diff.push(TaskDiff {
                         id: task.id.clone(),
                         status: DiffStatus::Changed,
                         changed_fields,
+                        values,
                     });
                 }
             }
@@ -68,6 +110,7 @@ pub fn diff_tasks(base: &Tasks, current: &Tasks) -> Vec<TaskDiff> {
                 id: task.id.clone(),
                 status: DiffStatus::Removed,
                 changed_fields: Vec::new(),
+                values: None,
             }),
         }
     }
@@ -81,41 +124,62 @@ pub fn diff_tasks(base: &Tasks, current: &Tasks) -> Vec<TaskDiff> {
             id: task.id.clone(),
             status: DiffStatus::Added,
             changed_fields: Vec::new(),
+            values: None,
         });
     }
 
     diff
 }
 
-pub fn diff_metadata(base: &Tasks, current: &Tasks) -> Vec<MetadataDiff> {
+pub fn diff_metadata(base: &Tasks, current: &Tasks, verbose: bool) -> Vec<MetadataDiff> {
     let mut diff = Vec::new();
 
     if base.schema_version != current.schema_version {
-        diff.push(scalar_change("schema_version"));
+        diff.push(scalar_change(
+            "schema_version",
+            verbose,
+            &base.schema_version,
+            &current.schema_version,
+        ));
     }
     if base.project != current.project {
-        diff.push(scalar_change("project"));
+        diff.push(scalar_change(
+            "project",
+            verbose,
+            &base.project,
+            &current.project,
+        ));
     }
     if base.default_branch != current.default_branch {
-        diff.push(scalar_change("default_branch"));
+        diff.push(scalar_change(
+            "default_branch",
+            verbose,
+            &base.default_branch,
+            &current.default_branch,
+        ));
     }
-    diff.extend(diff_optional(
+    if let Some(entry) = diff_optional(
         "focus",
         base.focus.as_ref(),
         current.focus.as_ref(),
-    ));
+        verbose,
+    ) {
+        diff.push(entry);
+    }
     match (&base.linear, &current.linear) {
         (None, None) => {}
         (None, Some(_)) => diff.push(MetadataDiff {
             key: "linear".to_string(),
             status: DiffStatus::Added,
+            values: None,
         }),
         (Some(_), None) => diff.push(MetadataDiff {
             key: "linear".to_string(),
             status: DiffStatus::Removed,
+            values: None,
         }),
         (Some(base_linear), Some(current_linear)) => {
-            diff.extend(diff_linear(base_linear, current_linear));
+            diff.extend(diff_linear(base_linear, current_linear, verbose));
         }
     }
 
@@ -125,7 +189,7 @@ pub fn diff_metadata(base: &Tasks, current: &Tasks) -> Vec<MetadataDiff> {
     diff
 }
 
-pub fn format_diff(diff: &TomlDiff) -> String {
+pub fn format_diff(diff: &TomlDiff, verbose: bool) -> String {
     if diff.is_empty() {
         return "no changes".to_string();
     }
@@ -137,6 +201,9 @@ pub fn format_diff(diff: &TomlDiff) -> String {
             DiffStatus::Removed => format!("removed {}", entry.key),
             DiffStatus::Changed => format!("changed {}", entry.key),
         });
+        if verbose && let Some(values) = &entry.values {
+            append_value_lines(&mut lines, values);
+        }
     }
     for entry in &diff.tasks {
         lines.push(match entry.status {
@@ -150,46 +217,87 @@ pub fn format_diff(diff: &TomlDiff) -> String {
                 )
             }
         });
+        if verbose && let Some(values) = &entry.values {
+            append_value_lines(&mut lines, values);
+        }
     }
 
     lines.join("\n")
 }
 
-fn scalar_change(key: &str) -> MetadataDiff {
-    MetadataDiff {
-        key: key.to_string(),
-        status: DiffStatus::Changed,
+fn append_value_lines(lines: &mut Vec<String>, values: &[ChangedValue]) {
+    for value in values {
+        lines.push(format!(
+            "  {}: {} → {}",
+            value.field, value.before, value.after
+        ));
     }
 }
 
-fn diff_optional<T: PartialEq>(
+fn scalar_change<T: Serialize>(key: &str, verbose: bool, before: &T, after: &T) -> MetadataDiff {
+    MetadataDiff {
+        key: key.to_string(),
+        status: DiffStatus::Changed,
+        values: metadata_values(key, verbose, before, after),
+    }
+}
+
+fn metadata_values<T: Serialize>(
+    key: &str,
+    verbose: bool,
+    before: &T,
+    after: &T,
+) -> Option<Vec<ChangedValue>> {
+    if !verbose || !METADATA_VERBOSE_WHITELIST.contains(&key) {
+        return None;
+    }
+    Some(vec![ChangedValue {
+        field: key.to_string(),
+        before: serde_json::to_value(before).unwrap_or(Value::Null),
+        after: serde_json::to_value(after).unwrap_or(Value::Null),
+    }])
+}
+
+fn diff_optional<T: PartialEq + Serialize>(
     key: &str,
     base: Option<&T>,
     current: Option<&T>,
+    verbose: bool,
 ) -> Option<MetadataDiff> {
     match (base, current) {
         (None, None) => None,
         (None, Some(_)) => Some(MetadataDiff {
             key: key.to_string(),
             status: DiffStatus::Added,
+            values: None,
         }),
         (Some(_), None) => Some(MetadataDiff {
             key: key.to_string(),
             status: DiffStatus::Removed,
+            values: None,
         }),
-        (Some(base_value), Some(current_value)) => {
-            (base_value != current_value).then(|| scalar_change(key))
-        }
+        (Some(base_value), Some(current_value)) => (base_value != current_value)
+            .then(|| scalar_change(key, verbose, base_value, current_value)),
     }
 }
 
-fn diff_linear(base: &Linear, current: &Linear) -> Vec<MetadataDiff> {
+fn diff_linear(base: &Linear, current: &Linear, verbose: bool) -> Vec<MetadataDiff> {
     let mut diff = Vec::new();
     if base.team_key != current.team_key {
-        diff.push(scalar_change("linear.team_key"));
+        diff.push(scalar_change(
+            "linear.team_key",
+            verbose,
+            &base.team_key,
+            &current.team_key,
+        ));
     }
     if base.workspace_url != current.workspace_url {
-        diff.push(scalar_change("linear.workspace_url"));
+        diff.push(scalar_change(
+            "linear.workspace_url",
+            verbose,
+            &base.workspace_url,
+            &current.workspace_url,
+        ));
     }
     diff
 }
@@ -211,15 +319,18 @@ fn map_diff<V: MapEntry>(
                 (base_value != current_value).then(|| MetadataDiff {
                     key: format!("{namespace}.{key}"),
                     status: DiffStatus::Changed,
+                    values: None,
                 })
             }
             (None, Some(_)) => Some(MetadataDiff {
                 key: format!("{namespace}.{key}"),
                 status: DiffStatus::Added,
+                values: None,
             }),
             (Some(_), None) => Some(MetadataDiff {
                 key: format!("{namespace}.{key}"),
                 status: DiffStatus::Removed,
+                values: None,
             }),
             (None, None) => None,
         })
@@ -237,15 +348,29 @@ fn task_map(tasks: &Tasks) -> BTreeMap<String, &Task> {
 }
 
 // Single-point-of-edit for per-field diff granularity. When `schema::Task` gains
-// a field, add it here (and to `export::ExportedTask`) — otherwise `rmap diff`
-// silently misses the field. `id` is intentionally absent (it's the map key).
-fn changed_fields(base: &Task, current: &Task) -> Vec<String> {
+// a field, add it here AND to `export::ExportedTask`. Also decide whether the
+// field belongs on `TASK_VERBOSE_WHITELIST` above — it's part of the agent
+// contract. `id` is intentionally absent (it's the map key).
+fn task_changes(
+    base: &Task,
+    current: &Task,
+    verbose: bool,
+) -> (Vec<String>, Option<Vec<ChangedValue>>) {
     let mut fields = Vec::new();
+    let mut values: Vec<ChangedValue> = Vec::new();
 
     macro_rules! diff_fields {
         ($($field:ident),* $(,)?) => {
             $(if base.$field != current.$field {
-                fields.push(stringify!($field).to_string());
+                let name = stringify!($field);
+                fields.push(name.to_string());
+                if verbose && TASK_VERBOSE_WHITELIST.contains(&name) {
+                    values.push(ChangedValue {
+                        field: name.to_string(),
+                        before: serde_json::to_value(&base.$field).unwrap_or(Value::Null),
+                        after: serde_json::to_value(&current.$field).unwrap_or(Value::Null),
+                    });
+                }
             })*
         };
     }
@@ -271,5 +396,10 @@ fn changed_fields(base: &Task, current: &Task) -> Vec<String> {
         cross_repo,
     );
 
-    fields
+    let values = if verbose && !values.is_empty() {
+        Some(values)
+    } else {
+        None
+    };
+    (fields, values)
 }

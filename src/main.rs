@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use anyhow::{Context, Result, bail};
-use clap::{Parser, Subcommand, ValueEnum};
-use rmap::delegate::format_delegate_prompt;
+use clap::{Parser, Subcommand};
+use rmap::delegate::{DelegateTarget, format_delegate_prompt};
 use rmap::diff::{diff_toml, format_diff};
 use rmap::doctor::DoctorReport;
 use rmap::export::{export_filtered_json_str, export_json_str, export_task_json_str};
@@ -90,6 +90,9 @@ enum Commands {
         against: Option<String>,
         #[arg(long)]
         json: bool,
+        /// Add per-field before/after values to Changed entries (whitelist-gated).
+        #[arg(long)]
+        verbose: bool,
         #[arg(long)]
         tasks_path: Option<PathBuf>,
     },
@@ -169,23 +172,6 @@ enum Commands {
         #[arg(long)]
         tasks_path: Option<PathBuf>,
     },
-}
-
-#[derive(Clone, Debug, ValueEnum)]
-enum DelegateTarget {
-    Claude,
-    Codex,
-    Cursor,
-}
-
-impl std::fmt::Display for DelegateTarget {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Claude => formatter.write_str("claude"),
-            Self::Codex => formatter.write_str("codex"),
-            Self::Cursor => formatter.write_str("cursor"),
-        }
-    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -306,6 +292,7 @@ fn run() -> Result<ExitCode> {
         Commands::Diff {
             against,
             json,
+            verbose,
             tasks_path,
         } => {
             let paths = resolve_paths(tasks_path, None, None)?;
@@ -316,18 +303,18 @@ fn run() -> Result<ExitCode> {
                 format!("{}:{}", against, repo_relative_tasks_path(&paths)?),
                 &base_input,
             )?;
-            let diff = diff_toml(&base, &current);
+            let diff = diff_toml(&base, &current, verbose);
 
             if json {
                 println!("{}", serde_json::to_string_pretty(&diff)?);
             } else {
-                println!("{}", format_diff(&diff));
+                println!("{}", format_diff(&diff, verbose));
             }
         }
         Commands::Delegate { id, to, tasks_path } => {
             let paths = resolve_paths(tasks_path, None, None)?;
             let tasks = validate_tasks_file(&paths.tasks_path)?;
-            let prompt = format_delegate_prompt(&tasks, &id, &to.to_string())
+            let prompt = format_delegate_prompt(&tasks, &id, to)
                 .ok_or_else(|| anyhow::anyhow!("task {id} not found"))?;
 
             print!("{prompt}");
@@ -478,10 +465,7 @@ fn add_dependency(
         (Some("on"), None) => {
             bail!("missing target task id after `on` (use `rmap depend <id> on <other-id>`)")
         }
-        (Some(kw), _) => bail!(
-            "unexpected positional {:?} — expected `on <task_id>`",
-            kw
-        ),
+        (Some(kw), _) => bail!("unexpected positional {:?} — expected `on <task_id>`", kw),
         // Clap fills optional positionals in declaration order, so `on` is always
         // None before `other`; the wildcard is defensive against future clap changes.
         (None, _) => None,

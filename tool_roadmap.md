@@ -2,7 +2,7 @@
 
 Single Rust binary that manages `roadmap/tasks.toml` in any project (Elixir, Rust, Python, Go, anything). Renders portable views: `ROADMAP.md` (agent-readable, dense), `data.json` (dashboard-consumable), optionally HTML (human-readable).
 
-**Status.** Phases 1–5, 8, 9, 10, and 11a shipped, plus the `mark` and `depend` mutators from 11b: `validate`, `render`, `data.json` export, `status`/`mark`/`depend` mutators (status: single + bulk), `next` selector, `show`, `list`, `schema`, `diff`, `delegate`, `stale`, `doctor`, the `--check-render` pre-commit contract, schema completeness (`[focus]`, task timestamps, `blocked_reason`, cycle detection), and health surfaces (score-decay `?` suffix, stale-task surface, composite doctor report). Phases 6–7 and the remainder of 11b (mermaid render, delegate per-agent footer, `new`/`new --from-stdin`, `diff --verbose`) are planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
+**Status.** Phases 1–5, 8, 9, 10, and 11a shipped, plus the `mark`, `depend`, delegate per-agent footer, and `diff --verbose` polish from 11b: `validate`, `render`, `data.json` export, `status`/`mark`/`depend` mutators (status: single + bulk), `next` selector, `show`, `list`, `schema`, `diff` (with `--verbose` value-level before/after), `delegate` (with per-agent environment-notes footer), `stale`, `doctor`, the `--check-render` pre-commit contract, schema completeness (`[focus]`, task timestamps, `blocked_reason`, cycle detection), and health surfaces (score-decay `?` suffix, stale-task surface, composite doctor report). Phases 6–7 and the remainder of 11b (mermaid render, `new`/`new --from-stdin`) are planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
 
 ## Why Rust
 
@@ -136,9 +136,9 @@ rmap watch --json                    # [P11b] event stream for agent consumers
 | 9 | **Cloud delegation surface** | ✅ | `delegate`, schema adds `assignee` + `acceptance_criteria` |
 | 10 | **Schema completeness** | ✅ | Timestamps, `blocked_reason`, `[focus]`, cycle detection |
 | 11a | **Health + cleanup** | ✅ | `doctor`, `stale`, score-decay rendering, bulk `status`, drop `schema --json` no-op |
-| 11b | **Polish** | 🔄 | `mark` ✅, `depend` ✅. Remaining: mermaid render, delegate per-agent footer, `new --from-stdin`, interactive `new`, `diff --verbose` |
+| 11b | **Polish** | 🔄 | `mark` ✅, `depend` ✅, delegate per-agent footer ✅, `diff --verbose` ✅. Remaining: mermaid render, `new --from-stdin`, interactive `new` |
 
-**Sequencing rationale.** Phases 9, 10, 11a, and the `mark`/`depend` slice of 11b are shipped: downstream agents have a paste-ready delegation prompt, richer task lifecycle data (timestamps + blocked reasons), focus-phase signaling for `rmap next`, dependency cycle protection, a composite health surface (`doctor`) that aggregates validate findings, stale, score-decay, and drift, and a complete mutator surface (`status`, `mark`, `depend`) so agents can drive their own state without TOML editing. Remaining 11b polish is the human-render/IO surface (mermaid, interactive `new`, `new --from-stdin`, `diff --verbose`, delegate per-agent footer) — sequence by D/B/U.
+**Sequencing rationale.** Phases 9, 10, 11a, and the `mark`/`depend`/delegate-footer/`diff --verbose` slice of 11b are shipped: downstream agents have a paste-ready delegation prompt with environment-specific reachability notes, richer task lifecycle data (timestamps + blocked reasons), focus-phase signaling for `rmap next`, dependency cycle protection, a composite health surface (`doctor`) that aggregates validate findings, stale, score-decay, and drift, a complete mutator surface (`status`, `mark`, `depend`) so agents can drive their own state without TOML editing, and value-level diff signal (`diff --verbose`) for pre-commit hooks and PR review. Remaining 11b polish is the human-render/IO surface (mermaid, interactive `new`, `new --from-stdin`) — sequence by D/B/U.
 
 **Cross-cutting invariant (Phases 8–9).** The `--json` outputs of `show`, `list`, `next`, `schema`, and `diff` are the agent contract. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.
 
@@ -150,8 +150,6 @@ rmap watch --json                    # [P11b] event stream for agent consumers
 
 **Phase 11b follow-ups (carried forward + discovered during Phase 11a review).**
 
-- `rmap delegate` instructions footer is currently hardcoded. Parameterize per target: Cursor can run the harness pre-PR, Codex cannot reach hex.pm, Claude is local. Source-of-truth lives in `cloud-delegation:cloud-agent-environments` skill; mirror the per-agent reachability into the delegate prompt template.
-- Consider surfacing diff value-level before/after for high-signal fields (`status`, `scores`) via `rmap diff --verbose` — currently only the field name is reported. Keep field-key set as the default to avoid noise in pre-commit hook output.
 - `rmap doctor` could grow `--threshold-days <N>` to override the hardcoded 30-day stale/decay cutoff. Defer until a real consumer asks; the constants live in `src/doctor.rs` (`STALE_THRESHOLD_DAYS`, `DECAY_THRESHOLD_DAYS`) and `src/scoring.rs::score_decay_suffix`.
 - `rmap doctor --json`'s `DoctorFinding` enum is tagged with `kind: "..."` (snake_case). When extending, follow the additive rule — new variants are fine; renaming a `kind` value would break agent consumers and requires a `schema_version` bump.
 - `today_iso()` reads `RMAP_TODAY` for test determinism, then falls back to system clock. Document this in CLAUDE.md so future tests don't reinvent date injection.

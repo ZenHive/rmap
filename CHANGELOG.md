@@ -4,6 +4,19 @@ Completed roadmap tasks. For upcoming work, see [tool_roadmap.md](tool_roadmap.m
 
 ---
 
+## Phase 11b (continued): delegate per-agent footer + diff verbose
+
+**What was done:**
+- `rmap delegate` now emits a per-agent `## Environment notes` section between acceptance criteria and the standard instructions. The bullets are target-specific (Codex: no external HTTP / no project runtime; Cursor: full network, run-the-harness-green pre-PR, asdf-shim gotcha; Claude: local execution, report actual output). Content mirrors `~/.claude/includes/cloud-agent-environments.md` — that skill is the source of truth and is kept in sync by hand.
+- `DelegateTarget` moved from `main.rs` into `delegate.rs` and `format_delegate_prompt` now takes the enum, not `&str`. Closes the silent-no-op risk if a new target variant is added: matching on the enum forces every branch to be considered.
+- `rmap diff --verbose` adds per-field before/after on whitelisted Changed entries. Task whitelist excludes `body`, `acceptance_criteria`, and `cross_repo` (long / multi-table content would dominate the output); metadata whitelist excludes `phases.*` and `bundles.*` (already key-granular). Human output indents the before→after lines under each Changed entry; JSON output gains a `values: [{field, before, after}]` array per Changed entry. Added/Removed entries leave `values` as `None` (skipped on serialize).
+- Without `--verbose`, `rmap diff` output is byte-identical to prior releases — agent contract additivity is preserved.
+- New invariants in `CLAUDE.md`: whitelist sync discipline (when extending `Task`, decide on whitelist membership), diff verbose additivity (no `values` key when verbose is off), delegate footer manual-sync rule (skill include is source of truth).
+
+**Deferred to Phase 11b's remaining polish:** mermaid render, `rmap new --from-stdin`, interactive `rmap new`.
+
+---
+
 ## Phase 11b (partial): mark + depend mutators
 
 **What was done:**

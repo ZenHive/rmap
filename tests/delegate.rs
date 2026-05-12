@@ -1,4 +1,4 @@
-use rmap::delegate::format_delegate_prompt;
+use rmap::delegate::{DelegateTarget, format_delegate_prompt};
 use rmap::validate::validate_tasks_str;
 
 const TASKS: &str = r#"
@@ -85,7 +85,7 @@ fn formats_full_delegate_prompt_for_agent_target() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
     // Delegate to a target that differs from the stored assignee to exercise
     // the override-surfacing path.
-    let prompt = format_delegate_prompt(&tasks, "75", "claude").expect("task 75");
+    let prompt = format_delegate_prompt(&tasks, "75", DelegateTarget::Claude).expect("task 75");
 
     assert!(
         prompt.contains("# Task 75: parseOrder field map"),
@@ -119,6 +119,7 @@ fn formats_full_delegate_prompt_for_agent_target() {
         prompt.contains("- [ ] parseOrder accepts spot and futures payloads"),
         "{prompt}"
     );
+    assert!(prompt.contains("## Environment notes"), "{prompt}");
     assert!(
         prompt.contains("Inspect the repo before editing."),
         "{prompt}"
@@ -128,7 +129,7 @@ fn formats_full_delegate_prompt_for_agent_target() {
 #[test]
 fn omits_stored_assignee_when_target_matches() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
-    let prompt = format_delegate_prompt(&tasks, "75", "codex").expect("task 75");
+    let prompt = format_delegate_prompt(&tasks, "75", DelegateTarget::Codex).expect("task 75");
 
     assert!(prompt.contains("Target agent: codex"), "{prompt}");
     assert!(!prompt.contains("Stored assignee:"), "{prompt}");
@@ -137,7 +138,7 @@ fn omits_stored_assignee_when_target_matches() {
 #[test]
 fn formats_minimal_delegate_prompt_without_optional_sections() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");
-    let prompt = format_delegate_prompt(&tasks, "75", "claude").expect("task 75");
+    let prompt = format_delegate_prompt(&tasks, "75", DelegateTarget::Claude).expect("task 75");
 
     assert!(
         prompt.contains("# Task 75: parseOrder field map"),
@@ -153,5 +154,37 @@ fn formats_minimal_delegate_prompt_without_optional_sections() {
 fn missing_delegate_task_returns_none() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
 
-    assert!(format_delegate_prompt(&tasks, "999", "codex").is_none());
+    assert!(format_delegate_prompt(&tasks, "999", DelegateTarget::Codex).is_none());
+}
+
+#[test]
+fn codex_target_emits_codex_environment_footer() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");
+    let prompt = format_delegate_prompt(&tasks, "75", DelegateTarget::Codex).expect("task 75");
+
+    assert!(prompt.contains("## Environment notes"), "{prompt}");
+    assert!(prompt.contains("No external HTTP"), "{prompt}");
+    // Cursor-specific phrasing must NOT bleed into the Codex footer.
+    assert!(!prompt.contains("Run the full project harness"), "{prompt}");
+}
+
+#[test]
+fn cursor_target_emits_cursor_environment_footer() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");
+    let prompt = format_delegate_prompt(&tasks, "75", DelegateTarget::Cursor).expect("task 75");
+
+    assert!(prompt.contains("## Environment notes"), "{prompt}");
+    assert!(prompt.contains("Run the full project harness"), "{prompt}");
+    assert!(!prompt.contains("No external HTTP"), "{prompt}");
+}
+
+#[test]
+fn claude_target_emits_local_environment_footer() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");
+    let prompt = format_delegate_prompt(&tasks, "75", DelegateTarget::Claude).expect("task 75");
+
+    assert!(prompt.contains("## Environment notes"), "{prompt}");
+    assert!(prompt.contains("Local execution"), "{prompt}");
+    assert!(!prompt.contains("No external HTTP"), "{prompt}");
+    assert!(!prompt.contains("Run the full project harness"), "{prompt}");
 }

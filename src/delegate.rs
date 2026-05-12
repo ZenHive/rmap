@@ -1,5 +1,7 @@
 use std::fmt::Write;
 
+use clap::ValueEnum;
+
 use crate::query::find_task;
 use crate::schema::{Task, Tasks};
 use crate::scoring::{efficiency, format_efficiency};
@@ -15,18 +17,41 @@ macro_rules! line {
     };
 }
 
-pub fn format_delegate_prompt(tasks: &Tasks, id: &str, target: &str) -> Option<String> {
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum DelegateTarget {
+    Claude,
+    Codex,
+    Cursor,
+}
+
+impl DelegateTarget {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::Codex => "codex",
+            Self::Cursor => "cursor",
+        }
+    }
+}
+
+impl std::fmt::Display for DelegateTarget {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+pub fn format_delegate_prompt(tasks: &Tasks, id: &str, target: DelegateTarget) -> Option<String> {
     let task = find_task(tasks, id)?;
     Some(format_prompt(tasks, task, target))
 }
 
-fn format_prompt(tasks: &Tasks, task: &Task, target: &str) -> String {
+fn format_prompt(tasks: &Tasks, task: &Task, target: DelegateTarget) -> String {
     let mut prompt = String::new();
     line!(prompt, "# Task {}: {}", task.id, task.title);
     line!(prompt);
     line!(prompt, "Target agent: {target}");
     if let Some(assignee) = &task.assignee
-        && assignee != target
+        && assignee != target.as_str()
     {
         // Surface the override so the receiving agent knows the stored
         // routing intent differed from the explicit `--to`. When they match,
@@ -60,6 +85,7 @@ fn format_prompt(tasks: &Tasks, task: &Task, target: &str) -> String {
     append_cross_repo(&mut prompt, task);
     append_body(&mut prompt, task);
     append_acceptance_criteria(&mut prompt, task);
+    append_agent_notes(&mut prompt, target);
     append_instructions(&mut prompt);
 
     prompt
@@ -132,6 +158,62 @@ fn append_acceptance_criteria(prompt: &mut String, task: &Task) {
     line!(prompt, "## Acceptance criteria");
     for criterion in &task.acceptance_criteria {
         line!(prompt, "- [ ] {criterion}");
+    }
+}
+
+// Per-agent reachability notes. Source of truth is
+// `~/.claude/includes/cloud-agent-environments.md`; when that changes
+// (e.g. Codex sandbox gains/loses a capability), sync these literals by hand.
+fn append_agent_notes(prompt: &mut String, target: DelegateTarget) {
+    line!(prompt);
+    line!(prompt, "## Environment notes");
+    match target {
+        DelegateTarget::Codex => {
+            line!(
+                prompt,
+                "- No external HTTP: hex.pm, crates.io, npm, RFCs, vendor docs not reachable."
+            );
+            line!(
+                prompt,
+                "- No project runtime: cannot run language toolchains (e.g. mix, cargo run, pytest) against deps."
+            );
+            line!(
+                prompt,
+                "- Verify against shipped code and the context already in this prompt; flag uncertainty explicitly rather than guessing."
+            );
+            line!(
+                prompt,
+                "- The local reviewer runs the harness — list addressed acceptance criteria in the PR description."
+            );
+        }
+        DelegateTarget::Cursor => {
+            line!(
+                prompt,
+                "- Full network: hex.pm / crates.io / npm and general HTTP are reachable."
+            );
+            line!(
+                prompt,
+                "- Run the full project harness green before opening the PR (format, compile, lint, tests, type-check as applicable)."
+            );
+            line!(
+                prompt,
+                "- A red harness at PR-open is a push-back finding regardless of severity; the reviewer expects mechanical drift caught upstream of review."
+            );
+            line!(
+                prompt,
+                "- asdf shims may intercept toolchain binaries — set explicit PATHs if a runtime appears \"missing\" mid-session."
+            );
+        }
+        DelegateTarget::Claude => {
+            line!(
+                prompt,
+                "- Local execution: full toolchain, internet, and project state available."
+            );
+            line!(
+                prompt,
+                "- Run verification commands and report the actual output, not a summary."
+            );
+        }
     }
 }
 
