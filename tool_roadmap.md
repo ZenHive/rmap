@@ -2,7 +2,7 @@
 
 Single Rust binary that manages `roadmap/tasks.toml` in any project (Elixir, Rust, Python, Go, anything). Renders portable views: `ROADMAP.md` (agent-readable, dense), `data.json` (dashboard-consumable), optionally HTML (human-readable).
 
-**Status.** Phases 1–5, 8, 9, 10, and 11a shipped, plus the `mark`, `depend`, delegate per-agent footer, and `diff --verbose` polish from 11b: `validate`, `render`, `data.json` export, `status`/`mark`/`depend` mutators (status: single + bulk), `next` selector, `show`, `list`, `schema`, `diff` (with `--verbose` value-level before/after), `delegate` (with per-agent environment-notes footer), `stale`, `doctor`, the `--check-render` pre-commit contract, schema completeness (`[focus]`, task timestamps, `blocked_reason`, cycle detection), and health surfaces (score-decay `?` suffix, stale-task surface, composite doctor report). Phases 6–7 and the remainder of 11b (mermaid render, `new`/`new --from-stdin`) are planned — see *Implementation phases* below. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
+**Status.** Phases 1–5, 8, 9, 10, and 11a shipped, plus the `mark`, `depend`, delegate per-agent footer, and `diff --verbose` polish from 11b: `validate`, `render`, `data.json` export, `status`/`mark`/`depend` mutators (status: single + bulk), `next` selector, `show`, `list`, `schema`, `diff` (with `--verbose` value-level before/after), `delegate` (with per-agent environment-notes footer), `stale`, `doctor`, the `--check-render` pre-commit contract, schema completeness (`[focus]`, task timestamps, `blocked_reason`, cycle detection), and health surfaces (score-decay `?` suffix, stale-task surface, composite doctor report). Phases 6–7 and the remainder of 11b (mermaid render, `new`/`new --from-stdin`) are planned — see *Implementation phases* below. The next active slice is **Phase 12: dogfood + agent skills** — exercise rmap end-to-end against `portfolio_dashboard` (converting `dashboard_roadmap.md` into a real `roadmap/tasks.toml`) and ship a `SKILLS.md` at the repo root so cloud agents can drive rmap without rediscovering the surface each session. The contract is **write-once, read by both agents and humans**: the same `tasks.toml` feeds an agent-queryable JSON view and a human-readable Markdown view.
 
 ## Why Rust
 
@@ -137,6 +137,8 @@ rmap watch --json                    # [P11b] event stream for agent consumers
 | 10 | **Schema completeness** | ✅ | Timestamps, `blocked_reason`, `[focus]`, cycle detection |
 | 11a | **Health + cleanup** | ✅ | `doctor`, `stale`, score-decay rendering, bulk `status`, drop `schema --json` no-op |
 | 11b | **Polish** | 🔄 | `mark` ✅, `depend` ✅, delegate per-agent footer ✅, `diff --verbose` ✅. Remaining: mermaid render, `new --from-stdin`, interactive `new` |
+| 12a | **Dogfood: portfolio_dashboard** | ⬜ | Author `~/_DATA/code/portfolio_dashboard/roadmap/tasks.toml` from `dashboard_roadmap.md` content; `rmap validate`, `rmap render`, `rmap validate --check-render`, `rmap doctor`, `rmap diff` all behave as documented on a non-fixture project |
+| 12b | **SKILLS.md** | ⬜ | `SKILLS.md` in rmap repo root teaching agents how to drive rmap; every documented command verified by `tests/skills_smoke.rs` (exit-code gate) + top-of-file `Verified: <date>` marker for output-format claims |
 
 **Sequencing rationale.** Phases 9, 10, 11a, and the `mark`/`depend`/delegate-footer/`diff --verbose` slice of 11b are shipped: downstream agents have a paste-ready delegation prompt with environment-specific reachability notes, richer task lifecycle data (timestamps + blocked reasons), focus-phase signaling for `rmap next`, dependency cycle protection, a composite health surface (`doctor`) that aggregates validate findings, stale, score-decay, and drift, a complete mutator surface (`status`, `mark`, `depend`) so agents can drive their own state without TOML editing, and value-level diff signal (`diff --verbose`) for pre-commit hooks and PR review. Remaining 11b polish is the human-render/IO surface (mermaid, interactive `new`, `new --from-stdin`) — sequence by D/B/U.
 
@@ -153,6 +155,27 @@ rmap watch --json                    # [P11b] event stream for agent consumers
 - `rmap doctor` could grow `--threshold-days <N>` to override the hardcoded 30-day stale/decay cutoff. Defer until a real consumer asks; the constants live in `src/doctor.rs` (`STALE_THRESHOLD_DAYS`, `DECAY_THRESHOLD_DAYS`) and `src/scoring.rs::score_decay_suffix`.
 - `rmap doctor --json`'s `DoctorFinding` enum is tagged with `kind: "..."` (snake_case). When extending, follow the additive rule — new variants are fine; renaming a `kind` value would break agent consumers and requires a `schema_version` bump.
 - `today_iso()` reads `RMAP_TODAY` for test determinism, then falls back to system clock. Document this in CLAUDE.md so future tests don't reinvent date injection.
+
+## Phase 12: dogfood + agent skills
+
+**Phase 12a — Dogfood with `portfolio_dashboard`.** Exercise the toolchain end-to-end against a real consumer rather than only golden fixtures. The artifact lives in the consumer repo, not this one — per `AGENTS.md`, `roadmap/tasks.toml` is the input format in consumer projects, not this tool's own task tracker.
+
+- Output artifact: `~/_DATA/code/portfolio_dashboard/roadmap/tasks.toml` (canonical), `roadmap/ROADMAP.md`, `roadmap/data.json`.
+- Source material: existing `dashboard_roadmap.md` § "Implementation phases" + § "Sections" — convert each phase line and each implementation step into a `[[task]]` with realistic D/B/U scores. Set `default_branch`, declare phases, include a `[focus]` table so `rmap next` has something to select against.
+- Run `rmap delegate <id> --to claude` (and `--to codex`, `--to cursor`) on one task end-to-end to confirm the per-agent delegation prompt round-trips for a real consumer.
+- **Acceptance:** `rmap validate`, `rmap render`, `rmap validate --check-render` (exit 0), `rmap doctor`, `rmap diff` against the initial commit all behave as the existing docs and `--json` envelopes promise. Pipe `rmap doctor --json | jq -e '.findings | length == 0'` to verify the doctor surface is clean.
+- **Discoveries become Phase 12c.** Any surprise during the conversion — missing fields, awkward TOML shapes, unclear errors, render quirks — gets logged as a `tool_roadmap.md` follow-up task before being fixed. The dogfood IS the audit; don't in-line patch issues out of sight.
+
+**Phase 12b — `SKILLS.md` (agent-facing usage guide).** A task-driven guide for cloud agents (Claude, Codex, Cursor) driving rmap from inside any consumer repo. Not a man page — a "how do I X" reference.
+
+- Lives at `/Users/efries/_DATA/code/rmap/SKILLS.md` (repo root). Shipped alongside the binary; agents read it via the standard Read tool.
+- Must cover: picking the next task (`rmap next [--marker M] [--json]`), flipping status (`rmap status <id[,id]> <new>`), editing markers (`rmap mark <id> +cx -parallel`), adding deps (`rmap depend <id> on <id>`, plus `--cross-repo`), delegating (`rmap delegate <id> --to <agent>`), reading agent-contract surfaces (`show --json`, `list --json`, `next --json`, `schema --json`, `diff --json`, `doctor --json`), and the strict-vs-soft exit-code contract (`validate` = 1 on schema, `validate --check-render` = 2 on drift, `doctor` = always 0).
+- Each section ends with a verified command block: input fixture excerpt + the actual `rmap …` invocation + expected exit code + stdout shape.
+- **Verification — hybrid:**
+  - `tests/skills_smoke.rs` (new) parses `SKILLS.md`, extracts every fenced `bash` block whose first line starts with `rmap `, runs it against a small fixture `tasks.toml` at `tests/skills_fixture/`, and asserts the exit code declared in the block. Catches the high-value drift class — command removed, renamed, or now exits non-zero. Runs in CI via `cargo test`.
+  - Top-of-file `Verified: YYYY-MM-DD with rmap <git-sha>` marker in `SKILLS.md` covers output-format claims that the smoke test can't assert. Re-verify on each phase bump.
+
+**Phase 12c — Discoveries (placeholder).** Populated during 12a execution. Examples of what would land here: a render edge case in `dashboard_roadmap.md`'s phase layout, a missing flag the dogfood needed, a confusing error message worth rewording. Empty today; the dogfood pass fills it.
 
 ## HTML render design (Phase 6)
 
