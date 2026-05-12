@@ -64,6 +64,7 @@ pub struct Task {
     pub depends_on: Vec<TaskId>,
     pub linear_id: Option<String>,
     pub assignee: Option<String>,
+    pub module: Option<String>,
     #[serde(default)]
     pub acceptance_criteria: Vec<String>,
     pub shipped_in: Option<String>,

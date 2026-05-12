@@ -63,6 +63,7 @@ mod tests {
             depends_on: vec![],
             linear_id: None,
             assignee: None,
+            module: None,
             acceptance_criteria: vec![],
             shipped_in: None,
             body: None,

@@ -216,13 +216,19 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
     for task in tasks.task.iter().filter(|task| task.phase == phase) {
         let eff = efficiency(task);
         let decay = score_decay_suffix(task, today);
+        let module_segment = task
+            .module
+            .as_deref()
+            .map(|m| format!("*{m}* · "))
+            .unwrap_or_default();
         writeln!(
             table,
-            "| Task {}{} | {} | 🎁 **{}** · {} [D:{}/B:{}/U:{} → Eff:{}{}] {} |",
+            "| Task {}{} | {} | 🎁 **{}** · {}{} [D:{}/B:{}/U:{} → Eff:{}{}] {} |",
             task.id,
             marker_suffix(task),
             status_symbol(&task.status),
             task.bundle,
+            module_segment,
             task.title,
             task.scores.d,
             task.scores.b,
