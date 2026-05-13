@@ -812,6 +812,158 @@ fn next_command_unknown_bundle_returns_null_json() {
     assert_eq!(value, serde_json::Value::Null);
 }
 
+const NEXT_COUNT_TASKS: &str = r#"
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase 1"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Low Eff"
+scores = { d = 5, b = 5, u = 5 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "High Eff"
+scores = { d = 2, b = 10, u = 10 }
+
+[[task]]
+id = 3
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Mid Eff"
+scores = { d = 3, b = 8, u = 8 }
+"#;
+
+#[test]
+fn next_command_count_one_default_emits_bare_object_json() {
+    let path = write_temp_tasks("next_count.toml", NEXT_COUNT_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --json");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let trimmed = stdout.trim_start();
+    assert!(
+        trimmed.starts_with('{'),
+        "expected bare object, got: {stdout}"
+    );
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).expect("valid json");
+    assert_eq!(value["id"], 2);
+}
+
+#[test]
+fn next_command_count_three_json_emits_eff_ranked_array() {
+    let path = write_temp_tasks("next_count.toml", NEXT_COUNT_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--count")
+        .arg("3")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --count 3 --json");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).expect("valid json");
+    let array = value.as_array().expect("expected array");
+    assert_eq!(array.len(), 3);
+    assert_eq!(array[0]["id"], 2);
+    assert_eq!(array[1]["id"], 3);
+    assert_eq!(array[2]["id"], 1);
+}
+
+#[test]
+fn next_command_count_exceeds_eligible_returns_min_without_error() {
+    let path = write_temp_tasks("next_count.toml", NEXT_COUNT_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--count")
+        .arg("100")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --count 100 --json");
+
+    assert!(output.status.success());
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).expect("valid json");
+    assert_eq!(value.as_array().expect("array").len(), 3);
+}
+
+#[test]
+fn next_command_count_three_human_prints_one_line_per_task() {
+    let path = write_temp_tasks("next_count.toml", NEXT_COUNT_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--count")
+        .arg("3")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --count 3");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.trim_end().split('\n').collect();
+    assert_eq!(lines.len(), 3);
+    assert!(lines[0].starts_with("Task 2 ["), "{}", lines[0]);
+    assert!(lines[1].starts_with("Task 3 ["), "{}", lines[1]);
+    assert!(lines[2].starts_with("Task 1 ["), "{}", lines[2]);
+}
+
+#[test]
+fn next_command_count_zero_is_rejected_at_parse_time() {
+    let path = write_temp_tasks("next_count.toml", NEXT_COUNT_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--count")
+        .arg("0")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --count 0");
+
+    assert!(!output.status.success(), "expected non-zero exit");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("count") || stderr.to_lowercase().contains("usage"),
+        "expected clap error mentioning count or usage, got: {stderr}"
+    );
+}
+
 #[test]
 fn list_command_unknown_bundle_returns_empty_envelope() {
     let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);

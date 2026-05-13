@@ -15,6 +15,18 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 13 — Skills-parity polish
 
+### Phase 13 Task 15: `rmap next --count N` returns top-N candidates (batch_selection bundle)
+
+**What was done:**
+- New `--count N` clap arg on `rmap next` (`NonZeroUsize`, default `1`). `--count 0` is rejected at clap parse time — the `NonZeroUsize` guard is part of the agent contract documented in `CLAUDE.md`.
+- `src/next.rs` gained `next_tasks(tasks, filter, count) -> Vec<&Task>`: focus-phase candidates fill first (Eff desc, stable on ties to preserve TOML declaration order), and the selector falls through to non-focus candidates only when the focus pool has fewer than `count` entries. `next_task` is now a thin wrapper over `next_tasks(..., 1).into_iter().next()`; the old fold-based `highest_efficiency` was replaced with a stable `sort_by_eff_desc` so multi-count and single-count share one ranking rule. Behavior on count == 1 is preserved bit-for-bit (stable descending sort returns the same first-encountered task on Eff ties as the previous `fold` with `>=`).
+- `src/export.rs` gained `export_tasks_array_json_str(&[&Task])` — emits a bare JSON array of `ExportedTask`, NOT the `ExportedTasks` envelope used by `rmap render` / `list --json` (no `schema_version` / `project` / `phases` / `bundles` wrapper). Documented invariant: array-branch shape is part of the agent contract.
+- `src/main.rs` routes `count == 1` through the old `export_task_json_str` path (bare object or `null` — byte-identical to pre-Task-15 releases for the default invocation) and `count > 1` through the new array helper. Human output prints one line per task in both cases (zero lines when nothing eligible).
+- New CLAUDE.md "Load-bearing invariants" block locks the JSON shape split: `--count 1` bare object/null, `--count >1` array (possibly empty). Renaming the flag, changing the default, dropping the `NonZeroUsize` guard, or flipping `--count 1` to always emit an array is a `schema_version` bump.
+- SKILLS.md gained a `rmap next --count 3 --bundle alpha --json` fenced example; `skills_smoke.rs` locks the exit code.
+- No `schema_version` bump — additive flag, default-invocation contract preserved.
+- Tests: five new in `tests/cli.rs` (`next_command_count_one_default_emits_bare_object_json`, `next_command_count_three_json_emits_eff_ranked_array`, `next_command_count_exceeds_eligible_returns_min_without_error`, `next_command_count_three_human_prints_one_line_per_task`, `next_command_count_zero_is_rejected_at_parse_time`) and four new in `tests/next.rs` (singleton-matches-`next_task`, count==3 Eff-ranked, exceeds-eligible-returns-min, focus-phase-fills-before-other-phases).
+
 ### Phase 13 Task 14: `rmap list/next --bundle <name>` filter (batch_selection bundle)
 
 **What was done:**

@@ -1,3 +1,4 @@
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -7,12 +8,14 @@ use rmap::bundles::{BundleFilter, bundles_json, format_bundles_human, list_bundl
 use rmap::delegate::{DelegateTarget, format_delegate_prompt};
 use rmap::diff::{diff_toml, format_diff};
 use rmap::doctor::DoctorReport;
-use rmap::export::{export_filtered_json_str, export_json_str, export_task_json_str};
+use rmap::export::{
+    export_filtered_json_str, export_json_str, export_task_json_str, export_tasks_array_json_str,
+};
 use rmap::mutate::{
     CrossRepoSpec, MarkerOp, NewTaskFields, add_dependency_str, add_task_str, update_markers_str,
     update_status_many_str,
 };
-use rmap::next::{format_next_task, next_task};
+use rmap::next::{format_next_task, next_tasks};
 use rmap::paths::{ResolvedPaths, resolve_paths};
 use rmap::query::{TaskFilter, find_task, format_task, format_task_row, list_tasks};
 use rmap::render::render_roadmap_str;
@@ -65,6 +68,8 @@ enum Commands {
         marker: Option<String>,
         #[arg(long)]
         bundle: Option<String>,
+        #[arg(long, default_value = "1")]
+        count: NonZeroUsize,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -282,6 +287,7 @@ fn run() -> Result<ExitCode> {
         Commands::Next {
             marker,
             bundle,
+            count,
             json,
             tasks_path,
         } => {
@@ -294,11 +300,21 @@ fn run() -> Result<ExitCode> {
                 bundle,
             };
 
-            let task = next_task(&tasks, &filter);
-            if json {
-                println!("{}", export_task_json_str(task)?);
-            } else if let Some(task) = task {
-                println!("{}", format_next_task(task));
+            let count = count.get();
+            let selected = next_tasks(&tasks, &filter, count);
+            if count == 1 {
+                let first = selected.first().copied();
+                if json {
+                    println!("{}", export_task_json_str(first)?);
+                } else if let Some(task) = first {
+                    println!("{}", format_next_task(task));
+                }
+            } else if json {
+                println!("{}", export_tasks_array_json_str(&selected)?);
+            } else {
+                for task in &selected {
+                    println!("{}", format_next_task(task));
+                }
             }
         }
         Commands::Show {

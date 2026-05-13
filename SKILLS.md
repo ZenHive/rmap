@@ -79,6 +79,13 @@ rmap next --bundle alpha
 # exit: 0
 ```
 
+`--count N` returns the top-N candidates instead of just one. `--count 1` (the default) preserves the bare-object / `null` JSON shape; `--count >1` emits a JSON array (possibly empty). Human output prints one line per task.
+
+```bash
+rmap next --count 3 --bundle alpha --json
+# exit: 0
+```
+
 `rmap bundles` lists every declared `[bundles.*]` for selector discovery — agent-friendly replacement for `grep '^\[bundles\.' roadmap/tasks.toml`. Rows group under per-phase headers (focus phase first); each row shows `done/total` plus a status glyph (✅ all done · 🚧 in-flight · `all-blocked ⛔` · `pending:<n> (deps unmet) ⏸`) or the highest-Eff next task in the bundle. `--phase`, `--has-next`, and `--in-focus` compose with AND semantics.
 
 ```bash

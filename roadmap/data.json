@@ -404,7 +404,7 @@
       "id": 15,
       "phase": 13,
       "bundle": "batch_selection",
-      "status": "pending",
+      "status": "done",
       "title": "rmap next --count N returns top-N candidates",
       "scores": {
         "d": 3,

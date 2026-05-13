@@ -1,8 +1,10 @@
+use std::cmp::Ordering;
+
 use crate::query::{TaskFilter, matches_bundle, matches_marker};
 use crate::schema::{Task, Tasks};
 use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 
-/// Highest-Eff `pending` task whose `depends_on` are all `done`.
+/// Top `count` `pending` tasks whose `depends_on` are all `done`, Eff-ranked.
 ///
 /// Honors `filter.marker` and `filter.bundle` only. `filter.status` is ignored
 /// (next is implicitly `"pending"`-only) and `filter.phase` is ignored (focus
@@ -11,7 +13,16 @@ use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 /// phases — bundle filtering happens BEFORE the focus partition, so
 /// `--bundle X` restricts the candidate pool first and focus only ranks
 /// within the bundle.
-pub fn next_task<'a>(tasks: &'a Tasks, filter: &TaskFilter) -> Option<&'a Task> {
+///
+/// For `count > 1`, the result fills with focus-phase candidates first (Eff
+/// desc, stable on ties) and falls through to non-focus candidates only if
+/// the focus pool has fewer than `count` entries. Returns up to `count`
+/// tasks; fewer is fine when the eligible pool is smaller.
+pub fn next_tasks<'a>(tasks: &'a Tasks, filter: &TaskFilter, count: usize) -> Vec<&'a Task> {
+    if count == 0 {
+        return Vec::new();
+    }
+
     let candidates = tasks
         .task
         .iter()
@@ -21,22 +32,33 @@ pub fn next_task<'a>(tasks: &'a Tasks, filter: &TaskFilter) -> Option<&'a Task> 
         .filter(|task| is_unblocked(task, tasks));
 
     let focus_phase = tasks.focus.as_ref().map(|focus| focus.phase);
-    let (focus, other): (Vec<_>, Vec<_>) = candidates.partition(|task| match focus_phase {
+    let (mut focus, mut other): (Vec<_>, Vec<_>) = candidates.partition(|task| match focus_phase {
         Some(phase) => task.phase == phase,
         None => true,
     });
 
-    highest_efficiency(focus).or_else(|| highest_efficiency(other))
+    sort_by_eff_desc(&mut focus);
+    sort_by_eff_desc(&mut other);
+
+    let mut result: Vec<&Task> = focus.into_iter().take(count).collect();
+    if result.len() < count {
+        let needed = count - result.len();
+        result.extend(other.into_iter().take(needed));
+    }
+    result
 }
 
-fn highest_efficiency<'a, I>(tasks: I) -> Option<&'a Task>
-where
-    I: IntoIterator<Item = &'a Task>,
-{
-    tasks.into_iter().fold(None, |best, task| match best {
-        Some(best_task) if efficiency(best_task) >= efficiency(task) => Some(best_task),
-        _ => Some(task),
-    })
+/// Highest-Eff pending unblocked task — thin wrapper over [`next_tasks`].
+pub fn next_task<'a>(tasks: &'a Tasks, filter: &TaskFilter) -> Option<&'a Task> {
+    next_tasks(tasks, filter, 1).into_iter().next()
+}
+
+fn sort_by_eff_desc(tasks: &mut [&Task]) {
+    tasks.sort_by(|a, b| {
+        efficiency(b)
+            .partial_cmp(&efficiency(a))
+            .unwrap_or(Ordering::Equal)
+    });
 }
 
 pub fn format_next_task(task: &Task) -> String {

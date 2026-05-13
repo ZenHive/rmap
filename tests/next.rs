@@ -1,4 +1,4 @@
-use rmap::next::next_task;
+use rmap::next::{next_task, next_tasks};
 use rmap::query::TaskFilter;
 use rmap::validate::validate_tasks_str;
 
@@ -208,6 +208,152 @@ scores = { d = 6, b = 8, u = 8 }
     let task = next_task(&tasks, &marker_filter(None)).expect("next task");
 
     assert_eq!(task.id.to_string(), "50");
+}
+
+#[test]
+fn next_tasks_count_one_returns_singleton_matching_next_task() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
+
+    let selected = next_tasks(&tasks, &marker_filter(None), 1);
+    let single = next_task(&tasks, &marker_filter(None)).expect("next task");
+
+    assert_eq!(selected.len(), 1);
+    assert_eq!(selected[0].id, single.id);
+}
+
+#[test]
+fn next_tasks_count_three_returns_eff_ranked_array() {
+    let input = r#"
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase 1"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Low Eff"
+scores = { d = 5, b = 5, u = 5 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "High Eff"
+scores = { d = 2, b = 10, u = 10 }
+
+[[task]]
+id = 3
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Mid Eff"
+scores = { d = 3, b = 8, u = 8 }
+"#;
+
+    let tasks = validate_tasks_str("tasks.toml", input).expect("valid");
+
+    let selected = next_tasks(&tasks, &TaskFilter::default(), 3);
+
+    assert_eq!(selected.len(), 3);
+    assert_eq!(selected[0].id.to_string(), "2");
+    assert_eq!(selected[1].id.to_string(), "3");
+    assert_eq!(selected[2].id.to_string(), "1");
+}
+
+#[test]
+fn next_tasks_count_exceeds_eligible_returns_min() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
+
+    let selected = next_tasks(&tasks, &TaskFilter::default(), 100);
+
+    // Fixture has two pending unblocked tasks (75 and 78b); 83 depends on 75 (pending).
+    assert_eq!(selected.len(), 2);
+}
+
+#[test]
+fn next_tasks_focus_phase_fills_before_other_phases() {
+    let input = r#"
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[focus]
+phase = 13
+
+[phases.12]
+name = "Phase 12"
+order = 12
+status = "in_progress"
+
+[phases.13]
+name = "Phase 13"
+order = 13
+status = "in_progress"
+
+[bundles.twelve]
+phase = 12
+order = 1
+description = "Twelve"
+
+[bundles.thirteen]
+phase = 13
+order = 1
+description = "Thirteen"
+
+[[task]]
+id = 10
+phase = 12
+bundle = "twelve"
+status = "pending"
+title = "Higher Eff non-focus A"
+scores = { d = 2, b = 10, u = 10 }
+
+[[task]]
+id = 11
+phase = 12
+bundle = "twelve"
+status = "pending"
+title = "Higher Eff non-focus B"
+scores = { d = 2, b = 10, u = 9 }
+
+[[task]]
+id = 20
+phase = 13
+bundle = "thirteen"
+status = "pending"
+title = "Lower Eff focus A"
+scores = { d = 5, b = 6, u = 6 }
+
+[[task]]
+id = 21
+phase = 13
+bundle = "thirteen"
+status = "pending"
+title = "Lower Eff focus B"
+scores = { d = 6, b = 6, u = 6 }
+"#;
+
+    let tasks = validate_tasks_str("tasks.toml", input).expect("valid");
+
+    let selected = next_tasks(&tasks, &TaskFilter::default(), 3);
+
+    assert_eq!(selected.len(), 3);
+    assert_eq!(selected[0].id.to_string(), "20");
+    assert_eq!(selected[1].id.to_string(), "21");
+    assert_eq!(selected[2].id.to_string(), "10");
 }
 
 #[test]

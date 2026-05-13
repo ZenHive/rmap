@@ -73,6 +73,11 @@ pub fn export_task_json_str(task: Option<&Task>) -> serde_json::Result<String> {
     serde_json::to_string_pretty(&task.map(exported_task))
 }
 
+pub fn export_tasks_array_json_str(tasks: &[&Task]) -> serde_json::Result<String> {
+    let exported: Vec<ExportedTask<'_>> = tasks.iter().copied().map(exported_task).collect();
+    serde_json::to_string_pretty(&exported)
+}
+
 fn exported_tasks(tasks: &Tasks) -> ExportedTasks<'_> {
     exported_tasks_with(tasks, tasks.task.iter())
 }
