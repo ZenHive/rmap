@@ -52,6 +52,10 @@ out_of_scope = [
   "Do not refactor parseTicker",
   "Do not touch INE-200",
 ]
+files_to_modify = [
+  "src/parse_order.rs",
+  "tests/parse_order.rs",
+]
 cross_repo = [
   { repo = "ccxt_client", task_id = 42, linear_id = "INE-310", relation = "blocks" },
 ]
@@ -130,6 +134,10 @@ fn formats_full_delegate_prompt_for_agent_target() {
         !prompt.contains("- [ ] Do not refactor parseTicker"),
         "{prompt}"
     );
+    assert!(prompt.contains("## Files to modify"), "{prompt}");
+    assert!(prompt.contains("- src/parse_order.rs"), "{prompt}");
+    // Plain bullets, never checkbox form.
+    assert!(!prompt.contains("- [ ] src/parse_order.rs"), "{prompt}");
     assert!(prompt.contains("## Environment notes"), "{prompt}");
     assert!(
         prompt.contains("Inspect the repo before editing."),
@@ -160,6 +168,7 @@ fn formats_minimal_delegate_prompt_without_optional_sections() {
     assert!(!prompt.contains("Dependencies\n"), "{prompt}");
     assert!(!prompt.contains("Acceptance criteria\n"), "{prompt}");
     assert!(!prompt.contains("Out of scope\n"), "{prompt}");
+    assert!(!prompt.contains("Files to modify\n"), "{prompt}");
 }
 
 #[test]

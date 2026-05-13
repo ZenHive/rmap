@@ -42,6 +42,8 @@ struct ExportedTask<'a> {
     acceptance_criteria: &'a [String],
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
     out_of_scope: &'a [String],
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    files_to_modify: &'a [String],
     #[serde(skip_serializing_if = "Option::is_none")]
     shipped_in: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -109,6 +111,7 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
         branch: task.branch.as_ref(),
         acceptance_criteria: &task.acceptance_criteria,
         out_of_scope: &task.out_of_scope,
+        files_to_modify: &task.files_to_modify,
         shipped_in: task.shipped_in.as_ref(),
         body: task.body.as_ref(),
         created_at: task.created_at.as_ref(),

@@ -400,6 +400,7 @@ fn task_changes(
         branch,
         acceptance_criteria,
         out_of_scope,
+        files_to_modify,
         shipped_in,
         body,
         created_at,

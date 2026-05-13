@@ -128,7 +128,7 @@ acceptance_criteria = [
 id = 5
 phase = 13
 bundle = "delegate_parity"
-status = "pending"
+status = "done"
 title = "Task::files_to_modify field"
 scores = { d = 3, b = 5, u = 5 }
 scored_at = "2026-05-13"

@@ -67,6 +67,7 @@ mod tests {
             branch: None,
             acceptance_criteria: vec![],
             out_of_scope: vec![],
+            files_to_modify: vec![],
             shipped_in: None,
             body: None,
             created_at: None,

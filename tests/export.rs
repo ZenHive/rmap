@@ -32,6 +32,7 @@ linear_id = "INE-247"
 assignee = "codex"
 acceptance_criteria = ["Ticker fields are normalized"]
 out_of_scope = ["Do not touch parseOrder"]
+files_to_modify = ["src/parse_ticker.rs", "tests/parse_ticker.rs"]
 
 [[task]]
 id = 75
@@ -65,12 +66,21 @@ fn exports_validated_tasks_with_computed_efficiency() {
         value["task"][0]["out_of_scope"],
         serde_json::json!(["Do not touch parseOrder"])
     );
+    assert_eq!(
+        value["task"][0]["files_to_modify"],
+        serde_json::json!(["src/parse_ticker.rs", "tests/parse_ticker.rs"])
+    );
     assert_eq!(value["task"][1]["id"], 75);
     assert_eq!(value["task"][1]["eff"], 1.33);
     // out_of_scope skips serialization when empty.
     assert!(
         value["task"][1].get("out_of_scope").is_none(),
         "task 75 should omit out_of_scope when empty, got {value}"
+    );
+    // files_to_modify skips serialization when empty.
+    assert!(
+        value["task"][1].get("files_to_modify").is_none(),
+        "task 75 should omit files_to_modify when empty, got {value}"
     );
 }
 

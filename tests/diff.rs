@@ -287,6 +287,7 @@ status = "done"
 title = "parseOrder field map"
 scores = { d = 5, b = 9, u = 9 }
 out_of_scope = ["Do not refactor parseTicker"]
+files_to_modify = ["src/parse_order.rs"]
 body = "new body"
 "#;
 
@@ -302,7 +303,13 @@ fn verbose_emits_before_after_for_whitelisted_changed_fields() {
     assert_eq!(entry.status, DiffStatus::Changed);
     assert_eq!(
         entry.changed_fields,
-        ["status", "scores", "out_of_scope", "body"]
+        [
+            "status",
+            "scores",
+            "out_of_scope",
+            "files_to_modify",
+            "body"
+        ]
     );
 
     let values = entry
@@ -310,8 +317,9 @@ fn verbose_emits_before_after_for_whitelisted_changed_fields() {
         .as_ref()
         .expect("verbose mode populates values");
     let fields: Vec<&str> = values.iter().map(|v| v.field.as_str()).collect();
-    // Whitelist excludes `body` and `out_of_scope`; declaration order from
-    // `diff_fields!` is preserved for the remaining whitelisted entries.
+    // Whitelist excludes `body`, `out_of_scope`, and `files_to_modify`;
+    // declaration order from `diff_fields!` is preserved for the remaining
+    // whitelisted entries.
     assert_eq!(fields, ["status", "scores"]);
 
     assert_eq!(values[0].before, serde_json::json!("in_progress"));

@@ -71,6 +71,8 @@ pub struct Task {
     pub acceptance_criteria: Vec<String>,
     #[serde(default)]
     pub out_of_scope: Vec<String>,
+    #[serde(default)]
+    pub files_to_modify: Vec<String>,
     pub shipped_in: Option<String>,
     pub body: Option<String>,
     pub created_at: Option<String>,
