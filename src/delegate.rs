@@ -171,15 +171,15 @@ fn append_agent_notes(prompt: &mut String, target: DelegateTarget) {
         DelegateTarget::Codex => {
             line!(
                 prompt,
-                "- No external HTTP: hex.pm, crates.io, npm, RFCs, vendor docs not reachable."
+                "- Network access varies by environment config: default is offline. The \"Common dependencies\" preset reaches crates.io / npmjs / PyPI and ~70 dev domains; hex.pm and many vendor docs are NOT in that preset. Try before trusting; fall back to context already in this prompt when blocked."
             );
             line!(
                 prompt,
-                "- No project runtime: cannot run language toolchains (e.g. mix, cargo run, pytest) against deps."
+                "- Project toolchains are not guaranteed (e.g. Elixir/Erlang/mix are absent on the default image). Don't claim harness runs you couldn't actually execute."
             );
             line!(
                 prompt,
-                "- Verify against shipped code and the context already in this prompt; flag uncertainty explicitly rather than guessing."
+                "- Verify against shipped code and the context already in this prompt; flag uncertainty explicitly rather than guessing from training-data recall."
             );
             line!(
                 prompt,

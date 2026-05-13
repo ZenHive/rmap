@@ -163,7 +163,8 @@ fn codex_target_emits_codex_environment_footer() {
     let prompt = format_delegate_prompt(&tasks, "75", DelegateTarget::Codex).expect("task 75");
 
     assert!(prompt.contains("## Environment notes"), "{prompt}");
-    assert!(prompt.contains("No external HTTP"), "{prompt}");
+    assert!(prompt.contains("Network access varies"), "{prompt}");
+    assert!(prompt.contains("hex.pm"), "{prompt}");
     // Cursor-specific phrasing must NOT bleed into the Codex footer.
     assert!(!prompt.contains("Run the full project harness"), "{prompt}");
 }
@@ -175,7 +176,7 @@ fn cursor_target_emits_cursor_environment_footer() {
 
     assert!(prompt.contains("## Environment notes"), "{prompt}");
     assert!(prompt.contains("Run the full project harness"), "{prompt}");
-    assert!(!prompt.contains("No external HTTP"), "{prompt}");
+    assert!(!prompt.contains("Network access varies"), "{prompt}");
 }
 
 #[test]
@@ -185,6 +186,6 @@ fn claude_target_emits_local_environment_footer() {
 
     assert!(prompt.contains("## Environment notes"), "{prompt}");
     assert!(prompt.contains("Local execution"), "{prompt}");
-    assert!(!prompt.contains("No external HTTP"), "{prompt}");
+    assert!(!prompt.contains("Network access varies"), "{prompt}");
     assert!(!prompt.contains("Run the full project harness"), "{prompt}");
 }

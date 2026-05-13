@@ -4,6 +4,15 @@ Completed roadmap tasks. For upcoming work, see [tool_roadmap.md](tool_roadmap.m
 
 ---
 
+## Phase 11b (correction): Codex environment notes — distinguish hex.pm gap from a general no-HTTP claim
+
+**What was done:**
+- `delegate.rs::append_agent_notes` Codex footer rewritten. Old bullet "No external HTTP: hex.pm, crates.io, npm, RFCs, vendor docs not reachable." was Elixir-shaped and overstated reach for other ecosystems. Per OpenAI's Codex Cloud docs ([Agent internet access](https://developers.openai.com/codex/cloud/internet-access)), network is environment-configurable: default offline, but the "Common dependencies" preset reaches crates.io / npmjs / PyPI and ~70 dev domains. **hex.pm is NOT in the common preset** — and the default image has no Elixir/Erlang/mix, so Elixir/Erlang is the actual special case Codex hasn't fixed. New bullets call out: (a) reach varies by config and the common-preset coverage, (b) toolchain absence for Elixir/Erlang specifically, (c) try-before-trust + fall back to in-prompt context, (d) reviewer-runs-the-harness.
+- Test update in `tests/delegate.rs`: codex/cursor/claude footer assertions switched from the now-removed "No external HTTP" string to the stable "Network access varies" + "hex.pm" pair.
+- Source-of-truth follow-up: `~/.claude/includes/cloud-agent-environments.md` (user-scope, not in this repo) still carries the older Elixir-shaped "No external HTTP" framing and needs the same hedge applied by hand.
+
+---
+
 ## Phase 11b (close-out): mermaid render + `mark` canonical-position helper
 
 **What was done:**
