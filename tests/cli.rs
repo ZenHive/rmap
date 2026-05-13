@@ -701,6 +701,143 @@ fn list_command_filters_tasks_and_prints_json_envelope() {
 }
 
 #[test]
+fn list_command_filters_by_bundle() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("list")
+        .arg("--bundle")
+        .arg("orders")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap list --bundle");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Task 75"), "{stdout}");
+    assert!(!stdout.contains("Task 74"), "{stdout}");
+}
+
+#[test]
+fn next_command_filters_by_bundle() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--bundle")
+        .arg("orders")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --bundle");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Task 75"), "{stdout}");
+}
+
+#[test]
+fn next_command_composes_bundle_and_marker() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let matched = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--bundle")
+        .arg("orders")
+        .arg("--marker")
+        .arg("parallel")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --bundle orders --marker parallel");
+
+    assert!(
+        matched.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&matched.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&matched.stdout);
+    assert!(stdout.contains("Task 75"), "{stdout}");
+
+    // simple bundle has no parallel-marked pending task — composition should yield nothing.
+    let no_match = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--bundle")
+        .arg("simple")
+        .arg("--marker")
+        .arg("parallel")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --bundle simple --marker parallel");
+
+    assert!(
+        no_match.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&no_match.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&no_match.stdout), "");
+}
+
+#[test]
+fn next_command_unknown_bundle_returns_null_json() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--bundle")
+        .arg("nonexistent")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --bundle nonexistent --json");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    assert_eq!(value, serde_json::Value::Null);
+}
+
+#[test]
+fn list_command_unknown_bundle_returns_empty_envelope() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("list")
+        .arg("--bundle")
+        .arg("nonexistent")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap list --bundle nonexistent --json");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    assert_eq!(value["project"], "ccxt_extract");
+    assert_eq!(value["task"].as_array().expect("task array").len(), 0);
+}
+
+#[test]
 fn schema_json_command_emits_parseable_schema_for_tasks_file() {
     let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
         .arg("schema")

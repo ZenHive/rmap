@@ -63,6 +63,8 @@ enum Commands {
         #[arg(long)]
         marker: Option<String>,
         #[arg(long)]
+        bundle: Option<String>,
+        #[arg(long)]
         json: bool,
         #[arg(long)]
         tasks_path: Option<PathBuf>,
@@ -81,6 +83,8 @@ enum Commands {
         marker: Option<String>,
         #[arg(long)]
         phase: Option<u32>,
+        #[arg(long)]
+        bundle: Option<String>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -256,13 +260,20 @@ fn run() -> Result<ExitCode> {
         }
         Commands::Next {
             marker,
+            bundle,
             json,
             tasks_path,
         } => {
             let paths = resolve_paths(tasks_path, None, None)?;
             let tasks = validate_tasks_file(&paths.tasks_path)?;
+            let filter = TaskFilter {
+                status: None,
+                marker,
+                phase: None,
+                bundle,
+            };
 
-            let task = next_task(&tasks, marker.as_deref());
+            let task = next_task(&tasks, &filter);
             if json {
                 println!("{}", export_task_json_str(task)?);
             } else if let Some(task) = task {
@@ -289,6 +300,7 @@ fn run() -> Result<ExitCode> {
             status,
             marker,
             phase,
+            bundle,
             json,
             tasks_path,
         } => {
@@ -298,6 +310,7 @@ fn run() -> Result<ExitCode> {
                 status,
                 marker,
                 phase,
+                bundle,
             };
             let listed = list_tasks(&tasks, &filter);
 

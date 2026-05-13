@@ -15,6 +15,16 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 13 — Skills-parity polish
 
+### Phase 13 Task 14: `rmap list/next --bundle <name>` filter (batch_selection bundle)
+
+**What was done:**
+- New `--bundle <name>` clap arg on `rmap list` and `rmap next`. `TaskFilter` (in `src/query.rs`) gained a fourth `bundle: Option<String>` field; `list_tasks` chains a fourth `matches_bundle` predicate alongside the existing status/marker/phase filters.
+- `next_task` switched from `(tasks, marker: Option<&str>)` to `(tasks, &TaskFilter)`, sharing the filter struct with `list_tasks`. Honors `filter.marker` and `filter.bundle` only — `filter.status` is ignored (next is implicitly `pending`-only) and `filter.phase` is ignored (focus is sourced from `[focus].phase`, not the user). Bundle filter applies BEFORE the focus-phase partition so `--bundle X` restricts the candidate pool first and focus only ranks within the bundle (AC #3: bundle wins over focus when both explicitly set). `matches_marker` and `matches_bundle` are now `pub(crate)` in `query.rs` so `next.rs` reuses the same predicates instead of duplicating them.
+- Unknown bundle name returns empty (`list --bundle nonexistent --json` → empty `task` array; `next --bundle nonexistent --json` → `null`) without erroring — same lenient stance as `--marker`. We do NOT validate the user-supplied `--bundle` against known bundle keys.
+- `src/render.rs::up_next_line` updated to pass `&TaskFilter::default()` (was `None`); behavior unchanged.
+- No `schema_version` bump — additive flag, `bundle` was already in `ExportedTask`, `Task.bundle` was already required.
+- Tests: five new in `tests/cli.rs` (`list_command_filters_by_bundle`, `next_command_filters_by_bundle`, `next_command_composes_bundle_and_marker`, `next_command_unknown_bundle_returns_null_json`, `list_command_unknown_bundle_returns_empty_envelope`). Existing `tests/next.rs` call sites threaded through a small `marker_filter` helper. `tests/query.rs` literal `TaskFilter` construction extended with `bundle: None`. SKILLS.md gained two fenced examples (`rmap list --bundle alpha`, `rmap next --bundle alpha`) — `skills_smoke.rs` locks them in.
+
 ### Phase 13c: `Task::out_of_scope` field (delegate_parity bundle)
 
 **What was done:**

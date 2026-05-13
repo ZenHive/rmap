@@ -6,6 +6,7 @@ pub struct TaskFilter {
     pub status: Option<String>,
     pub marker: Option<String>,
     pub phase: Option<u32>,
+    pub bundle: Option<String>,
 }
 
 pub fn find_task<'a>(tasks: &'a Tasks, id: &str) -> Option<&'a Task> {
@@ -19,7 +20,16 @@ pub fn list_tasks<'a>(tasks: &'a Tasks, filter: &TaskFilter) -> Vec<&'a Task> {
         .filter(|task| matches_status(task, filter.status.as_deref()))
         .filter(|task| matches_marker(task, filter.marker.as_deref()))
         .filter(|task| matches_phase(task, filter.phase))
+        .filter(|task| matches_bundle(task, filter.bundle.as_deref()))
         .collect()
+}
+
+pub(crate) fn matches_marker(task: &Task, marker: Option<&str>) -> bool {
+    marker.is_none_or(|marker| task.markers.iter().any(|task_marker| task_marker == marker))
+}
+
+pub(crate) fn matches_bundle(task: &Task, bundle: Option<&str>) -> bool {
+    bundle.is_none_or(|bundle| task.bundle == bundle)
 }
 
 pub fn format_task(task: &Task) -> String {
@@ -102,10 +112,6 @@ pub fn format_task_row(task: &Task) -> String {
 
 fn matches_status(task: &Task, status: Option<&str>) -> bool {
     status.is_none_or(|status| task.status == status)
-}
-
-fn matches_marker(task: &Task, marker: Option<&str>) -> bool {
-    marker.is_none_or(|marker| task.markers.iter().any(|task_marker| task_marker == marker))
 }
 
 fn matches_phase(task: &Task, phase: Option<u32>) -> bool {

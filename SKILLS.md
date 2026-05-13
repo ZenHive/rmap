@@ -67,6 +67,18 @@ rmap next --marker parallel
 
 Marker absence returns exit 0 with no task printed when no candidate exists (focus phase complete, all blocked, or no marker matches).
 
+Filter by bundle to narrow the candidate pool to one authoring group. The bundle filter applies BEFORE focus-phase preference, so `--bundle X` wins over focus when both are set. `list` and `next` both accept `--bundle <name>`; an unknown name returns empty / `null` without erroring.
+
+```bash
+rmap list --bundle alpha
+# exit: 0
+```
+
+```bash
+rmap next --bundle alpha
+# exit: 0
+```
+
 ## Mutating state
 
 All mutators route through `toml_edit` to preserve comments + formatting, then re-validate before writing. Invalid mutations leave the file byte-equal to its pre-call state.

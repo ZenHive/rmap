@@ -3,6 +3,7 @@ use std::fmt::Write;
 use thiserror::Error;
 
 use crate::next::next_task;
+use crate::query::TaskFilter;
 use crate::schema::{Task, Tasks};
 use crate::scoring::{days_since, efficiency, format_efficiency, score_decay_suffix, tier_glyph};
 
@@ -162,7 +163,7 @@ fn last_shipped_line(tasks: &Tasks, focus_phase: u32, today: &str) -> String {
 }
 
 fn up_next_line(tasks: &Tasks) -> String {
-    match next_task(tasks, None) {
+    match next_task(tasks, &TaskFilter::default()) {
         Some(task) => {
             let eff = efficiency(task);
             format!(

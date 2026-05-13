@@ -378,7 +378,7 @@
       "id": 14,
       "phase": 13,
       "bundle": "batch_selection",
-      "status": "pending",
+      "status": "done",
       "title": "rmap list/next --bundle <name> filter",
       "scores": {
         "d": 2,

@@ -1,17 +1,25 @@
+use crate::query::{TaskFilter, matches_bundle, matches_marker};
 use crate::schema::{Task, Tasks};
 use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 
-pub fn next_task<'a>(tasks: &'a Tasks, marker: Option<&str>) -> Option<&'a Task> {
+/// Highest-Eff `pending` task whose `depends_on` are all `done`.
+///
+/// Honors `filter.marker` and `filter.bundle` only. `filter.status` is ignored
+/// (next is implicitly `"pending"`-only) and `filter.phase` is ignored (focus
+/// preference is sourced from `[focus].phase`, not the user). When `[focus]`
+/// is set, focus-phase candidates win over higher-Eff candidates in other
+/// phases — bundle filtering happens BEFORE the focus partition, so
+/// `--bundle X` restricts the candidate pool first and focus only ranks
+/// within the bundle.
+pub fn next_task<'a>(tasks: &'a Tasks, filter: &TaskFilter) -> Option<&'a Task> {
     let candidates = tasks
         .task
         .iter()
         .filter(|task| task.status == "pending")
-        .filter(|task| marker_matches(task, marker))
+        .filter(|task| matches_bundle(task, filter.bundle.as_deref()))
+        .filter(|task| matches_marker(task, filter.marker.as_deref()))
         .filter(|task| is_unblocked(task, tasks));
 
-    // When `[focus].phase` is set, only fall back to other phases if no
-    // focus-phase candidate exists. Highest Eff still wins inside each tier;
-    // ties preserve TOML order via the `>=` short-circuit.
     let focus_phase = tasks.focus.as_ref().map(|focus| focus.phase);
     let (focus, other): (Vec<_>, Vec<_>) = candidates.partition(|task| match focus_phase {
         Some(phase) => task.phase == phase,
@@ -40,10 +48,6 @@ pub fn format_next_task(task: &Task) -> String {
         tier_glyph(eff),
         task.title
     )
-}
-
-fn marker_matches(task: &Task, marker: Option<&str>) -> bool {
-    marker.is_none_or(|marker| task.markers.iter().any(|task_marker| task_marker == marker))
 }
 
 fn is_unblocked(task: &Task, tasks: &Tasks) -> bool {

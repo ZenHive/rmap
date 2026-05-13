@@ -1,5 +1,13 @@
 use rmap::next::next_task;
+use rmap::query::TaskFilter;
 use rmap::validate::validate_tasks_str;
+
+fn marker_filter(marker: Option<&str>) -> TaskFilter {
+    TaskFilter {
+        marker: marker.map(String::from),
+        ..Default::default()
+    }
+}
 
 const TASKS: &str = r#"
 schema_version = 1
@@ -63,7 +71,7 @@ markers = ["parallel"]
 fn selects_highest_eff_pending_unblocked_task() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
 
-    let task = next_task(&tasks, None).expect("next task");
+    let task = next_task(&tasks, &marker_filter(None)).expect("next task");
 
     assert_eq!(task.id.to_string(), "75");
 }
@@ -72,7 +80,7 @@ fn selects_highest_eff_pending_unblocked_task() {
 fn excludes_tasks_blocked_by_incomplete_dependencies() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
 
-    let task = next_task(&tasks, Some("parallel")).expect("next task");
+    let task = next_task(&tasks, &marker_filter(Some("parallel"))).expect("next task");
 
     assert_eq!(task.id.to_string(), "75");
     assert_ne!(task.id.to_string(), "83");
@@ -82,7 +90,7 @@ fn excludes_tasks_blocked_by_incomplete_dependencies() {
 fn marker_filter_excludes_non_matching_tasks() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
 
-    let task = next_task(&tasks, Some("parallel")).expect("next task");
+    let task = next_task(&tasks, &marker_filter(Some("parallel"))).expect("next task");
 
     assert!(task.markers.contains(&"parallel".to_string()));
 }
@@ -91,7 +99,7 @@ fn marker_filter_excludes_non_matching_tasks() {
 fn no_matching_next_task_returns_none() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
 
-    assert!(next_task(&tasks, Some("csr")).is_none());
+    assert!(next_task(&tasks, &marker_filter(Some("csr"))).is_none());
 }
 
 #[test]
@@ -143,7 +151,7 @@ scores = { d = 6, b = 8, u = 8 }
 
     let tasks = rmap::validate::validate_tasks_str("tasks.toml", input).expect("valid");
 
-    let task = next_task(&tasks, None).expect("next task");
+    let task = next_task(&tasks, &marker_filter(None)).expect("next task");
 
     assert_eq!(task.id.to_string(), "60");
 }
@@ -197,7 +205,7 @@ scores = { d = 6, b = 8, u = 8 }
 
     let tasks = rmap::validate::validate_tasks_str("tasks.toml", input).expect("valid");
 
-    let task = next_task(&tasks, None).expect("next task");
+    let task = next_task(&tasks, &marker_filter(None)).expect("next task");
 
     assert_eq!(task.id.to_string(), "50");
 }
@@ -212,7 +220,7 @@ markers = ["parallel"]"#,
     );
     let tasks = validate_tasks_str("roadmap/tasks.toml", &input).expect("valid tasks");
 
-    let task = next_task(&tasks, Some("parallel")).expect("next task");
+    let task = next_task(&tasks, &marker_filter(Some("parallel"))).expect("next task");
 
     assert_eq!(task.id.to_string(), "75");
 }
