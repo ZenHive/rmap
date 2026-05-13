@@ -1736,6 +1736,44 @@ scores = { d = 1, b = 4, u = 4 }
 }
 
 #[test]
+fn new_from_stdin_rejects_status_field() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+    let before = fs::read_to_string(&tasks_path).expect("read before");
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Tries to create a done task"
+status = "done"
+scores = { d = 2, b = 5, u = 5 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        !output.status.success(),
+        "stdin status field must be rejected (creation produces pending tasks only)"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("unknown field") && stderr.contains("status"),
+        "stderr should mention unknown `status` field; got: {stderr}"
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read after");
+    assert_eq!(
+        before, after,
+        "tasks.toml must be byte-equal on rejected stdin payload"
+    );
+}
+
+#[test]
 fn new_from_stdin_rejects_duplicate_id() {
     let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
     let before = fs::read_to_string(&tasks_path).expect("read before");

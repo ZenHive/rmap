@@ -34,6 +34,9 @@ pub enum MutateError {
     /// `--cross-repo <repo>:<task_id>[:<relation>]` could not be parsed.
     #[error("invalid cross-repo spec {0:?} — expected '<repo>:<task_id>[:<relation>]'")]
     InvalidCrossRepoSpec(String),
+    /// Numeric id space exhausted — the highest existing id is `u32::MAX`.
+    #[error("cannot auto-allocate task id: u32 id space exhausted (highest existing id = {0})")]
+    IdExhausted(u32),
 }
 
 /// A single marker operation parsed from `mark`'s positional arguments.
@@ -376,8 +379,10 @@ pub struct NewTaskFields<'a> {
 /// Walk a `[[task]]` array and return the next free numeric id (`max + 1`).
 /// `TaskId::Text` ids are skipped — only numeric ids participate in
 /// auto-allocation, mirroring the project convention that all fixtures use
-/// integer ids. Returns `1` when the array is empty.
-fn next_task_id(tasks: &toml_edit::ArrayOfTables) -> u32 {
+/// integer ids. Returns `1` when the array is empty. Returns
+/// `Err(MutateError::IdExhausted)` if the highest existing id is `u32::MAX`
+/// (the only failure mode — a real project would need ~4B tasks first).
+fn next_task_id(tasks: &toml_edit::ArrayOfTables) -> Result<u32, MutateError> {
     let mut max: u32 = 0;
     for task in tasks.iter() {
         if let Some(value) = task.get("id").and_then(Item::as_value)
@@ -388,7 +393,7 @@ fn next_task_id(tasks: &toml_edit::ArrayOfTables) -> u32 {
             max = n_u32;
         }
     }
-    max + 1
+    max.checked_add(1).ok_or(MutateError::IdExhausted(max))
 }
 
 /// Append a `[[task]]` to the document, optionally auto-allocating the id.
@@ -425,7 +430,7 @@ pub fn add_task_str(
             }
             explicit
         }
-        None => next_task_id(tasks),
+        None => next_task_id(tasks)?,
     };
 
     let mut table = Table::new();

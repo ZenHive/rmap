@@ -620,15 +620,13 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
             None => None,
         };
 
-        let status = task.status.as_deref().unwrap_or("pending");
-
         let fields = NewTaskFields {
             id: explicit_id,
             phase: task.phase,
             bundle: task.bundle.as_str(),
             title: task.title.as_str(),
             scores: (task.scores.d, task.scores.b, task.scores.u),
-            status,
+            status: "pending",
             markers: &markers,
             depends_on: &depends_on,
             acceptance_criteria: &acceptance_criteria,
@@ -671,17 +669,16 @@ struct StdinPayload {
 }
 
 /// Task-shaped stdin row. Field set matches `schema::Task` except `id` is
-/// optional (auto-allocate when absent) and `status` is optional (defaults to
-/// `"pending"` in the handler). Lifecycle timestamps (`started_at`, `done_at`,
-/// `blocked_reason`, `shipped_in`) are explicitly excluded from the surface —
-/// `rmap status` owns those transitions.
+/// optional (auto-allocate when absent). `status` is excluded — creation
+/// produces `"pending"` tasks only. Lifecycle timestamps (`started_at`,
+/// `done_at`, `blocked_reason`, `shipped_in`) are also excluded; `rmap status`
+/// owns those transitions.
 #[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StdinTask {
     pub id: Option<TaskId>,
     pub phase: u32,
     pub bundle: String,
-    pub status: Option<String>,
     pub title: String,
     pub scores: Scores,
     #[serde(default)]
@@ -828,7 +825,6 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         id: None,
         phase: phase_number,
         bundle,
-        status: None,
         title,
         scores: Scores { d, b, u },
         markers,
