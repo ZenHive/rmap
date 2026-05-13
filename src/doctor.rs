@@ -99,7 +99,9 @@ impl DoctorReport {
 
         // 4. degenerate bundles — bundle covers every task of its declared phase.
         // Adds zero information beyond the phase itself; real bundles span multiple
-        // phases or cluster a strict subset sharing infrastructure.
+        // phases or cluster a strict subset sharing infrastructure. Single-task
+        // phases are skipped — the bundle name still adds a label (it's not
+        // redundant in the same way a 3-task bundle covering a 3-task phase is).
         for (name, bundle) in &tasks.bundles {
             let bundle_ids: HashSet<&TaskId> = tasks
                 .task
@@ -107,7 +109,7 @@ impl DoctorReport {
                 .filter(|t| t.bundle == *name)
                 .map(|t| &t.id)
                 .collect();
-            if bundle_ids.is_empty() {
+            if bundle_ids.len() < 2 {
                 continue;
             }
             let phase_ids: HashSet<&TaskId> = tasks
