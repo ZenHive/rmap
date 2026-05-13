@@ -1,10 +1,27 @@
 # Changelog
 
-Completed roadmap tasks. For upcoming work, see [tool_roadmap.md](tool_roadmap.md).
+Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for the design contract and deferred-phase design notes, see [DESIGN.md](DESIGN.md).
+
+---
+
+## Repo reorganization: `tool_roadmap.md` → `DESIGN.md` + `ROADMAP.md` (2026-05-13)
+
+**What was done:**
+- `tool_roadmap.md` split into two files: `DESIGN.md` (design contract — schema example, CLI surface, invariants, deferred designs, out-of-scope, including the Phase 6 HTML render design) and `ROADMAP.md` (live phase tracking, rendered from the new `roadmap/tasks.toml`).
+- rmap now dogfoods its own roadmap: `roadmap/tasks.toml` carries 13 open tasks across phases 6 / 7 / 13. `rmap render` writes `ROADMAP.md` + `roadmap/data.json` from that source. `rmap validate --check-render` passes; `rmap doctor` clean except one informational degenerate-bundle flag (`watch` covers all phase-7 tasks).
+- Cross-references swept across `AGENTS.md`, `CLAUDE.md`, `README.md`, `SKILLS.md`, `dashboard_roadmap.md`, and `migration_roadmap.md` to point at `DESIGN.md` (contract) and `ROADMAP.md` (active work list) instead of `tool_roadmap.md`.
 
 ---
 
 ## Phase 13 — Skills-parity polish
+
+### Phase 13b: D/B/U 1..=10 range validation
+
+**What was done:**
+- New semantic check `validate::validate_scores` enforces `1..=10` on each of `task.scores.{d,b,u}`, matching the D/B/U rubric documented in `task-prioritization.md`. The check runs in both the short-circuiting (`validate_tasks_str`) and accumulating (`collect_findings`) pipelines so `rmap validate` and `rmap doctor` both surface it. Stops at the first offender per task (matches the existing per-validator shape); accumulation across distinct validators continues to work as before via `collect_findings`.
+- Error message: `task <id> scores.<field> = <value> must be in 1..=10`. The `1..=10` substring is the agent-grep contract — bumping the range would be a `schema_version` change. Line locator uses the full inline-table spelling `scores = { d = D, b = B, u = U }` so the reported `path:line` lands on the row carrying the bad value, not the first matched `scores` line.
+- Range constants `MIN_SCORE = 1` / `MAX_SCORE = 10` live next to the other `VALID_*` constants in `validate.rs`. `Scores` itself stays `u32`-per-field — no schema migration — because TOML rejects negatives at parse time and `10` fits comfortably in `u32`; the range check enforces the application-level rubric on top of the type-level non-negativity.
+- Tests: `rejects_score_below_minimum` (d = 0), `rejects_score_above_maximum` (b = 11), `accepts_scores_at_range_edges` (both 1 and 10 are valid). Line-number asserts pin the locator behavior so a future refactor that re-locates the error reporter has to also update the fixture-line expectations — that's intentional.
 
 ### Phase 13a: render polish — Eff tier glyph + phase archive collapse
 

@@ -1,0 +1,357 @@
+{
+  "schema_version": 1,
+  "project": "rmap",
+  "default_branch": "development",
+  "focus": {
+    "phase": 13
+  },
+  "phases": {
+    "13": {
+      "name": "Skills-parity polish",
+      "order": 13,
+      "status": "in_progress"
+    },
+    "6": {
+      "name": "HTML render",
+      "order": 6,
+      "status": "pending"
+    },
+    "7": {
+      "name": "rmap watch (optional)",
+      "order": 7,
+      "status": "pending"
+    }
+  },
+  "bundles": {
+    "delegate_parity": {
+      "phase": 13,
+      "order": 2,
+      "description": "Phase 13c: delegate prompt parity with task-writing.md"
+    },
+    "doctor_tuning": {
+      "phase": 13,
+      "order": 3,
+      "description": "Hardcoded doctor thresholds → CLI overrides; deferred until a real consumer asks"
+    },
+    "html_portfolio": {
+      "phase": 6,
+      "order": 2,
+      "description": "Cross-repo portfolio view (rmap render --html --multi)"
+    },
+    "html_single": {
+      "phase": 6,
+      "order": 1,
+      "description": "Single-project static HTML view at roadmap/dist/index.html"
+    },
+    "schema_parity": {
+      "phase": 13,
+      "order": 1,
+      "description": "Phase 13b: schema additions for vision, branch, excluded-category markers, range validation"
+    },
+    "watch": {
+      "phase": 7,
+      "order": 1,
+      "description": "FS-watch render loop for live dev"
+    }
+  },
+  "task": [
+    {
+      "id": 1,
+      "phase": 13,
+      "bundle": "schema_parity",
+      "status": "pending",
+      "title": "Tasks::vision field + VISION marker pair",
+      "scores": {
+        "d": 3,
+        "b": 6,
+        "u": 5
+      },
+      "eff": 1.83,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Tasks::vision Option<String> on schema.rs",
+        "Three-place edit: schema.rs + diff::diff_metadata + export::ExportedTasks",
+        "Optional VISION:BEGIN/VISION:END marker pair with byte-preservation discipline matching TASKS/FOCUS/MERMAID",
+        "Zero-config default when marker absent"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 2,
+      "phase": 13,
+      "bundle": "schema_parity",
+      "status": "pending",
+      "title": "Task::branch field on in-progress rows",
+      "scores": {
+        "d": 2,
+        "b": 5,
+        "u": 4
+      },
+      "eff": 2.25,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Task::branch Option<String>",
+        "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
+        "Rows with status=in_progress and branch=Some render '🔄 <branch>' instead of bare '🔄'"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 3,
+      "phase": 13,
+      "bundle": "schema_parity",
+      "status": "pending",
+      "title": "Excluded-category markers (bug/security/docs)",
+      "scores": {
+        "d": 3,
+        "b": 6,
+        "u": 5
+      },
+      "eff": 1.83,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "VALID_MARKERS extends from {parallel, cx, csr} to add {bug, security, docs}",
+        "Render prepends 🐛 / 🔒 / 📝 to title for tasks carrying those markers",
+        "scores stays required (no Option<Scores> ripple)"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 4,
+      "phase": 13,
+      "bundle": "schema_parity",
+      "status": "done",
+      "title": "D/B/U 1..=10 range validation",
+      "scores": {
+        "d": 2,
+        "b": 5,
+        "u": 5
+      },
+      "eff": 2.5,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "validate.rs rejects scores outside 1..=10 per the rubric",
+        "Per-field error messages include the offending value"
+      ],
+      "started_at": "2026-05-13",
+      "done_at": "2026-05-13",
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 5,
+      "phase": 13,
+      "bundle": "delegate_parity",
+      "status": "pending",
+      "title": "Task::files_to_modify field",
+      "scores": {
+        "d": 3,
+        "b": 5,
+        "u": 5
+      },
+      "eff": 1.67,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Task::files_to_modify Vec<String>",
+        "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
+        "Surfaced only by rmap delegate, not rendered into ROADMAP.md rows"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 6,
+      "phase": 13,
+      "bundle": "delegate_parity",
+      "status": "pending",
+      "title": "Task::out_of_scope field",
+      "scores": {
+        "d": 2,
+        "b": 5,
+        "u": 5
+      },
+      "eff": 2.5,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Task::out_of_scope Vec<String>",
+        "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
+        "Surfaced only by rmap delegate, omitted when empty"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 7,
+      "phase": 13,
+      "bundle": "delegate_parity",
+      "status": "pending",
+      "title": "delegate.rs section restructure (task-writing.md template)",
+      "scores": {
+        "d": 3,
+        "b": 6,
+        "u": 5
+      },
+      "eff": 1.83,
+      "markers": [],
+      "depends_on": [
+        5,
+        6
+      ],
+      "acceptance_criteria": [
+        "Sections in order: Context → Task → Acceptance criteria → Out of scope → Files to modify → Scoring → Environment notes",
+        "Scoring section emits [D/B/U → Eff <glyph>] line",
+        "Files to modify falls back to module as one-item list when files_to_modify is empty",
+        "tests/delegate.rs asserts each section header present plus one distinguishing line"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 8,
+      "phase": 6,
+      "bundle": "html_single",
+      "status": "pending",
+      "title": "rmap render --html single-project view",
+      "scores": {
+        "d": 6,
+        "b": 7,
+        "u": 6
+      },
+      "eff": 1.08,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Writes roadmap/dist/index.html (gitignored)",
+        "Self-contained <50KB target — inline CSS plus vanilla JS, no CDN, no framework",
+        "Embedded data island: script id=rmap-data type=application/json carrying full data.json",
+        "Semantic data-* attributes on every task element: data-id, data-status, data-eff, data-markers, data-depends-on, data-phase",
+        "Print stylesheet included",
+        "Dep graph as collapsed SVG layered DAG"
+      ],
+      "body": "See DESIGN.md (Phase 6 — HTML render design) for the full layout, design invariants, and boundary with the Phoenix dashboard.\n",
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 9,
+      "phase": 6,
+      "bundle": "html_portfolio",
+      "status": "pending",
+      "title": "rmap render --html --multi portfolio view",
+      "scores": {
+        "d": 6,
+        "b": 6,
+        "u": 5
+      },
+      "eff": 0.92,
+      "markers": [],
+      "depends_on": [
+        8
+      ],
+      "acceptance_criteria": [
+        "rmap render --html --multi P1 P2 … accepts project roots or data.json paths",
+        "Output: roadmap/dist/portfolio.html (or --out <path>)",
+        "Repos-as-rows layout with cross-repo blocker arrows from the cross_repo field",
+        "Click a repo row expands inline to single-project layout"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 10,
+      "phase": 7,
+      "bundle": "watch",
+      "status": "pending",
+      "title": "rmap watch FS watcher",
+      "scores": {
+        "d": 4,
+        "b": 5,
+        "u": 4
+      },
+      "eff": 1.13,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Watches roadmap/tasks.toml via notify crate",
+        "Re-renders ROADMAP.md plus roadmap/data.json on change",
+        "Idempotent — no-change events do not trigger writes"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 11,
+      "phase": 7,
+      "bundle": "watch",
+      "status": "pending",
+      "title": "rmap watch --json event stream",
+      "scores": {
+        "d": 3,
+        "b": 4,
+        "u": 4
+      },
+      "eff": 1.33,
+      "markers": [],
+      "depends_on": [
+        10
+      ],
+      "acceptance_criteria": [
+        "Emits one JSON line per render event to stdout",
+        "Event shape stable and documented in SKILLS.md"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 12,
+      "phase": 13,
+      "bundle": "doctor_tuning",
+      "status": "pending",
+      "title": "rmap doctor --threshold-days override",
+      "scores": {
+        "d": 2,
+        "b": 3,
+        "u": 3
+      },
+      "eff": 1.5,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "--threshold-days <N> overrides the hardcoded 30-day stale/decay cutoff",
+        "Constants STALE_THRESHOLD_DAYS / DECAY_THRESHOLD_DAYS remain the defaults"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 13,
+      "phase": 13,
+      "bundle": "doctor_tuning",
+      "status": "pending",
+      "title": "rmap doctor --ac-threshold override",
+      "scores": {
+        "d": 2,
+        "b": 3,
+        "u": 3
+      },
+      "eff": 1.5,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "--ac-threshold <N> overrides AC_DIFFICULTY_THRESHOLD / AC_BENEFIT_THRESHOLD",
+        "Lands together with --threshold-days if implemented in the same session"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    }
+  ]
+}

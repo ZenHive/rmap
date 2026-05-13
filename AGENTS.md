@@ -2,14 +2,14 @@
 
 ## Project Structure & Module Organization
 
-This repository is for `rmap`, a standalone Rust CLI that manages portable roadmap data. The current source of truth is [tool_roadmap.md](/Users/efries/_DATA/code/rmap/tool_roadmap.md), which defines the intended schema, CLI surface, and first implementation scope.
+This repository is for `rmap`, a standalone Rust CLI that manages portable roadmap data. Live phase tracking lives in `roadmap/tasks.toml` (rendered to [ROADMAP.md](ROADMAP.md)); [DESIGN.md](DESIGN.md) is the design contract — schema, CLI surface, invariants, deferred designs, out-of-scope. Historical shipped phases live in [CHANGELOG.md](CHANGELOG.md).
 
-When the crate is scaffolded, keep the layout conventional:
+Layout:
 
 - `src/main.rs` for CLI entrypoint and `clap` command wiring.
 - `src/lib.rs` plus focused modules such as `schema`, `validate`, and `render`.
 - `tests/golden/<case>/` for render fixtures.
-- `roadmap/tasks.toml` as the input format in consumer projects, not this tool’s own task tracker unless needed.
+- `roadmap/tasks.toml` is the canonical input format both in consumer projects and (since 2026-05-13) for rmap's own roadmap.
 
 ## Build, Test, and Development Commands
 
@@ -44,4 +44,4 @@ There is no existing commit history, so use concise imperative commits such as `
 
 ## Agent-Specific Instructions
 
-Implement only the requested scope. For the first build session, follow `tool_roadmap.md`: parse, validate, and render only. Preserve user-authored roadmap prose byte-for-byte outside render markers.
+Implement only the requested scope. Follow `DESIGN.md` for schema/invariants and `ROADMAP.md` (rendered from `roadmap/tasks.toml`) for the active work list. Preserve user-authored roadmap prose byte-for-byte outside render markers.

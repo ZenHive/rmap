@@ -86,7 +86,7 @@ Fields the dashboard depends on **once they ship** (rmap Phases 9–11): `assign
 | **Cross-repo** | `--multi` flag re-renders one HTML across N data.json files | DAG view across the discovered fleet |
 | **Lives where** | Inside the rmap binary; ships with every install | Separate Phoenix app, must be running |
 
-Both consume the same `data.json` and pin to the same `schema_version`. The HTML render is the **portable** view; the dashboard is the **always-on** view. See `tool_roadmap.md` § "HTML render design (Phase 6)" for the static-render spec.
+Both consume the same `data.json` and pin to the same `schema_version`. The HTML render is the **portable** view; the dashboard is the **always-on** view. See `DESIGN.md` § "HTML render design (Phase 6)" for the static-render spec.
 
 ## Out of scope (deliberately)
 

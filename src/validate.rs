@@ -4,13 +4,15 @@ use std::path::Path;
 
 use thiserror::Error;
 
-use crate::schema::{TaskId, Tasks};
+use crate::schema::{Task, TaskId, Tasks};
 
 const SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const VALID_STATUSES: &[&str] = &["pending", "in_progress", "blocked", "done", "superseded"];
 pub const VALID_MARKERS: &[&str] = &["parallel", "cx", "csr"];
 const VALID_ASSIGNEES: &[&str] = &["human", "claude", "codex", "cursor"];
 const VALID_CROSS_REPO_RELATIONS: &[&str] = &["blocks", "blocked_by", "related"];
+const MIN_SCORE: u32 = 1;
+const MAX_SCORE: u32 = 10;
 const FIRST_LINE_NUMBER: usize = 1;
 
 #[derive(Debug, Error)]
@@ -56,6 +58,9 @@ pub fn collect_findings(tasks: &Tasks, path: &str, input: &str) -> Vec<ValidateE
     if let Err(e) = validate_markers(path, input, tasks) {
         findings.push(e);
     }
+    if let Err(e) = validate_scores(path, input, tasks) {
+        findings.push(e);
+    }
     if let Err(e) = validate_assignees(path, input, tasks) {
         findings.push(e);
     }
@@ -94,6 +99,7 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_schema_version(&path, input, &tasks)?;
     validate_statuses(&path, input, &tasks)?;
     validate_markers(&path, input, &tasks)?;
+    validate_scores(&path, input, &tasks)?;
     validate_assignees(&path, input, &tasks)?;
     validate_linear_ids(&path, input, &tasks)?;
     validate_timestamps(&path, input, &tasks)?;
@@ -162,6 +168,42 @@ fn validate_markers(path: &str, input: &str, tasks: &Tasks) -> Result<(), Valida
     }
 
     Ok(())
+}
+
+fn validate_scores(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        ensure_score_in_range(path, input, task, "d", task.scores.d)?;
+        ensure_score_in_range(path, input, task, "b", task.scores.b)?;
+        ensure_score_in_range(path, input, task, "u", task.scores.u)?;
+    }
+
+    Ok(())
+}
+
+fn ensure_score_in_range(
+    path: &str,
+    input: &str,
+    task: &Task,
+    field: &str,
+    value: u32,
+) -> Result<(), ValidateError> {
+    if (MIN_SCORE..=MAX_SCORE).contains(&value) {
+        return Ok(());
+    }
+
+    let locator = format!(
+        "scores = {{ d = {}, b = {}, u = {} }}",
+        task.scores.d, task.scores.b, task.scores.u
+    );
+
+    Err(semantic_error(
+        path,
+        line_containing(input, &locator).unwrap_or(FIRST_LINE_NUMBER),
+        format!(
+            "task {} scores.{field} = {value} must be in {MIN_SCORE}..={MAX_SCORE}",
+            task.id
+        ),
+    ))
 }
 
 fn validate_assignees(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {

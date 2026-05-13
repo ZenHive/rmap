@@ -4,6 +4,8 @@
 
 `rmap` is a single-binary Rust CLI that manages `roadmap/tasks.toml` in any project. This file teaches cloud agents (Claude, Codex, Cursor) how to drive `rmap` from inside a consumer repo. The fenced `bash` blocks below run against `tests/skills_fixture/` via `tests/skills_smoke.rs`; the exit codes are part of the agent contract.
 
+rmap dogfoods itself — its own roadmap lives in `roadmap/tasks.toml` and renders to `ROADMAP.md` at the repo root. The commands below behave identically whether you're driving rmap's roadmap or any consumer project's.
+
 ## Project layout
 
 ```

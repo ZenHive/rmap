@@ -94,6 +94,55 @@ fn rejects_invalid_marker() {
 }
 
 #[test]
+fn rejects_score_below_minimum() {
+    let input = VALID_TASKS.replace(
+        "scores = { d = 5, b = 8, u = 8 }",
+        "scores = { d = 0, b = 8, u = 8 }",
+    );
+
+    let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("d = 0 is rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("roadmap/tasks.toml:26"), "got: {message}");
+    assert!(
+        message.contains("task 74 scores.d = 0 must be in 1..=10"),
+        "got: {message}"
+    );
+}
+
+#[test]
+fn rejects_score_above_maximum() {
+    let input = VALID_TASKS.replace(
+        "scores = { d = 6, b = 8, u = 8 }",
+        "scores = { d = 6, b = 11, u = 8 }",
+    );
+
+    let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("b = 11 is rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("roadmap/tasks.toml:39"), "got: {message}");
+    assert!(
+        message.contains("task 75 scores.b = 11 must be in 1..=10"),
+        "got: {message}"
+    );
+}
+
+#[test]
+fn accepts_scores_at_range_edges() {
+    let input = VALID_TASKS
+        .replace(
+            "scores = { d = 5, b = 8, u = 8 }",
+            "scores = { d = 1, b = 1, u = 1 }",
+        )
+        .replace(
+            "scores = { d = 6, b = 8, u = 8 }",
+            "scores = { d = 10, b = 10, u = 10 }",
+        );
+
+    validate_tasks_str("roadmap/tasks.toml", &input).expect("edges 1 and 10 are valid");
+}
+
+#[test]
 fn rejects_invalid_assignee() {
     let input = VALID_TASKS.replace("assignee = \"claude\"", "assignee = \"bot\"");
 
