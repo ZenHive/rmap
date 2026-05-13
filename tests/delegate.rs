@@ -48,6 +48,10 @@ acceptance_criteria = [
   "parseOrder accepts spot and futures payloads",
   "Empty venues field maps to null",
 ]
+out_of_scope = [
+  "Do not refactor parseTicker",
+  "Do not touch INE-200",
+]
 cross_repo = [
   { repo = "ccxt_client", task_id = 42, linear_id = "INE-310", relation = "blocks" },
 ]
@@ -119,6 +123,13 @@ fn formats_full_delegate_prompt_for_agent_target() {
         prompt.contains("- [ ] parseOrder accepts spot and futures payloads"),
         "{prompt}"
     );
+    assert!(prompt.contains("## Out of scope"), "{prompt}");
+    assert!(prompt.contains("- Do not refactor parseTicker"), "{prompt}");
+    // Plain bullets, never checkbox form.
+    assert!(
+        !prompt.contains("- [ ] Do not refactor parseTicker"),
+        "{prompt}"
+    );
     assert!(prompt.contains("## Environment notes"), "{prompt}");
     assert!(
         prompt.contains("Inspect the repo before editing."),
@@ -148,6 +159,7 @@ fn formats_minimal_delegate_prompt_without_optional_sections() {
     assert!(!prompt.contains("Stored assignee:"), "{prompt}");
     assert!(!prompt.contains("Dependencies\n"), "{prompt}");
     assert!(!prompt.contains("Acceptance criteria\n"), "{prompt}");
+    assert!(!prompt.contains("Out of scope\n"), "{prompt}");
 }
 
 #[test]

@@ -65,6 +65,7 @@ mod tests {
             assignee: None,
             module: None,
             acceptance_criteria: vec![],
+            out_of_scope: vec![],
             shipped_in: None,
             body: None,
             created_at: None,

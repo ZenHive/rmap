@@ -176,7 +176,7 @@
       "id": 6,
       "phase": 13,
       "bundle": "delegate_parity",
-      "status": "pending",
+      "status": "done",
       "title": "Task::out_of_scope field",
       "scores": {
         "d": 2,
@@ -190,6 +190,11 @@
         "Task::out_of_scope Vec<String>",
         "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
         "Surfaced only by rmap delegate, omitted when empty"
+      ],
+      "out_of_scope": [
+        "Adding out_of_scope to NewTaskFields or interactive `rmap new` prompts",
+        "Rendering out_of_scope in ROADMAP.md TASKS, FOCUS, or MERMAID blocks",
+        "schema_version bump (additive field, no consumer breakage)"
       ],
       "scored_at": "2026-05-13",
       "cross_repo": []

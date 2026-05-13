@@ -87,6 +87,7 @@ fn format_prompt(tasks: &Tasks, task: &Task, target: DelegateTarget) -> String {
     append_cross_repo(&mut prompt, task);
     append_body(&mut prompt, task);
     append_acceptance_criteria(&mut prompt, task);
+    append_out_of_scope(&mut prompt, task);
     append_agent_notes(&mut prompt, target);
     append_instructions(&mut prompt);
 
@@ -160,6 +161,18 @@ fn append_acceptance_criteria(prompt: &mut String, task: &Task) {
     line!(prompt, "## Acceptance criteria");
     for criterion in &task.acceptance_criteria {
         line!(prompt, "- [ ] {criterion}");
+    }
+}
+
+fn append_out_of_scope(prompt: &mut String, task: &Task) {
+    if task.out_of_scope.is_empty() {
+        return;
+    }
+
+    line!(prompt);
+    line!(prompt, "## Out of scope");
+    for item in &task.out_of_scope {
+        line!(prompt, "- {item}");
     }
 }
 

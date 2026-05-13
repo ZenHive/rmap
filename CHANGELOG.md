@@ -15,6 +15,16 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 13 — Skills-parity polish
 
+### Phase 13c: `Task::out_of_scope` field (delegate_parity bundle)
+
+**What was done:**
+- New optional `out_of_scope: Vec<String>` field on `schema::Task`, mirroring the `acceptance_criteria` shape (`#[serde(default)]`, no `skip_serializing_if` on the schema struct, no `schemars` per-field attribute). Existing `tasks.toml` files parse unchanged — the field is invisible when absent.
+- Three-place edit per the documented invariant: `src/schema.rs` (field), `src/diff.rs::diff_fields!` (so `rmap diff` notices add/remove/change), `src/export.rs::ExportedTask` (so `data.json` / `show --json` / `list --json` / `next --json` surface the field additively with `skip_serializing_if = "<[_]>::is_empty"`). Deliberately NOT added to `TASK_VERBOSE_WHITELIST` — `out_of_scope` mirrors `acceptance_criteria` and `body` (free-form string arrays would bloat verbose diff payloads without aiding decisions).
+- `rmap delegate` is the only human-readable surface: new `append_out_of_scope` function renders a `## Out of scope` section between `## Acceptance criteria` and `## Environment notes`. Bullet shape is plain `- {item}`, NOT the `- [ ] {item}` checkbox form used by acceptance criteria — out-of-scope items are guardrails, not todos. Empty `Vec` → section omitted entirely. `ROADMAP.md` TASKS table, FOCUS block, MERMAID gantt, `rmap show` stdout, and `rmap list` stdout are unchanged (and the `validate --check-render` gate stays clean by construction).
+- Dogfooded on Task 6 itself: the task ships with `out_of_scope` listing what was deliberately deferred (`NewTaskFields` extension, ROADMAP rendering, `schema_version` bump).
+- No `schema_version` bump — additive field, no breakage for existing consumers.
+- Tests: `tests/delegate.rs` extended with a non-empty fixture (positive assertions on section header, plain-bullet rendering, no-checkbox guard) and the minimal fixture (negative assertion that the section is absent). `tests/export.rs` asserts the JSON array shape when set and the `skip_serializing_if` behavior when empty. `tests/diff.rs::verbose_emits_before_after_for_whitelisted_changed_fields` extended to confirm `out_of_scope` surfaces in `changed_fields` but is omitted from the `values` whitelist payload. Existing golden fixtures, `roundtrip`, and `skills_smoke` pass unchanged. The `Task` struct literal in `src/stale.rs::tests::make_task` updated to include the new field.
+
 ### Phase 13b: D/B/U 1..=10 range validation
 
 **What was done:**

@@ -67,6 +67,8 @@ pub struct Task {
     pub module: Option<String>,
     #[serde(default)]
     pub acceptance_criteria: Vec<String>,
+    #[serde(default)]
+    pub out_of_scope: Vec<String>,
     pub shipped_in: Option<String>,
     pub body: Option<String>,
     pub created_at: Option<String>,

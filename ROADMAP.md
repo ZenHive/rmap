@@ -5,11 +5,11 @@
 ## Current Focus
 
 <!-- FOCUS:BEGIN -->
-**Focus phase:** 13 — Skills-parity polish (1 of 9 done · 0 in progress)
+**Focus phase:** 13 — Skills-parity polish (2 of 9 done · 0 in progress)
 
 **Last shipped:** Task 4 — D/B/U 1..=10 range validation on 2026-05-13
 
-**Up next:** Task 6 — Task::out_of_scope field [D:2/B:5/U:5 → Eff:2.5] 🎯
+**Up next:** Task 2 — Task::branch field on in-progress rows [D:2/B:5/U:4 → Eff:2.25] 🎯
 <!-- FOCUS:END -->
 
 ## Gantt
@@ -40,7 +40,7 @@ Phase 13a (Eff-tier glyph + phase archive collapse) shipped 2026-05-13 — see [
 | Task 3 | ⬜ | 🎁 **schema_parity** · Excluded-category markers (bug/security/docs) [D:3/B:6/U:5 → Eff:1.83] 🚀 |
 | Task 4 | ✅ | 🎁 **schema_parity** · D/B/U 1..=10 range validation [D:2/B:5/U:5 → Eff:2.5] 🎯 |
 | Task 5 | ⬜ | 🎁 **delegate_parity** · Task::files_to_modify field [D:3/B:5/U:5 → Eff:1.67] 🚀 |
-| Task 6 | ⬜ | 🎁 **delegate_parity** · Task::out_of_scope field [D:2/B:5/U:5 → Eff:2.5] 🎯 |
+| Task 6 | ✅ | 🎁 **delegate_parity** · Task::out_of_scope field [D:2/B:5/U:5 → Eff:2.5] 🎯 |
 | Task 7 | ⬜ | 🎁 **delegate_parity** · delegate.rs section restructure (task-writing.md template) [D:3/B:6/U:5 → Eff:1.83] 🚀 |
 | Task 12 | ⬜ | 🎁 **doctor_tuning** · rmap doctor --threshold-days override [D:2/B:3/U:3 → Eff:1.5] 🚀 |
 | Task 13 | ⬜ | 🎁 **doctor_tuning** · rmap doctor --ac-threshold override [D:2/B:3/U:3 → Eff:1.5] 🚀 |

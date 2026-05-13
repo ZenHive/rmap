@@ -388,6 +388,7 @@ fn task_changes(
         assignee,
         module,
         acceptance_criteria,
+        out_of_scope,
         shipped_in,
         body,
         created_at,
