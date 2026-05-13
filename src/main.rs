@@ -3,6 +3,7 @@ use std::process::ExitCode;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
+use rmap::bundles::{BundleFilter, bundles_json, format_bundles_human, list_bundles};
 use rmap::delegate::{DelegateTarget, format_delegate_prompt};
 use rmap::diff::{diff_toml, format_diff};
 use rmap::doctor::DoctorReport;
@@ -186,6 +187,26 @@ enum Commands {
         roadmap_path: Option<PathBuf>,
         #[arg(long)]
         data_path: Option<PathBuf>,
+    },
+    /// List declared bundles with per-bundle counts and next-task hints.
+    ///
+    /// Read-only discovery aid for `rmap next --bundle <name>` and
+    /// `rmap list --bundle <name>` — surfaces every `[bundles.*]` so callers
+    /// don't have to grep `tasks.toml`. Bundles group under per-phase headers;
+    /// focus-phase bundles sort first.
+    Bundles {
+        #[arg(long)]
+        phase: Option<u32>,
+        /// Only bundles whose next_task is non-null.
+        #[arg(long)]
+        has_next: bool,
+        /// Only bundles in `[focus].phase`.
+        #[arg(long)]
+        in_focus: bool,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
     },
     /// List in-progress tasks idle longer than the given duration.
     Stale {
@@ -398,6 +419,29 @@ fn run() -> Result<ExitCode> {
         } => {
             let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
             create_task(paths, from_stdin)?;
+        }
+        Commands::Bundles {
+            phase,
+            has_next,
+            in_focus,
+            json,
+            tasks_path,
+        } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+            let filter = BundleFilter {
+                phase,
+                has_next,
+                in_focus,
+            };
+            let summaries = list_bundles(&tasks, &filter);
+
+            if json {
+                let envelope = bundles_json(&tasks, summaries);
+                println!("{}", serde_json::to_string_pretty(&envelope)?);
+            } else {
+                print!("{}", format_bundles_human(&tasks, &summaries));
+            }
         }
         Commands::Stale {
             over,

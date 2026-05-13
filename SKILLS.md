@@ -79,6 +79,18 @@ rmap next --bundle alpha
 # exit: 0
 ```
 
+`rmap bundles` lists every declared `[bundles.*]` for selector discovery — agent-friendly replacement for `grep '^\[bundles\.' roadmap/tasks.toml`. Rows group under per-phase headers (focus phase first); each row shows `done/total` plus a status glyph (✅ all done · 🚧 in-flight · `all-blocked ⛔` · `pending:<n> (deps unmet) ⏸`) or the highest-Eff next task in the bundle. `--phase`, `--has-next`, and `--in-focus` compose with AND semantics.
+
+```bash
+rmap bundles
+# exit: 0
+```
+
+```bash
+rmap bundles --in-focus --has-next --json
+# exit: 0
+```
+
 ## Mutating state
 
 All mutators route through `toml_edit` to preserve comments + formatting, then re-validate before writing. Invalid mutations leave the file byte-equal to its pre-call state.

@@ -2818,3 +2818,413 @@ fn doctor_command_lint_findings_in_json() {
         "expected scores.d field on finding:\n{ac_finding}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// `rmap bundles` — Task 16 / batch_selection
+// ---------------------------------------------------------------------------
+
+const BUNDLES_MULTI_PHASE_TASKS: &str = r#"
+schema_version = 1
+project = "bundles_demo"
+default_branch = "main"
+
+[focus]
+phase = 1
+
+[phases.1]
+name = "Alpha"
+order = 1
+status = "in_progress"
+
+[phases.2]
+name = "Beta"
+order = 2
+status = "pending"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha work in focus"
+
+[bundles.stalled]
+phase = 1
+order = 2
+description = "Alpha follow-up blocked by in_progress dep"
+
+[bundles.beta]
+phase = 2
+order = 1
+description = "Beta work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+status = "done"
+title = "alpha setup"
+scores = { d = 2, b = 4, u = 4 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "alpha next"
+scores = { d = 3, b = 9, u = 9 }
+depends_on = [1]
+
+[[task]]
+id = 3
+phase = 1
+bundle = "stalled"
+status = "in_progress"
+title = "stalled work in flight"
+scores = { d = 5, b = 5, u = 5 }
+started_at = "2026-05-01"
+
+[[task]]
+id = 4
+phase = 1
+bundle = "stalled"
+status = "pending"
+title = "stalled follow-up"
+scores = { d = 5, b = 5, u = 5 }
+depends_on = [3]
+
+[[task]]
+id = 5
+phase = 2
+bundle = "beta"
+status = "pending"
+title = "beta task"
+scores = { d = 3, b = 6, u = 6 }
+"#;
+
+const BUNDLES_EMPTY_TASKS: &str = r#"
+schema_version = 1
+project = "empty"
+default_branch = "main"
+"#;
+
+const BUNDLES_ALL_DONE_TASKS: &str = r#"
+schema_version = 1
+project = "all_done"
+default_branch = "main"
+
+[phases.1]
+name = "Done"
+order = 1
+status = "done"
+
+[bundles.finished]
+phase = 1
+order = 1
+description = "All work complete"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "finished"
+status = "done"
+title = "complete"
+scores = { d = 2, b = 4, u = 4 }
+done_at = "2026-05-01"
+"#;
+
+const BUNDLES_ALL_BLOCKED_TASKS: &str = r#"
+schema_version = 1
+project = "all_blocked"
+default_branch = "main"
+
+[phases.1]
+name = "Blocked"
+order = 1
+status = "in_progress"
+
+[bundles.stuck]
+phase = 1
+order = 1
+description = "Everything blocked"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "stuck"
+status = "blocked"
+title = "waiting on vendor"
+scores = { d = 3, b = 6, u = 6 }
+blocked_reason = "waiting on vendor approval"
+"#;
+
+const BUNDLES_IN_FLIGHT_TASKS: &str = r#"
+schema_version = 1
+project = "in_flight"
+default_branch = "main"
+
+[phases.1]
+name = "Active"
+order = 1
+status = "in_progress"
+
+[bundles.flying]
+phase = 1
+order = 1
+description = "All work in flight"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "flying"
+status = "in_progress"
+title = "midair work"
+scores = { d = 3, b = 6, u = 6 }
+started_at = "2026-05-01"
+"#;
+
+fn run_bundles(path: &PathBuf, args: &[&str]) -> std::process::Output {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_rmap"));
+    cmd.arg("bundles");
+    for arg in args {
+        cmd.arg(arg);
+    }
+    cmd.arg("--tasks-path")
+        .arg(path)
+        .output()
+        .expect("run rmap bundles")
+}
+
+#[test]
+fn bundles_command_groups_by_phase_with_focus_first() {
+    let path = write_temp_tasks("bundles_multi.toml", BUNDLES_MULTI_PHASE_TASKS);
+    let output = run_bundles(&path, &[]);
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let phase1 = stdout
+        .find("phase 1 — Alpha")
+        .unwrap_or_else(|| panic!("phase 1 header missing:\n{stdout}"));
+    let phase2 = stdout
+        .find("phase 2 — Beta")
+        .unwrap_or_else(|| panic!("phase 2 header missing:\n{stdout}"));
+    assert!(
+        phase1 < phase2,
+        "focus phase 1 must precede phase 2:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("[in_progress, focus]"),
+        "expected focus tag on phase 1 header:\n{stdout}"
+    );
+    let alpha = stdout.find("alpha ").unwrap();
+    let stalled = stdout.find("stalled ").unwrap();
+    let beta = stdout.find("beta ").unwrap();
+    assert!(alpha < stalled, "alpha must precede stalled:\n{stdout}");
+    assert!(stalled < beta, "stalled must precede beta:\n{stdout}");
+}
+
+#[test]
+fn bundles_command_emits_json_envelope() {
+    let path = write_temp_tasks("bundles_multi.toml", BUNDLES_MULTI_PHASE_TASKS);
+    let output = run_bundles(&path, &["--json"]);
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let value: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+
+    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["focus_phase"], 1);
+    let bundles = value["bundles"].as_array().expect("bundles is array");
+    assert_eq!(bundles.len(), 3, "expected 3 bundles:\n{stdout}");
+
+    // First entry sorts alpha first (focus, phase_order=1, bundle_order=1).
+    assert_eq!(bundles[0]["name"], "alpha");
+    assert_eq!(bundles[0]["phase"], 1);
+    assert_eq!(bundles[0]["in_focus"], true);
+    assert!(bundles[0]["next_task"]["id"].is_number());
+    assert_eq!(bundles[0]["next_task"]["title"], "alpha next");
+    assert!(bundles[0]["next_task"]["eff"].is_number());
+
+    // status_counts always emits all four keys, zero-filled.
+    let counts = &bundles[0]["status_counts"];
+    for key in ["pending", "in_progress", "done", "blocked"] {
+        assert!(
+            counts.get(key).is_some(),
+            "expected status_counts.{key} on:\n{stdout}"
+        );
+    }
+}
+
+#[test]
+fn bundles_command_filter_phase() {
+    let path = write_temp_tasks("bundles_multi.toml", BUNDLES_MULTI_PHASE_TASKS);
+    let output = run_bundles(&path, &["--phase", "2"]);
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("beta "), "{stdout}");
+    assert!(!stdout.contains("alpha "), "{stdout}");
+    assert!(!stdout.contains("stalled "), "{stdout}");
+}
+
+#[test]
+fn bundles_command_filter_has_next() {
+    let path = write_temp_tasks("bundles_multi.toml", BUNDLES_MULTI_PHASE_TASKS);
+    let output = run_bundles(&path, &["--has-next"]);
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("alpha "), "{stdout}");
+    assert!(stdout.contains("beta "), "{stdout}");
+    assert!(
+        !stdout.contains("stalled "),
+        "stalled has no next, should be filtered out:\n{stdout}"
+    );
+}
+
+#[test]
+fn bundles_command_filter_in_focus() {
+    let path = write_temp_tasks("bundles_multi.toml", BUNDLES_MULTI_PHASE_TASKS);
+    let output = run_bundles(&path, &["--in-focus"]);
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("alpha "), "{stdout}");
+    assert!(stdout.contains("stalled "), "{stdout}");
+    assert!(!stdout.contains("beta "), "{stdout}");
+}
+
+#[test]
+fn bundles_command_empty_bundles() {
+    let path = write_temp_tasks("bundles_empty.toml", BUNDLES_EMPTY_TASKS);
+
+    let human = run_bundles(&path, &[]);
+    assert!(human.status.success());
+    let stdout = String::from_utf8_lossy(&human.stdout);
+    assert!(
+        stdout.contains("(no bundles declared)"),
+        "expected empty-state message:\n{stdout}"
+    );
+
+    let json_out = run_bundles(&path, &["--json"]);
+    assert!(json_out.status.success());
+    let value: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&json_out.stdout)).expect("valid JSON");
+    let bundles = value["bundles"].as_array().expect("bundles is array");
+    assert!(bundles.is_empty(), "expected empty array:\n{value}");
+    assert!(value["focus_phase"].is_null());
+}
+
+#[test]
+fn bundles_command_all_done_renders_check_glyph() {
+    let path = write_temp_tasks("bundles_all_done.toml", BUNDLES_ALL_DONE_TASKS);
+    let output = run_bundles(&path, &[]);
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("✅"), "expected ✅ glyph:\n{stdout}");
+    assert!(
+        !stdout.contains("next:"),
+        "expected no next: hint on all-done:\n{stdout}"
+    );
+}
+
+#[test]
+fn bundles_command_all_blocked_renders_blocked_glyph() {
+    let path = write_temp_tasks("bundles_all_blocked.toml", BUNDLES_ALL_BLOCKED_TASKS);
+    let output = run_bundles(&path, &[]);
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("all-blocked ⛔"),
+        "expected all-blocked ⛔ glyph:\n{stdout}"
+    );
+}
+
+#[test]
+fn bundles_command_in_flight_renders_construction_glyph() {
+    let path = write_temp_tasks("bundles_in_flight.toml", BUNDLES_IN_FLIGHT_TASKS);
+    let output = run_bundles(&path, &[]);
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("🚧"), "expected 🚧 glyph:\n{stdout}");
+    assert!(
+        !stdout.contains("next:"),
+        "expected no next: hint when all tasks in_progress:\n{stdout}"
+    );
+
+    let json_out = run_bundles(&path, &["--json"]);
+    assert!(json_out.status.success());
+    let value: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&json_out.stdout)).expect("valid JSON");
+    let flying = value["bundles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|b| b["name"] == "flying")
+        .expect("flying bundle in JSON");
+    assert_eq!(flying["status_counts"]["in_progress"], 1);
+    assert_eq!(flying["status_counts"]["pending"], 0);
+    assert!(flying["next_task"].is_null());
+}
+
+#[test]
+fn bundles_command_pending_with_unmet_deps_renders_pause_glyph() {
+    let path = write_temp_tasks("bundles_multi.toml", BUNDLES_MULTI_PHASE_TASKS);
+
+    let human = run_bundles(&path, &[]);
+    assert!(human.status.success());
+    let stdout = String::from_utf8_lossy(&human.stdout);
+    assert!(
+        stdout.contains("pending:1 (deps unmet) ⏸"),
+        "expected stalled bundle to render pause-glyph row:\n{stdout}"
+    );
+
+    let json_out = run_bundles(&path, &["--json"]);
+    assert!(json_out.status.success());
+    let value: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&json_out.stdout)).expect("valid JSON");
+    let stalled = value["bundles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|b| b["name"] == "stalled")
+        .expect("stalled bundle in JSON");
+    assert!(
+        stalled["next_task"].is_null(),
+        "expected next_task null on stalled:\n{stalled}"
+    );
+    assert_eq!(stalled["status_counts"]["pending"], 1);
+}

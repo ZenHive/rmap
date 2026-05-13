@@ -1,3 +1,4 @@
+pub mod bundles;
 pub mod delegate;
 pub mod diff;
 pub mod doctor;
