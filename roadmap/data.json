@@ -23,6 +23,11 @@
     }
   },
   "bundles": {
+    "batch_selection": {
+      "phase": 13,
+      "order": 4,
+      "description": "Surface authoring-time bundles as selector input (list --bundle, next --bundle, next --count)"
+    },
     "delegate_parity": {
       "phase": 13,
       "order": 2,
@@ -365,6 +370,59 @@
       "acceptance_criteria": [
         "--ac-threshold <N> overrides AC_DIFFICULTY_THRESHOLD / AC_BENEFIT_THRESHOLD",
         "Lands together with --threshold-days if implemented in the same session"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 14,
+      "phase": 13,
+      "bundle": "batch_selection",
+      "status": "pending",
+      "title": "rmap list/next --bundle <name> filter",
+      "scores": {
+        "d": 2,
+        "b": 7,
+        "u": 7
+      },
+      "eff": 3.5,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "TaskFilter::bundle: Option<String> added to query.rs",
+        "list_tasks honors bundle filter (task.bundle == name) alongside existing status/marker/phase",
+        "next_task signature extended to accept bundle filter; bundle is applied BEFORE focus-phase tier + dep-satisfaction logic (bundle wins over focus when both are set explicitly)",
+        "clap: --bundle <name> on both Next and List subcommands in main.rs",
+        "Tests: list --bundle X returns only that bundle's tasks; next --bundle X returns the highest-Eff dep-satisfied pending in that bundle; next --bundle X --marker parallel composes correctly; unknown bundle returns empty/null without erroring",
+        "SKILLS.md examples: `rmap list --bundle <name>` and `rmap next --bundle <name>` (exit 0)",
+        "No schema_version bump (additive flags; agent JSON contract preserved — bundle is already in ExportedTask)"
+      ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 15,
+      "phase": 13,
+      "bundle": "batch_selection",
+      "status": "pending",
+      "title": "rmap next --count N returns top-N candidates",
+      "scores": {
+        "d": 3,
+        "b": 5,
+        "u": 4
+      },
+      "eff": 1.5,
+      "markers": [],
+      "depends_on": [
+        14
+      ],
+      "acceptance_criteria": [
+        "next_task refactored to next_tasks(tasks, filter, count) -> Vec<&Task>; existing next_task becomes thin wrapper (next_tasks(..., 1).into_iter().next())",
+        "clap: --count <N> on Next subcommand (default 1)",
+        "JSON shape contract: --count 1 (default) preserves today's shape (bare ExportedTask object or null); --count N>1 emits a JSON array [ExportedTask, ...]. Documented as a load-bearing invariant in CLAUDE.md",
+        "Tests: --count 1 matches existing golden (backwards compat); --count 3 returns Eff-ranked array of length min(3, eligible); --count 100 on a small project returns however many are eligible without erroring",
+        "SKILLS.md example: `rmap next --count 3 --bundle batch_selection --json`",
+        "No schema_version bump (count==1 shape unchanged; count>1 is a new shape only reachable via explicit opt-in flag)"
       ],
       "scored_at": "2026-05-13",
       "cross_repo": []
