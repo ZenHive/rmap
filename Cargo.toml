@@ -17,3 +17,4 @@ toml_edit = "0.22"
 
 [dev-dependencies]
 jsonschema = "0.17"
+tempfile = "3"

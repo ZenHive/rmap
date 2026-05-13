@@ -1,11 +1,9 @@
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
 
-static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
+use tempfile::TempDir;
 
 /// Parses `SKILLS.md`, extracts every fenced ```bash``` block whose first
 /// non-comment line starts with `rmap `, and runs each in a fresh temp-dir
@@ -27,15 +25,15 @@ fn skills_md_bash_blocks_match_declared_exit_codes() {
     );
 
     for cmd in &commands {
-        let tmp = temp_dir();
-        copy_dir_recursive(&fixture_root, &tmp);
-        prepare_fixture(&tmp);
+        let tmp = TempDir::with_prefix("rmap-skills-").expect("create temp test dir");
+        copy_dir_recursive(&fixture_root, tmp.path());
+        prepare_fixture(tmp.path());
 
         let argv: Vec<&str> = cmd.line.split_whitespace().skip(1).collect();
         let mut command = Command::new(env!("CARGO_BIN_EXE_rmap"));
         command
             .args(&argv)
-            .current_dir(&tmp)
+            .current_dir(tmp.path())
             .env("RMAP_TODAY", "2026-05-12");
 
         let output = if let Some(stdin_payload) = &cmd.stdin {
@@ -114,18 +112,34 @@ fn extract_command(lines: &[&str], start_line: usize) -> Option<SmokeCommand> {
                 stdin = Some(buffer.join("\n"));
                 collecting_stdin = None;
             } else {
-                // Strip a single leading "# " comment marker if present so block
-                // authors can keep the payload visually inside the bash comment.
                 let payload_line = line.strip_prefix("# ").unwrap_or(line);
                 buffer.push(payload_line.to_string());
             }
             continue;
         }
         if let Some(rest) = trimmed.strip_prefix("# exit:") {
-            expected_exit = rest.trim().parse().unwrap_or(0);
+            let raw = rest.trim();
+            expected_exit = raw.parse().unwrap_or_else(|_| {
+                panic!(
+                    "SKILLS.md line {}: malformed `# exit:` annotation `{}` — expected integer",
+                    start_line + offset,
+                    raw
+                )
+            });
         } else if trimmed.starts_with("# stdin:") {
             collecting_stdin = Some(Vec::new());
-        } else if (trimmed.starts_with("rmap ") || trimmed == "rmap") && found.is_none() {
+        } else if trimmed.starts_with("rmap ") || trimmed == "rmap" {
+            if let Some((prev_line, prev_source)) = &found {
+                panic!(
+                    "SKILLS.md lines {}-{}: bash block contains more than one rmap invocation \
+                     (`{}` then `{}`). Split the documented commands into separate ```bash``` blocks \
+                     so each is exercised by the smoke test.",
+                    prev_source,
+                    start_line + offset,
+                    prev_line,
+                    trimmed
+                );
+            }
             found = Some((trimmed.to_string(), start_line + offset));
         }
     }
@@ -213,18 +227,3 @@ fn copy_dir_recursive(src: &Path, dst: &Path) {
     }
 }
 
-fn temp_dir() -> PathBuf {
-    let unique = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
-    let mut dir = std::env::temp_dir();
-    dir.push(format!(
-        "rmap-skills-{}-{}-{}",
-        std::process::id(),
-        unique,
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system time after epoch")
-            .as_nanos()
-    ));
-    fs::create_dir_all(&dir).expect("create temp test dir");
-    dir
-}
