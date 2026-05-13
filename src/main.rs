@@ -8,12 +8,14 @@ use rmap::diff::{diff_toml, format_diff};
 use rmap::doctor::DoctorReport;
 use rmap::export::{export_filtered_json_str, export_json_str, export_task_json_str};
 use rmap::mutate::{
-    CrossRepoSpec, MarkerOp, add_dependency_str, update_markers_str, update_status_many_str,
+    CrossRepoSpec, MarkerOp, NewTaskFields, add_dependency_str, add_task_str, update_markers_str,
+    update_status_many_str,
 };
 use rmap::next::{format_next_task, next_task};
 use rmap::paths::{ResolvedPaths, resolve_paths};
 use rmap::query::{TaskFilter, find_task, format_task, format_task_row, list_tasks};
 use rmap::render::render_roadmap_str;
+use rmap::schema::{Scores, TaskId};
 use rmap::schema_json::schema_json_str;
 use rmap::stale::{find_stale, parse_duration};
 use rmap::today_iso;
@@ -153,6 +155,27 @@ enum Commands {
         /// Cross-repo dependency: `<repo>:<task_id>[:<relation>]`.
         #[arg(long)]
         cross_repo: Option<String>,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+        #[arg(long)]
+        roadmap_path: Option<PathBuf>,
+        #[arg(long)]
+        data_path: Option<PathBuf>,
+    },
+    /// Create a new task and append it to `tasks.toml`.
+    ///
+    /// With `--from-stdin`, reads a TOML fragment from stdin (one or more
+    /// `[[task]]` blocks, accepting the same field set as `schema::Task`).
+    /// Without `--from-stdin`, drops into an interactive `dialoguer` prompt
+    /// flow — requires a TTY. In both modes, the id is auto-allocated
+    /// (numeric `max + 1`) unless the caller supplies one explicitly, and
+    /// `created_at` / `scored_at` default to `today_iso()`. Re-validates and
+    /// re-renders ROADMAP.md + data.json on success; on failure the file is
+    /// left byte-equal to its pre-call state.
+    New {
+        /// Read one-or-more `[[task]]` blocks as TOML from stdin instead of prompting.
+        #[arg(long)]
+        from_stdin: bool,
         #[arg(long)]
         tasks_path: Option<PathBuf>,
         #[arg(long)]
@@ -354,6 +377,15 @@ fn run() -> Result<ExitCode> {
                 cross_repo.as_deref(),
             )?;
         }
+        Commands::New {
+            from_stdin,
+            tasks_path,
+            roadmap_path,
+            data_path,
+        } => {
+            let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
+            create_task(paths, from_stdin)?;
+        }
         Commands::Stale {
             over,
             json,
@@ -525,6 +557,305 @@ fn update_status(paths: ResolvedPaths, task_id: &str, new_status: &str) -> Resul
     println!("updated");
 
     Ok(())
+}
+
+/// Top-level for `rmap new` and `rmap new --from-stdin`. Shares the load /
+/// mutate / re-validate / re-render / write tail with the other mutators.
+fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
+    let input = std::fs::read_to_string(&paths.tasks_path)
+        .with_context(|| format!("read {}", paths.tasks_path.display()))?;
+
+    let path_label = paths.tasks_path.display().to_string();
+
+    let new_tasks: Vec<StdinTask> = if from_stdin {
+        let mut stdin_buf = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut stdin_buf)
+            .context("read stdin")?;
+        let payload: StdinPayload = toml::from_str(&stdin_buf).map_err(|err| {
+            anyhow::anyhow!(
+                "parse stdin TOML: {err}\nexpected one-or-more `[[task]]` blocks; see SKILLS.md `rmap new --from-stdin`"
+            )
+        })?;
+        if payload.task.is_empty() {
+            bail!("stdin payload contained no `[[task]]` blocks");
+        }
+        payload.task
+    } else {
+        if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            bail!(
+                "interactive `rmap new` requires a TTY — pipe a TOML fragment via `rmap new --from-stdin` for non-interactive contexts"
+            );
+        }
+        let existing =
+            validate_tasks_str(path_label.clone(), &input).context("load existing tasks")?;
+        vec![prompt_task_fields(&existing)?]
+    };
+
+    let today = today_iso();
+    let mut current = input.clone();
+    let mut allocated_ids: Vec<u32> = Vec::with_capacity(new_tasks.len());
+
+    for task in &new_tasks {
+        let markers: Vec<&str> = task.markers.iter().map(String::as_str).collect();
+        let mut depends_on: Vec<u32> = Vec::with_capacity(task.depends_on.len());
+        for dep in &task.depends_on {
+            match dep {
+                TaskId::Number(n) => depends_on.push(*n),
+                TaskId::Text(text) => bail!(
+                    "stdin depends_on {text:?}: text ids are not supported by `rmap new --from-stdin` — use a numeric id"
+                ),
+            }
+        }
+        let acceptance_criteria: Vec<&str> = task
+            .acceptance_criteria
+            .iter()
+            .map(String::as_str)
+            .collect();
+
+        let explicit_id = match &task.id {
+            Some(TaskId::Number(n)) => Some(*n),
+            Some(TaskId::Text(text)) => bail!(
+                "stdin task id {text:?}: text ids are not supported by `rmap new --from-stdin` — omit `id` to auto-allocate or use a numeric id"
+            ),
+            None => None,
+        };
+
+        let status = task.status.as_deref().unwrap_or("pending");
+
+        let fields = NewTaskFields {
+            id: explicit_id,
+            phase: task.phase,
+            bundle: task.bundle.as_str(),
+            title: task.title.as_str(),
+            scores: (task.scores.d, task.scores.b, task.scores.u),
+            status,
+            markers: &markers,
+            depends_on: &depends_on,
+            acceptance_criteria: &acceptance_criteria,
+            assignee: task.assignee.as_deref(),
+            linear_id: task.linear_id.as_deref(),
+            module: task.module.as_deref(),
+            body: task.body.as_deref(),
+            created_at: Some(task.created_at.as_deref().unwrap_or(today.as_str())),
+            scored_at: Some(task.scored_at.as_deref().unwrap_or(today.as_str())),
+        };
+
+        let (updated, allocated) = add_task_str(path_label.clone(), &current, &fields)?;
+        current = updated;
+        allocated_ids.push(allocated);
+    }
+
+    let tasks = validate_tasks_str(path_label.clone(), &current)?;
+    let (rendered_roadmap, rendered_data) = render_outputs(&paths, &tasks)?;
+
+    std::fs::write(&paths.tasks_path, &current)
+        .with_context(|| format!("write {}", paths.tasks_path.display()))?;
+    write_outputs(&paths, rendered_roadmap, rendered_data)?;
+
+    let ids_csv: Vec<String> = allocated_ids.iter().map(u32::to_string).collect();
+    println!("created task {}", ids_csv.join(", "));
+
+    Ok(())
+}
+
+/// Top-level deserialization shape for `rmap new --from-stdin`. Mirrors the
+/// `schema::Tasks` envelope's `[[task]]` array but with `id` optional (so the
+/// caller can omit it and let `add_task_str` auto-allocate). `deny_unknown_fields`
+/// rejects payloads that would not round-trip cleanly through the rest of the
+/// pipeline.
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StdinPayload {
+    #[serde(default)]
+    task: Vec<StdinTask>,
+}
+
+/// Task-shaped stdin row. Field set matches `schema::Task` except `id` is
+/// optional (auto-allocate when absent) and `status` is optional (defaults to
+/// `"pending"` in the handler). Lifecycle timestamps (`started_at`, `done_at`,
+/// `blocked_reason`, `shipped_in`) are explicitly excluded from the surface —
+/// `rmap status` owns those transitions.
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StdinTask {
+    pub id: Option<TaskId>,
+    pub phase: u32,
+    pub bundle: String,
+    pub status: Option<String>,
+    pub title: String,
+    pub scores: Scores,
+    #[serde(default)]
+    pub markers: Vec<String>,
+    #[serde(default)]
+    pub depends_on: Vec<TaskId>,
+    pub linear_id: Option<String>,
+    pub assignee: Option<String>,
+    pub module: Option<String>,
+    #[serde(default)]
+    pub acceptance_criteria: Vec<String>,
+    pub body: Option<String>,
+    pub created_at: Option<String>,
+    pub scored_at: Option<String>,
+}
+
+/// Drive a `dialoguer` prompt flow to build one `NewTaskFields` for interactive
+/// `rmap new`. Uses the loaded `Tasks` to populate `Select` lists for phase /
+/// bundle. Refuses to create a bundle on the fly — the user must author the
+/// `[bundles.<name>]` table manually before referencing it.
+fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
+    use dialoguer::{Confirm, Input, MultiSelect, Select, theme::ColorfulTheme};
+
+    let theme = ColorfulTheme::default();
+
+    let mut phase_keys: Vec<&String> = existing.phases.keys().collect();
+    phase_keys.sort_by_key(|key| existing.phases.get(*key).map_or(u32::MAX, |p| p.order));
+    if phase_keys.is_empty() {
+        bail!("no phases declared in tasks.toml; add a `[phases.<n>]` table first");
+    }
+    let phase_labels: Vec<String> = phase_keys
+        .iter()
+        .map(|key| {
+            let phase = &existing.phases[*key];
+            format!("{} — {}", key, phase.name)
+        })
+        .collect();
+    let phase_index = Select::with_theme(&theme)
+        .with_prompt("Phase")
+        .items(&phase_labels)
+        .default(0)
+        .interact()?;
+    let phase_key = phase_keys[phase_index];
+    let phase_number: u32 = phase_key
+        .parse()
+        .with_context(|| format!("phase key {phase_key:?} is not a u32"))?;
+
+    let mut bundle_entries: Vec<(&String, &rmap::schema::Bundle)> = existing
+        .bundles
+        .iter()
+        .filter(|(_, bundle)| bundle.phase == phase_number)
+        .collect();
+    bundle_entries.sort_by_key(|(_, bundle)| bundle.order);
+    let bundle_keys: Vec<&String> = bundle_entries.iter().map(|(key, _)| *key).collect();
+    if bundle_keys.is_empty() {
+        bail!(
+            "no `[bundles.<name>]` declared for phase {phase_number}; add one to tasks.toml before creating a task"
+        );
+    }
+    let bundle_index = Select::with_theme(&theme)
+        .with_prompt("Bundle")
+        .items(&bundle_keys)
+        .default(0)
+        .interact()?;
+    let bundle = bundle_keys[bundle_index].clone();
+
+    let title: String = Input::with_theme(&theme)
+        .with_prompt("Title")
+        .validate_with(|input: &String| -> std::result::Result<(), &str> {
+            if input.trim().is_empty() {
+                Err("title must not be empty")
+            } else {
+                Ok(())
+            }
+        })
+        .interact_text()?;
+
+    let d: u32 = prompt_score(&theme, "Difficulty (1-10)")?;
+    let b: u32 = prompt_score(&theme, "Benefit (1-10)")?;
+    let u: u32 = prompt_score(&theme, "Urgency (1-10)")?;
+
+    let marker_choices = rmap::validate::VALID_MARKERS;
+    let marker_selection = MultiSelect::with_theme(&theme)
+        .with_prompt("Markers (space to toggle)")
+        .items(marker_choices)
+        .interact()?;
+    let markers: Vec<String> = marker_selection
+        .into_iter()
+        .map(|i| marker_choices[i].to_string())
+        .collect();
+
+    let mut acceptance_criteria: Vec<String> = Vec::new();
+    loop {
+        let next: String = Input::with_theme(&theme)
+            .with_prompt("Acceptance criterion (empty to stop)")
+            .allow_empty(true)
+            .interact_text()?;
+        if next.trim().is_empty() {
+            break;
+        }
+        acceptance_criteria.push(next);
+        if !Confirm::with_theme(&theme)
+            .with_prompt("Add another?")
+            .default(false)
+            .interact()?
+        {
+            break;
+        }
+    }
+
+    let assignee_choices = ["(skip)", "human", "claude", "codex", "cursor"];
+    let assignee_index = Select::with_theme(&theme)
+        .with_prompt("Assignee")
+        .items(&assignee_choices)
+        .default(0)
+        .interact()?;
+    let assignee = if assignee_index == 0 {
+        None
+    } else {
+        Some(assignee_choices[assignee_index].to_string())
+    };
+
+    let linear_id_input: String = Input::with_theme(&theme)
+        .with_prompt("Linear id (empty to skip)")
+        .allow_empty(true)
+        .interact_text()?;
+    let linear_id = if linear_id_input.trim().is_empty() {
+        None
+    } else {
+        Some(linear_id_input)
+    };
+
+    let module_input: String = Input::with_theme(&theme)
+        .with_prompt("Module (empty to skip)")
+        .allow_empty(true)
+        .interact_text()?;
+    let module = if module_input.trim().is_empty() {
+        None
+    } else {
+        Some(module_input)
+    };
+
+    Ok(StdinTask {
+        id: None,
+        phase: phase_number,
+        bundle,
+        status: None,
+        title,
+        scores: Scores { d, b, u },
+        markers,
+        depends_on: Vec::new(),
+        linear_id,
+        assignee,
+        module,
+        acceptance_criteria,
+        body: None,
+        created_at: None,
+        scored_at: None,
+    })
+}
+
+fn prompt_score(theme: &dialoguer::theme::ColorfulTheme, label: &str) -> Result<u32> {
+    use dialoguer::Input;
+    let value: u32 = Input::<u32>::with_theme(theme)
+        .with_prompt(label)
+        .validate_with(|input: &u32| -> std::result::Result<(), &str> {
+            if (1..=10).contains(input) {
+                Ok(())
+            } else {
+                Err("score must be 1-10")
+            }
+        })
+        .interact_text()?;
+    Ok(value)
 }
 
 fn render_outputs(paths: &ResolvedPaths, tasks: &rmap::schema::Tasks) -> Result<(String, String)> {

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::str::FromStr;
 
 use thiserror::Error;
-use toml_edit::{Array, DocumentMut, InlineTable, Item, Value};
+use toml_edit::{Array, DocumentMut, InlineTable, Item, Table, Value};
 
 use crate::validate::{ValidateError, validate_tasks_str};
 
@@ -16,6 +16,9 @@ pub enum MutateError {
     MissingTasks,
     #[error("unknown task id {0}")]
     UnknownTaskId(String),
+    /// `new --from-stdin` (or interactive `new`) tried to use an id already in the file.
+    #[error("duplicate task id {0}")]
+    DuplicateId(String),
     /// Caller passed an empty ID list — nothing to mutate.
     #[error("no task ids provided")]
     EmptyIds,
@@ -342,6 +345,158 @@ pub fn add_dependency_str(
     let output = document.to_string();
     validate_tasks_str(path, &output)?;
     Ok(output)
+}
+
+/// Typed task input for `add_task_str`. Mirrors the subset of `schema::Task`
+/// fields that callers (interactive `new`, `new --from-stdin`) can populate at
+/// creation time. Lifecycle timestamps (`started_at`, `done_at`,
+/// `blocked_reason`, `shipped_in`) are never settable on creation — those
+/// transitions are owned by `rmap status` (and equivalent lifecycle mutators).
+#[derive(Debug, Default, Clone)]
+pub struct NewTaskFields<'a> {
+    /// Explicit numeric id. `None` requests auto-allocation (max existing id + 1).
+    pub id: Option<u32>,
+    pub phase: u32,
+    pub bundle: &'a str,
+    pub title: &'a str,
+    pub scores: (u32, u32, u32),
+    /// Defaults to `"pending"` when empty.
+    pub status: &'a str,
+    pub markers: &'a [&'a str],
+    pub depends_on: &'a [u32],
+    pub acceptance_criteria: &'a [&'a str],
+    pub assignee: Option<&'a str>,
+    pub linear_id: Option<&'a str>,
+    pub module: Option<&'a str>,
+    pub body: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+    pub scored_at: Option<&'a str>,
+}
+
+/// Walk a `[[task]]` array and return the next free numeric id (`max + 1`).
+/// `TaskId::Text` ids are skipped — only numeric ids participate in
+/// auto-allocation, mirroring the project convention that all fixtures use
+/// integer ids. Returns `1` when the array is empty.
+fn next_task_id(tasks: &toml_edit::ArrayOfTables) -> u32 {
+    let mut max: u32 = 0;
+    for task in tasks.iter() {
+        if let Some(value) = task.get("id").and_then(Item::as_value)
+            && let Some(n) = value.as_integer()
+            && let Ok(n_u32) = u32::try_from(n)
+            && n_u32 > max
+        {
+            max = n_u32;
+        }
+    }
+    max + 1
+}
+
+/// Append a `[[task]]` to the document, optionally auto-allocating the id.
+/// Returns `(updated_document, allocated_id)`. Re-validates the full document
+/// after insertion via `validate_tasks_str`; on validation failure the caller's
+/// input is left untouched (mutation lives only in the returned `String`).
+///
+/// Atomicity: a duplicate explicit id, unknown phase/bundle, cycle, or any
+/// other schema violation produces `Err(_)` before the caller writes — the
+/// on-disk file is byte-equal to its pre-call state. For multi-task ingestion
+/// (e.g. `new --from-stdin` with multiple `[[task]]` blocks), callers chain
+/// calls and re-thread the returned string; the first failure aborts the
+/// batch.
+pub fn add_task_str(
+    path: impl Into<String>,
+    input: &str,
+    fields: &NewTaskFields<'_>,
+) -> Result<(String, u32), MutateError> {
+    let path = path.into();
+    let mut document =
+        DocumentMut::from_str(input).map_err(|err| MutateError::Toml(err.to_string()))?;
+    let tasks = document["task"]
+        .as_array_of_tables_mut()
+        .ok_or(MutateError::MissingTasks)?;
+
+    let allocated_id = match fields.id {
+        Some(explicit) => {
+            let explicit_str = explicit.to_string();
+            let clash = tasks.iter().any(|task| {
+                task.get("id").and_then(item_to_task_id).as_deref() == Some(explicit_str.as_str())
+            });
+            if clash {
+                return Err(MutateError::DuplicateId(explicit_str));
+            }
+            explicit
+        }
+        None => next_task_id(tasks),
+    };
+
+    let mut table = Table::new();
+    // Suppress the `[[task]]` header from being implicit — we want the standard
+    // header to be emitted on serialisation so the row is well-formed in the file.
+    table.set_implicit(false);
+    table["id"] = Item::Value(Value::from(allocated_id as i64));
+    table["phase"] = Item::Value(Value::from(fields.phase as i64));
+    table["bundle"] = Item::Value(Value::from(fields.bundle));
+    let status_value = if fields.status.is_empty() {
+        "pending"
+    } else {
+        fields.status
+    };
+    table["status"] = Item::Value(Value::from(status_value));
+    table["title"] = Item::Value(Value::from(fields.title));
+
+    let mut scores = InlineTable::new();
+    scores.insert("d", Value::from(fields.scores.0 as i64));
+    scores.insert("b", Value::from(fields.scores.1 as i64));
+    scores.insert("u", Value::from(fields.scores.2 as i64));
+    table["scores"] = Item::Value(Value::InlineTable(scores));
+
+    if !fields.markers.is_empty() {
+        let mut array = Array::new();
+        for marker in fields.markers {
+            array.push(*marker);
+        }
+        table["markers"] = Item::Value(Value::Array(array));
+    }
+
+    if !fields.depends_on.is_empty() {
+        let mut array = Array::new();
+        for dep in fields.depends_on {
+            array.push(*dep as i64);
+        }
+        table["depends_on"] = Item::Value(Value::Array(array));
+    }
+
+    if !fields.acceptance_criteria.is_empty() {
+        let mut array = Array::new();
+        for ac in fields.acceptance_criteria {
+            array.push(*ac);
+        }
+        table["acceptance_criteria"] = Item::Value(Value::Array(array));
+    }
+
+    if let Some(assignee) = fields.assignee {
+        table["assignee"] = Item::Value(Value::from(assignee));
+    }
+    if let Some(linear_id) = fields.linear_id {
+        table["linear_id"] = Item::Value(Value::from(linear_id));
+    }
+    if let Some(module) = fields.module {
+        table["module"] = Item::Value(Value::from(module));
+    }
+    if let Some(body) = fields.body {
+        table["body"] = Item::Value(Value::from(body));
+    }
+    if let Some(created_at) = fields.created_at {
+        table["created_at"] = Item::Value(Value::from(created_at));
+    }
+    if let Some(scored_at) = fields.scored_at {
+        table["scored_at"] = Item::Value(Value::from(scored_at));
+    }
+
+    tasks.push(table);
+
+    let output = document.to_string();
+    validate_tasks_str(path, &output)?;
+    Ok((output, allocated_id))
 }
 
 #[cfg(test)]

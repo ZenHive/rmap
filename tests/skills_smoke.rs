@@ -1,6 +1,7 @@
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -31,12 +32,27 @@ fn skills_md_bash_blocks_match_declared_exit_codes() {
         prepare_fixture(&tmp);
 
         let argv: Vec<&str> = cmd.line.split_whitespace().skip(1).collect();
-        let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        let mut command = Command::new(env!("CARGO_BIN_EXE_rmap"));
+        command
             .args(&argv)
             .current_dir(&tmp)
-            .env("RMAP_TODAY", "2026-05-12")
-            .output()
-            .expect("run rmap");
+            .env("RMAP_TODAY", "2026-05-12");
+
+        let output = if let Some(stdin_payload) = &cmd.stdin {
+            command.stdin(Stdio::piped());
+            command.stdout(Stdio::piped());
+            command.stderr(Stdio::piped());
+            let mut child = command.spawn().expect("spawn rmap with stdin");
+            {
+                let mut child_stdin = child.stdin.take().expect("piped stdin");
+                child_stdin
+                    .write_all(stdin_payload.as_bytes())
+                    .expect("write stdin payload");
+            }
+            child.wait_with_output().expect("collect rmap output")
+        } else {
+            command.output().expect("run rmap")
+        };
 
         let actual = output.status.code();
         assert_eq!(
@@ -57,6 +73,8 @@ struct SmokeCommand {
     line: String,
     expected_exit: i32,
     source_line: usize,
+    /// Optional stdin payload, captured from a `# stdin: <<EOF` … `# EOF` block.
+    stdin: Option<String>,
 }
 
 fn parse_bash_blocks(skills: &str) -> Vec<SmokeCommand> {
@@ -86,11 +104,27 @@ fn parse_bash_blocks(skills: &str) -> Vec<SmokeCommand> {
 fn extract_command(lines: &[&str], start_line: usize) -> Option<SmokeCommand> {
     let mut expected_exit = 0;
     let mut found: Option<(String, usize)> = None;
+    let mut stdin: Option<String> = None;
+    let mut collecting_stdin: Option<Vec<String>> = None;
 
     for (offset, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
+        if let Some(buffer) = collecting_stdin.as_mut() {
+            if trimmed == "# EOF" {
+                stdin = Some(buffer.join("\n"));
+                collecting_stdin = None;
+            } else {
+                // Strip a single leading "# " comment marker if present so block
+                // authors can keep the payload visually inside the bash comment.
+                let payload_line = line.strip_prefix("# ").unwrap_or(line);
+                buffer.push(payload_line.to_string());
+            }
+            continue;
+        }
         if let Some(rest) = trimmed.strip_prefix("# exit:") {
             expected_exit = rest.trim().parse().unwrap_or(0);
+        } else if trimmed.starts_with("# stdin:") {
+            collecting_stdin = Some(Vec::new());
         } else if (trimmed.starts_with("rmap ") || trimmed == "rmap") && found.is_none() {
             found = Some((trimmed.to_string(), start_line + offset));
         }
@@ -100,6 +134,7 @@ fn extract_command(lines: &[&str], start_line: usize) -> Option<SmokeCommand> {
         line,
         expected_exit,
         source_line,
+        stdin,
     })
 }
 

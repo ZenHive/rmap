@@ -1,6 +1,7 @@
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -1499,6 +1500,369 @@ fn depend_command_rejects_on_without_target() {
         String::from_utf8_lossy(&output.stderr).contains("missing target task id after `on`"),
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+// ---------------------------------------------------------------------------
+// new --from-stdin tests
+// ---------------------------------------------------------------------------
+
+/// Materialize a project directory shaped like `paths::resolve` expects:
+/// `<root>/roadmap/tasks.toml` + `<root>/ROADMAP.md`. Returns
+/// `(root, tasks_path, roadmap_path, data_path)`.
+fn write_new_stdin_fixture(tasks: &str) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", tasks);
+    let roadmap_path = write_file(&dir, "ROADMAP.md", ROADMAP);
+    let data_path = dir.join("roadmap/data.json");
+
+    // Pre-render so ROADMAP.md + data.json reflect the input tasks; create_task
+    // re-renders, but it expects a roadmap with TASKS markers in place.
+    let prep = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-12")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap render for new fixture prep");
+    assert!(
+        prep.status.success(),
+        "fixture prep render failed\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&prep.stdout),
+        String::from_utf8_lossy(&prep.stderr)
+    );
+
+    (dir, tasks_path, roadmap_path, data_path)
+}
+
+/// Drive `rmap new --from-stdin` with the given TOML payload piped on stdin.
+fn run_new_from_stdin(
+    tasks_path: &std::path::Path,
+    roadmap_path: &std::path::Path,
+    data_path: &std::path::Path,
+    payload: &str,
+    today: &str,
+) -> std::process::Output {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_rmap"));
+    command
+        .arg("new")
+        .arg("--from-stdin")
+        .arg("--tasks-path")
+        .arg(tasks_path)
+        .arg("--roadmap-path")
+        .arg(roadmap_path)
+        .arg("--data-path")
+        .arg(data_path)
+        .env("RMAP_TODAY", today)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let mut child = command.spawn().expect("spawn rmap new --from-stdin");
+    {
+        let mut child_stdin = child.stdin.take().expect("piped stdin");
+        child_stdin
+            .write_all(payload.as_bytes())
+            .expect("write stdin payload");
+    }
+    child.wait_with_output().expect("collect rmap new output")
+}
+
+const NEW_STDIN_TASKS: &str = r#"
+schema_version = 1
+project = "new_stdin_test"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.foundation]
+phase = 1
+order = 1
+description = "Foundation tasks"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "foundation"
+status = "pending"
+title = "Existing task"
+scores = { d = 2, b = 6, u = 6 }
+created_at = "2026-05-12"
+scored_at = "2026-05-12"
+"#;
+
+#[test]
+fn new_from_stdin_appends_task_and_rerenders() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Stdin-authored task"
+scores = { d = 3, b = 7, u = 7 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("created task 2"), "stdout: {stdout}");
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(tasks.contains("Stdin-authored task"), "tasks: {tasks}");
+    assert!(
+        tasks.contains("id = 2"),
+        "expected auto-allocated id = 2; tasks: {tasks}"
+    );
+
+    let roadmap = fs::read_to_string(&roadmap_path).expect("read updated roadmap");
+    assert!(
+        roadmap.contains("Stdin-authored task"),
+        "roadmap: {roadmap}"
+    );
+
+    let data: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&data_path).expect("read data json"))
+            .expect("valid data json");
+    let new_row = data["task"]
+        .as_array()
+        .expect("task array")
+        .iter()
+        .find(|row| row["id"] == 2)
+        .expect("new row in data.json");
+    assert_eq!(new_row["title"], "Stdin-authored task");
+    assert!(new_row["eff"].is_number(), "eff computed: {new_row}");
+}
+
+#[test]
+fn new_from_stdin_auto_allocates_id_when_omitted() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "First"
+scores = { d = 1, b = 4, u = 4 }
+
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Second"
+scores = { d = 1, b = 4, u = 4 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("created task 2, 3"),
+        "expected sequential ids 2, 3; stdout: {stdout}"
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(tasks.contains("id = 2"));
+    assert!(tasks.contains("id = 3"));
+}
+
+#[test]
+fn new_from_stdin_multi_task_atomic_on_failure() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+    let before = fs::read_to_string(&tasks_path).expect("read before");
+
+    // Second task references an unknown phase — entire batch must reject.
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "First (valid)"
+scores = { d = 1, b = 4, u = 4 }
+
+[[task]]
+phase = 99
+bundle = "foundation"
+title = "Second (invalid phase)"
+scores = { d = 1, b = 4, u = 4 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        !output.status.success(),
+        "expected failure on unknown phase"
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read after");
+    assert_eq!(
+        before, after,
+        "tasks.toml must be byte-equal after rejected batch"
+    );
+    assert!(
+        !after.contains("First (valid)"),
+        "valid first task must not leak through"
+    );
+}
+
+#[test]
+fn new_from_stdin_rejects_duplicate_id() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+    let before = fs::read_to_string(&tasks_path).expect("read before");
+
+    let payload = r#"
+[[task]]
+id = 1
+phase = 1
+bundle = "foundation"
+title = "Collides with existing id 1"
+scores = { d = 2, b = 5, u = 5 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(!output.status.success(), "duplicate id must fail");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("duplicate task id"),
+        "stderr should mention duplicate; got: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read after");
+    assert_eq!(before, after, "tasks.toml unchanged on duplicate-id reject");
+}
+
+#[test]
+fn new_from_stdin_rejects_unknown_bundle() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+    let before = fs::read_to_string(&tasks_path).expect("read before");
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "nonexistent"
+title = "References unknown bundle"
+scores = { d = 2, b = 5, u = 5 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(!output.status.success(), "unknown bundle must fail");
+
+    let after = fs::read_to_string(&tasks_path).expect("read after");
+    assert_eq!(
+        before, after,
+        "tasks.toml unchanged on unknown-bundle reject"
+    );
+}
+
+#[test]
+fn new_from_stdin_inherits_validation_for_cycles() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+    let before = fs::read_to_string(&tasks_path).expect("read before");
+
+    // Self-dependency forms a 1-cycle the validator must detect.
+    let payload = r#"
+[[task]]
+id = 99
+phase = 1
+bundle = "foundation"
+title = "Self-cycle task"
+scores = { d = 2, b = 5, u = 5 }
+depends_on = [99]
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(!output.status.success(), "cycle must fail");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("cycle"),
+        "stderr should mention cycle; got: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read after");
+    assert_eq!(before, after, "tasks.toml unchanged on cycle reject");
+}
+
+#[test]
+fn new_from_stdin_pinned_today() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Today-stamped task"
+scores = { d = 2, b = 6, u = 6 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(
+        tasks.contains("created_at = \"2026-05-12\""),
+        "created_at should default to RMAP_TODAY; tasks: {tasks}"
+    );
+    assert!(
+        tasks.contains("scored_at = \"2026-05-12\""),
+        "scored_at should default to RMAP_TODAY; tasks: {tasks}"
     );
 }
 

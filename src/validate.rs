@@ -8,7 +8,7 @@ use crate::schema::{TaskId, Tasks};
 
 const SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const VALID_STATUSES: &[&str] = &["pending", "in_progress", "blocked", "done", "superseded"];
-const VALID_MARKERS: &[&str] = &["parallel", "cx", "csr"];
+pub const VALID_MARKERS: &[&str] = &["parallel", "cx", "csr"];
 const VALID_ASSIGNEES: &[&str] = &["human", "claude", "codex", "cursor"];
 const VALID_CROSS_REPO_RELATIONS: &[&str] = &["blocks", "blocked_by", "related"];
 const FIRST_LINE_NUMBER: usize = 1;

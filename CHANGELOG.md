@@ -4,6 +4,19 @@ Completed roadmap tasks. For upcoming work, see [tool_roadmap.md](tool_roadmap.m
 
 ---
 
+## Phase 11b (continued): `rmap new` + `rmap new --from-stdin`
+
+**What was done:**
+- Added `rmap new --from-stdin` — reads one-or-more `[[task]]` blocks as TOML from stdin and appends them to `tasks.toml`. The id is auto-allocated (numeric `max + 1`) when omitted; explicit ids that collide with an existing task are rejected as `DuplicateId`. Multi-task fragments are atomic: any validation failure (unknown phase, unknown bundle, cycle, duplicate id) aborts the entire batch with the file byte-equal to its pre-call state.
+- Added interactive `rmap new` (no `--from-stdin`) — `dialoguer`-driven prompt flow (phase → bundle → title → D/B/U → markers → acceptance criteria → assignee → linear_id → module). Requires a TTY; non-interactive contexts must use `--from-stdin`. Bundles cannot be created on the fly — the user authors `[bundles.<name>]` in `tasks.toml` first so bundle metadata (`order`, `description`) stays author-visible.
+- Both front-ends share `mutate::add_task_str(path, input, &NewTaskFields)` and the validate-then-write contract. Lifecycle timestamps (`started_at`, `done_at`, `blocked_reason`, `shipped_in`) are NOT settable on creation — `rmap status` owns those transitions. `created_at` and `scored_at` default to `today_iso()` when omitted.
+- `tests/skills_smoke.rs` extended with a `# stdin: <<EOF` heredoc annotation so `SKILLS.md`-documented commands that read stdin (`rmap new --from-stdin`) are gated on their declared exit codes alongside the rest of the agent contract.
+- `SKILLS.md` gained a "Creating tasks" section covering the happy path and the atomic-batch-failure case.
+
+**Deferred to Phase 11b's remaining polish:** mermaid render.
+
+---
+
 ## Phase 11b (continued): delegate per-agent footer + diff verbose
 
 **What was done:**

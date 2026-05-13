@@ -1,6 +1,6 @@
 # SKILLS.md — agent guide to `rmap`
 
-> **Verified:** 2026-05-12 with `rmap @ b6827be`. Re-run `cargo test --test skills_smoke` after schema or render changes.
+> **Verified:** 2026-05-13 with `rmap @ development`. Re-run `cargo test --test skills_smoke` after schema or render changes.
 
 `rmap` is a single-binary Rust CLI that manages `roadmap/tasks.toml` in any project. This file teaches cloud agents (Claude, Codex, Cursor) how to drive `rmap` from inside a consumer repo. The fenced `bash` blocks below run against `tests/skills_fixture/` via `tests/skills_smoke.rs`; the exit codes are part of the agent contract.
 
@@ -96,6 +96,44 @@ rmap mark 3 +parallel
 rmap depend 4 on 3
 # exit: 0
 ```
+
+## Creating tasks
+
+`rmap new --from-stdin` reads one-or-more `[[task]]` blocks as TOML from stdin and appends them to `tasks.toml`. Omitting `id` auto-allocates the next numeric id (`max + 1`). `created_at` and `scored_at` default to today if not provided. Lifecycle timestamps (`started_at`, `done_at`, `blocked_reason`, `shipped_in`) cannot be set on creation — those transitions belong to `rmap status`.
+
+```bash
+rmap new --from-stdin
+# exit: 0
+# stdin: <<EOF
+# [[task]]
+# phase = 1
+# bundle = "alpha"
+# title = "follow-up: write docs"
+# scores = { d = 2, b = 5, u = 4 }
+# EOF
+```
+
+A multi-task fragment is atomic: if any insertion fails validation (unknown phase / bundle / cycle / duplicate id), no row lands and `tasks.toml` is byte-equal to its pre-call state. Example: a second task with an unknown phase number rejects the entire batch.
+
+```bash
+rmap new --from-stdin
+# exit: 1
+# stdin: <<EOF
+# [[task]]
+# phase = 1
+# bundle = "alpha"
+# title = "first"
+# scores = { d = 1, b = 3, u = 3 }
+#
+# [[task]]
+# phase = 99
+# bundle = "alpha"
+# title = "second — invalid phase, aborts batch"
+# scores = { d = 1, b = 3, u = 3 }
+# EOF
+```
+
+`rmap new` without `--from-stdin` drops into an interactive `dialoguer` flow (phase → bundle → title → D/B/U → markers → acceptance criteria → assignee → linear_id → module). Requires a TTY — non-interactive contexts must use `--from-stdin`. Bundles cannot be created on the fly; author the `[bundles.<name>]` table in `tasks.toml` first.
 
 ## Reading change signal
 
@@ -219,7 +257,7 @@ If the FOCUS markers aren't present in `ROADMAP.md`, the focus block isn't rende
 | `render` | success | schema/IO error | — |
 | `show` | found | unknown id | — |
 | `list`, `next`, `schema`, `delegate`, `stale` | success | schema/IO error | — |
-| Mutators (`status`, `mark`, `depend`) | success + re-rendered | mutation rejected by re-validation | — |
+| Mutators (`status`, `mark`, `depend`, `new`) | success + re-rendered | mutation rejected by re-validation | — |
 
 For finer health signals, pipe `rmap doctor --json` through `jq`:
 
