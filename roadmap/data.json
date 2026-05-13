@@ -48,10 +48,15 @@
       "order": 1,
       "description": "Phase 13b: schema additions for vision, branch, excluded-category markers, range validation"
     },
-    "watch": {
+    "watch_core": {
       "phase": 7,
       "order": 1,
       "description": "FS-watch render loop for live dev"
+    },
+    "watch_stream": {
+      "phase": 7,
+      "order": 2,
+      "description": "Optional --json event stream on top of the watch loop"
     }
   },
   "task": [
@@ -269,7 +274,7 @@
     {
       "id": 10,
       "phase": 7,
-      "bundle": "watch",
+      "bundle": "watch_core",
       "status": "pending",
       "title": "rmap watch FS watcher",
       "scores": {
@@ -291,7 +296,7 @@
     {
       "id": 11,
       "phase": 7,
-      "bundle": "watch",
+      "bundle": "watch_stream",
       "status": "pending",
       "title": "rmap watch --json event stream",
       "scores": {

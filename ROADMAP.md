@@ -62,11 +62,12 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 
 ## Phase 7 — `rmap watch` (optional)
 
-🎁 `watch` — FS-watch render loop for live dev plus an optional `--json` event stream.
+🎁 `watch_core` — FS-watch render loop for live dev.
+🎁 `watch_stream` — optional `--json` event stream on top of the watch loop.
 
 <!-- TASKS:BEGIN phase=7 -->
 | Task | Status | Notes |
 |------|--------|-------|
-| Task 10 | ⬜ | 🎁 **watch** · rmap watch FS watcher [D:4/B:5/U:4 → Eff:1.12] 📋 |
-| Task 11 | ⬜ | 🎁 **watch** · rmap watch --json event stream [D:3/B:4/U:4 → Eff:1.33] 📋 |
+| Task 10 | ⬜ | 🎁 **watch_core** · rmap watch FS watcher [D:4/B:5/U:4 → Eff:1.12] 📋 |
+| Task 11 | ⬜ | 🎁 **watch_stream** · rmap watch --json event stream [D:3/B:4/U:4 → Eff:1.33] 📋 |
 <!-- TASKS:END -->
