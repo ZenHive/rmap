@@ -59,10 +59,12 @@ description = "Optional --json event stream on top of the watch loop"
 id = 1
 phase = 13
 bundle = "schema_parity"
-status = "pending"
+status = "done"
 title = "Tasks::vision field + VISION marker pair"
 scores = { d = 3, b = 6, u = 5 }
 scored_at = "2026-05-13"
+started_at = "2026-05-13"
+done_at = "2026-05-13"
 acceptance_criteria = [
   "Tasks::vision Option<String> on schema.rs",
   "Three-place edit: schema.rs + diff::diff_metadata + export::ExportedTasks",
@@ -74,10 +76,12 @@ acceptance_criteria = [
 id = 2
 phase = 13
 bundle = "schema_parity"
-status = "pending"
+status = "done"
 title = "Task::branch field on in-progress rows"
 scores = { d = 2, b = 5, u = 4 }
 scored_at = "2026-05-13"
+started_at = "2026-05-13"
+done_at = "2026-05-13"
 acceptance_criteria = [
   "Task::branch Option<String>",
   "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
@@ -88,10 +92,12 @@ acceptance_criteria = [
 id = 3
 phase = 13
 bundle = "schema_parity"
-status = "pending"
+status = "done"
 title = "Excluded-category markers (bug/security/docs)"
 scores = { d = 3, b = 6, u = 5 }
 scored_at = "2026-05-13"
+started_at = "2026-05-13"
+done_at = "2026-05-13"
 acceptance_criteria = [
   "VALID_MARKERS extends from {parallel, cx, csr} to add {bug, security, docs}",
   "Render prepends 🐛 / 🔒 / 📝 to title for tasks carrying those markers",

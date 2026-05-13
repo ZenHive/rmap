@@ -10,6 +10,7 @@ pub struct Tasks {
     pub schema_version: u32,
     pub project: String,
     pub default_branch: String,
+    pub vision: Option<String>,
     pub focus: Option<Focus>,
     pub linear: Option<Linear>,
     #[serde(default)]
@@ -65,6 +66,7 @@ pub struct Task {
     pub linear_id: Option<String>,
     pub assignee: Option<String>,
     pub module: Option<String>,
+    pub branch: Option<String>,
     #[serde(default)]
     pub acceptance_criteria: Vec<String>,
     #[serde(default)]

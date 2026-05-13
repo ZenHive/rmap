@@ -64,7 +64,7 @@
       "id": 1,
       "phase": 13,
       "bundle": "schema_parity",
-      "status": "pending",
+      "status": "done",
       "title": "Tasks::vision field + VISION marker pair",
       "scores": {
         "d": 3,
@@ -80,6 +80,8 @@
         "Optional VISION:BEGIN/VISION:END marker pair with byte-preservation discipline matching TASKS/FOCUS/MERMAID",
         "Zero-config default when marker absent"
       ],
+      "started_at": "2026-05-13",
+      "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -87,7 +89,7 @@
       "id": 2,
       "phase": 13,
       "bundle": "schema_parity",
-      "status": "pending",
+      "status": "done",
       "title": "Task::branch field on in-progress rows",
       "scores": {
         "d": 2,
@@ -102,6 +104,8 @@
         "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
         "Rows with status=in_progress and branch=Some render '🔄 <branch>' instead of bare '🔄'"
       ],
+      "started_at": "2026-05-13",
+      "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -109,7 +113,7 @@
       "id": 3,
       "phase": 13,
       "bundle": "schema_parity",
-      "status": "pending",
+      "status": "done",
       "title": "Excluded-category markers (bug/security/docs)",
       "scores": {
         "d": 3,
@@ -124,6 +128,8 @@
         "Render prepends 🐛 / 🔒 / 📝 to title for tasks carrying those markers",
         "scores stays required (no Option<Scores> ripple)"
       ],
+      "started_at": "2026-05-13",
+      "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },

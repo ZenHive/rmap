@@ -9,6 +9,8 @@ struct ExportedTasks<'a> {
     project: &'a str,
     default_branch: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
+    vision: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     focus: Option<&'a Focus>,
     #[serde(skip_serializing_if = "Option::is_none")]
     linear: Option<&'a Linear>,
@@ -34,6 +36,8 @@ struct ExportedTask<'a> {
     assignee: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     module: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    branch: Option<&'a String>,
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
     acceptance_criteria: &'a [String],
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
@@ -79,6 +83,7 @@ fn exported_tasks_with<'a>(
         schema_version: tasks.schema_version,
         project: &tasks.project,
         default_branch: &tasks.default_branch,
+        vision: tasks.vision.as_ref(),
         focus: tasks.focus.as_ref(),
         linear: tasks.linear.as_ref(),
         phases: &tasks.phases,
@@ -101,6 +106,7 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
         linear_id: task.linear_id.as_ref(),
         assignee: task.assignee.as_ref(),
         module: task.module.as_ref(),
+        branch: task.branch.as_ref(),
         acceptance_criteria: &task.acceptance_criteria,
         out_of_scope: &task.out_of_scope,
         shipped_in: task.shipped_in.as_ref(),

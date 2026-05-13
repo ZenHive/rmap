@@ -63,6 +63,7 @@ const TASK_VERBOSE_WHITELIST: &[&str] = &[
     "linear_id",
     "assignee",
     "module",
+    "branch",
     "shipped_in",
     "created_at",
     "started_at",
@@ -74,6 +75,7 @@ const METADATA_VERBOSE_WHITELIST: &[&str] = &[
     "schema_version",
     "project",
     "default_branch",
+    "vision",
     "focus",
     "linear.team_key",
     "linear.workspace_url",
@@ -158,6 +160,14 @@ pub fn diff_metadata(base: &Tasks, current: &Tasks, verbose: bool) -> Vec<Metada
             &base.default_branch,
             &current.default_branch,
         ));
+    }
+    if let Some(entry) = diff_optional(
+        "vision",
+        base.vision.as_ref(),
+        current.vision.as_ref(),
+        verbose,
+    ) {
+        diff.push(entry);
     }
     if let Some(entry) = diff_optional(
         "focus",
@@ -387,6 +397,7 @@ fn task_changes(
         linear_id,
         assignee,
         module,
+        branch,
         acceptance_criteria,
         out_of_scope,
         shipped_in,

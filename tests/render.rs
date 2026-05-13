@@ -92,6 +92,17 @@ fn render_rejects_unclosed_focus_marker() {
 }
 
 #[test]
+fn render_rejects_unclosed_vision_marker() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
+    let roadmap = "<!-- VISION:BEGIN -->\nstale generated content\n";
+
+    let err = render_roadmap_str_with_today(roadmap, &tasks, "2026-05-11")
+        .expect_err("unclosed VISION marker is rejected");
+
+    assert!(err.to_string().contains("missing <!-- VISION:END -->"));
+}
+
+#[test]
 fn render_rejects_unclosed_mermaid_marker() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
     let roadmap = "<!-- MERMAID:BEGIN -->\nstale generated content\n";

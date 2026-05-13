@@ -12,6 +12,9 @@ const END_MARKER: &str = "<!-- TASKS:END -->";
 const FOCUS_BEGIN_MARKER: &str = "<!-- FOCUS:BEGIN -->";
 const FOCUS_END_MARKER: &str = "<!-- FOCUS:END -->";
 
+const VISION_BEGIN_MARKER: &str = "<!-- VISION:BEGIN -->";
+const VISION_END_MARKER: &str = "<!-- VISION:END -->";
+
 const MERMAID_BEGIN_MARKER: &str = "<!-- MERMAID:BEGIN -->";
 const MERMAID_END_MARKER: &str = "<!-- MERMAID:END -->";
 
@@ -28,6 +31,8 @@ pub enum RenderError {
     InvalidPhaseMarker { start: usize },
     #[error("missing <!-- FOCUS:END --> for marker starting at byte {start}")]
     MissingFocusEndMarker { start: usize },
+    #[error("missing <!-- VISION:END --> for marker starting at byte {start}")]
+    MissingVisionEndMarker { start: usize },
     #[error("missing <!-- MERMAID:END --> for marker starting at byte {start}")]
     MissingMermaidEndMarker { start: usize },
 }
@@ -41,7 +46,8 @@ pub fn render_roadmap_str_with_today(
     today: &str,
 ) -> Result<String, RenderError> {
     let after_focus = render_focus_pass(roadmap, tasks, today)?;
-    let after_mermaid = render_mermaid_pass(&after_focus, tasks, today)?;
+    let after_vision = render_vision_pass(&after_focus, tasks)?;
+    let after_mermaid = render_mermaid_pass(&after_vision, tasks, today)?;
     render_tasks_pass(&after_mermaid, tasks, today)
 }
 
@@ -171,6 +177,38 @@ fn up_next_line(tasks: &Tasks) -> String {
             )
         }
         None => "**Up next:** none — focus phase complete or all blocked".to_string(),
+    }
+}
+
+fn render_vision_pass(roadmap: &str, tasks: &Tasks) -> Result<String, RenderError> {
+    let Some(begin) = roadmap.find(VISION_BEGIN_MARKER) else {
+        return Ok(roadmap.to_string());
+    };
+    let marker_line_end = roadmap[begin..]
+        .find('\n')
+        .map(|offset| begin + offset + '\n'.len_utf8())
+        .unwrap_or(roadmap.len());
+    let end = roadmap[marker_line_end..]
+        .find(VISION_END_MARKER)
+        .map(|offset| marker_line_end + offset)
+        .ok_or(RenderError::MissingVisionEndMarker { start: begin })?;
+    let end_line_end = roadmap[end..]
+        .find('\n')
+        .map(|offset| end + offset + '\n'.len_utf8())
+        .unwrap_or(roadmap.len());
+
+    let mut rendered = String::with_capacity(roadmap.len());
+    rendered.push_str(&roadmap[..marker_line_end]);
+    rendered.push_str(&render_vision_body(tasks));
+    rendered.push_str(&roadmap[end..end_line_end]);
+    rendered.push_str(&roadmap[end_line_end..]);
+    Ok(rendered)
+}
+
+fn render_vision_body(tasks: &Tasks) -> String {
+    match tasks.vision.as_deref() {
+        Some(text) => format!("{}\n", text.trim_end_matches('\n')),
+        None => "**Vision:** not set — add `vision = \"...\"` to tasks.toml\n".to_string(),
     }
 }
 
@@ -324,14 +362,27 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
             .filter(|m| !m.is_empty())
             .map(|m| format!("*{m}* · "))
             .unwrap_or_default();
+        let category_segment = category_prefix(task);
+        let status_cell = match (task.status.as_str(), task.branch.as_deref()) {
+            ("in_progress", Some(branch)) => {
+                let trimmed = branch.trim();
+                if trimmed.is_empty() {
+                    status_symbol(&task.status).to_string()
+                } else {
+                    format!("{} {}", status_symbol(&task.status), trimmed)
+                }
+            }
+            _ => status_symbol(&task.status).to_string(),
+        };
         writeln!(
             table,
-            "| Task {}{} | {} | 🎁 **{}** · {}{} [D:{}/B:{}/U:{} → Eff:{}{}] {} |",
+            "| Task {}{} | {} | 🎁 **{}** · {}{}{} [D:{}/B:{}/U:{} → Eff:{}{}] {} |",
             task.id,
             marker_suffix(task),
-            status_symbol(&task.status),
+            status_cell,
             task.bundle,
             module_segment,
+            category_segment,
             task.title,
             task.scores.d,
             task.scores.b,
@@ -362,6 +413,25 @@ fn marker_suffix(task: &Task) -> String {
         String::new()
     } else {
         format!(" {}", markers.join(" "))
+    }
+}
+
+fn category_prefix(task: &Task) -> String {
+    let glyphs = task
+        .markers
+        .iter()
+        .filter_map(|marker| match marker.as_str() {
+            "bug" => Some("🐛"),
+            "security" => Some("🔒"),
+            "docs" => Some("📝"),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    if glyphs.is_empty() {
+        String::new()
+    } else {
+        format!("{} ", glyphs.join(" "))
     }
 }
 

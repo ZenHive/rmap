@@ -1,0 +1,22 @@
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Vision Coverage"
+order = 1
+status = "in_progress"
+
+[bundles.demo]
+phase = 1
+order = 1
+description = "Markers present but vision absent — stub renders"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "demo"
+status = "pending"
+title = "first task"
+scores = { d = 3, b = 6, u = 6 }
+scored_at = "2026-05-10"

@@ -5,11 +5,11 @@
 ## Current Focus
 
 <!-- FOCUS:BEGIN -->
-**Focus phase:** 13 — Skills-parity polish (2 of 9 done · 0 in progress)
+**Focus phase:** 13 — Skills-parity polish (5 of 9 done · 0 in progress)
 
-**Last shipped:** Task 4 — D/B/U 1..=10 range validation on 2026-05-13
+**Last shipped:** Task 1 — Tasks::vision field + VISION marker pair, Task 2 — Task::branch field on in-progress rows, Task 3 — Excluded-category markers (bug/security/docs), Task 4 — D/B/U 1..=10 range validation on 2026-05-13
 
-**Up next:** Task 2 — Task::branch field on in-progress rows [D:2/B:5/U:4 → Eff:2.25] 🎯
+**Up next:** Task 5 — Task::files_to_modify field [D:3/B:5/U:5 → Eff:1.67] 🚀
 <!-- FOCUS:END -->
 
 ## Gantt
@@ -20,6 +20,9 @@ gantt
     title rmap
     dateFormat YYYY-MM-DD
     section Phase 13 — Skills-parity polish
+    Tasks——vision field + VISION marker pair :done, 2026-05-13, 2026-05-13
+    Task——branch field on in-progress rows :done, 2026-05-13, 2026-05-13
+    Excluded-category markers (bug/security/docs) :done, 2026-05-13, 2026-05-13
     D/B/U 1..=10 range validation :done, 2026-05-13, 2026-05-13
 ```
 <!-- MERMAID:END -->
@@ -35,9 +38,9 @@ Phase 13a (Eff-tier glyph + phase archive collapse) shipped 2026-05-13 — see [
 <!-- TASKS:BEGIN phase=13 -->
 | Task | Status | Notes |
 |------|--------|-------|
-| Task 1 | ⬜ | 🎁 **schema_parity** · Tasks::vision field + VISION marker pair [D:3/B:6/U:5 → Eff:1.83] 🚀 |
-| Task 2 | ⬜ | 🎁 **schema_parity** · Task::branch field on in-progress rows [D:2/B:5/U:4 → Eff:2.25] 🎯 |
-| Task 3 | ⬜ | 🎁 **schema_parity** · Excluded-category markers (bug/security/docs) [D:3/B:6/U:5 → Eff:1.83] 🚀 |
+| Task 1 | ✅ | 🎁 **schema_parity** · Tasks::vision field + VISION marker pair [D:3/B:6/U:5 → Eff:1.83] 🚀 |
+| Task 2 | ✅ | 🎁 **schema_parity** · Task::branch field on in-progress rows [D:2/B:5/U:4 → Eff:2.25] 🎯 |
+| Task 3 | ✅ | 🎁 **schema_parity** · Excluded-category markers (bug/security/docs) [D:3/B:6/U:5 → Eff:1.83] 🚀 |
 | Task 4 | ✅ | 🎁 **schema_parity** · D/B/U 1..=10 range validation [D:2/B:5/U:5 → Eff:2.5] 🎯 |
 | Task 5 | ⬜ | 🎁 **delegate_parity** · Task::files_to_modify field [D:3/B:5/U:5 → Eff:1.67] 🚀 |
 | Task 6 | ✅ | 🎁 **delegate_parity** · Task::out_of_scope field [D:2/B:5/U:5 → Eff:2.5] 🎯 |

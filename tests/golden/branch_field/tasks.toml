@@ -1,0 +1,44 @@
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Branch Field Coverage"
+order = 1
+status = "in_progress"
+
+[bundles.branch_demo]
+phase = 1
+order = 1
+description = "Tasks that prove the branch render path"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "branch_demo"
+status = "in_progress"
+title = "task with branch"
+branch = "feat/branch-field"
+scores = { d = 3, b = 6, u = 6 }
+scored_at = "2026-05-10"
+started_at = "2026-05-08"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "branch_demo"
+status = "in_progress"
+title = "task without branch"
+scores = { d = 3, b = 6, u = 6 }
+scored_at = "2026-05-10"
+started_at = "2026-05-08"
+
+[[task]]
+id = 3
+phase = 1
+bundle = "branch_demo"
+status = "pending"
+title = "pending task with branch (ignored at render)"
+branch = "feat/ignored"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"
