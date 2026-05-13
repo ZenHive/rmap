@@ -161,7 +161,7 @@ out_of_scope = [
 id = 7
 phase = 13
 bundle = "delegate_parity"
-status = "pending"
+status = "done"
 title = "delegate.rs section restructure (task-writing.md template)"
 scores = { d = 3, b = 6, u = 5 }
 scored_at = "2026-05-13"
@@ -297,4 +297,27 @@ acceptance_criteria = [
   "Tests: --count 1 matches existing golden (backwards compat); --count 3 returns Eff-ranked array of length min(3, eligible); --count 100 on a small project returns however many are eligible without erroring",
   "SKILLS.md example: `rmap next --count 3 --bundle batch_selection --json`",
   "No schema_version bump (count==1 shape unchanged; count>1 is a new shape only reachable via explicit opt-in flag)",
+]
+
+[[task]]
+id = 16
+phase = 13
+bundle = "batch_selection"
+status = "pending"
+title = "rmap bundles selector listing"
+scores = { d = 3, b = 7, u = 5 }
+scored_at = "2026-05-13"
+acceptance_criteria = [
+  "New subcommand `rmap bundles` lists every declared `[bundles.*]` entry — agent-discoverable replacement for `grep '^\\[bundles\\.' roadmap/tasks.toml`. Closes the ergonomics gap where `rmap next --bundle` requires already knowing the bundle name.",
+  "New module src/bundles.rs holds `BundleSummary { name, phase, phase_name, order, description, task_count, status_counts, next_task, in_focus }` plus pure `list_bundles(tasks, filter) -> Vec<BundleSummary>`. Per-bundle `next_task` is computed by reusing `next::next_task` with a `TaskFilter { bundle: Some(name), .. }` — do NOT duplicate the dep-satisfaction logic.",
+  "Sort order: focus-phase bundles first (matching `tasks.focus.phase`), then by `phase.order` asc, then by `bundle.order` asc. `in_focus = (phase == tasks.focus.phase)`.",
+  "Human stdout: one line per bundle grouped under a `phase <N> — <phase_name>  [<phase_status>{, focus}]` header. Row shape: `<bundle_name>    <done>/<total> <status_glyph_or_next>  — <description>`. Status_glyph_or_next rules: all-done → `✅`; pending=0 and in_progress>0 → `🚧`; pending=0 and in_progress=0 and blocked>0 → `all-blocked ⛔`; otherwise `next:<id> [Eff:<eff>] <tier_glyph>`.",
+  "Reuses `scoring::format_efficiency` and `scoring::tier_glyph` — never folds the glyph into format_efficiency (load-bearing invariant for Eff tier glyphs).",
+  "`--json` envelope: `{ \"schema_version\": 1, \"focus_phase\": <u32|null>, \"bundles\": [BundleSummary, ...] }`. Always emits the `bundles` array (possibly empty). `next_task` is either null or `{ id, title, eff }` with eff as a number (not a formatted string). `status_counts` always emits all four keys: pending, in_progress, done, blocked (zero-filled).",
+  "Flags: `--json`, `--phase <N>`, `--has-next` (only bundles with non-null next_task), `--in-focus` (only bundles where in_focus == true). Flags compose with AND semantics.",
+  "Empty-state: zero declared bundles → stdout `(no bundles declared)`, JSON emits empty `bundles: []`, exit 0. Zero bundles after filter → same human line + empty JSON array, exit 0.",
+  "Tests in tests/cli.rs mirroring the shape of `list_command_filters_by_bundle` / `next_command_filters_by_bundle`: bundles_command_groups_by_phase_with_focus_first, bundles_command_emits_json_envelope, bundles_command_filter_phase, bundles_command_filter_has_next, bundles_command_filter_in_focus, bundles_command_empty_bundles, bundles_command_all_done_renders_check_glyph, bundles_command_all_blocked_renders_blocked_glyph.",
+  "SKILLS.md examples added (each `# exit: 0`, validated by tests/skills_smoke.rs against the pinned RMAP_TODAY=2026-05-12 fixture): `rmap bundles` and `rmap bundles --in-focus --has-next --json`.",
+  "CLAUDE.md Architecture section gains a `bundles.rs` bullet matching the style of the existing `next.rs` / `query.rs` entries.",
+  "No schema_version bump — purely additive read surface. show/list/next/diff JSON contracts untouched.",
 ]

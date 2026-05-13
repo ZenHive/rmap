@@ -597,9 +597,9 @@ fn delegate_command_prints_agent_prompt() {
         stdout.contains("# Task 75: parseOrder field map"),
         "{stdout}"
     );
-    assert!(stdout.contains("Target agent: claude"), "{stdout}");
+    assert!(stdout.contains("- Target: claude"), "{stdout}");
     assert!(
-        stdout.contains("Stored assignee: codex (overridden)"),
+        stdout.contains("- Stored assignee: codex (overridden)"),
         "{stdout}"
     );
     assert!(

@@ -48,51 +48,47 @@ pub fn format_delegate_prompt(tasks: &Tasks, id: &str, target: DelegateTarget) -
 fn format_prompt(tasks: &Tasks, task: &Task, target: DelegateTarget) -> String {
     let mut prompt = String::new();
     line!(prompt, "# Task {}: {}", task.id, task.title);
+
+    append_context(&mut prompt, tasks, task, target);
+    append_task_body(&mut prompt, task);
+    append_acceptance_criteria(&mut prompt, task);
+    append_out_of_scope(&mut prompt, task);
+    append_files_to_modify(&mut prompt, task);
+    append_scoring(&mut prompt, task);
+    append_agent_notes(&mut prompt, target);
+    append_instructions(&mut prompt);
+
+    prompt
+}
+
+fn append_context(prompt: &mut String, tasks: &Tasks, task: &Task, target: DelegateTarget) {
     line!(prompt);
-    line!(prompt, "Target agent: {target}");
+    line!(prompt, "## Context");
+    line!(prompt, "- Target: {target}");
+    line!(prompt, "- Project: {}", tasks.project);
     if let Some(assignee) = &task.assignee
         && assignee != target.as_str()
     {
         // Surface the override so the receiving agent knows the stored
         // routing intent differed from the explicit `--to`. When they match,
-        // the line is redundant with `Target agent:` above.
-        line!(prompt, "Stored assignee: {assignee} (overridden)");
+        // the bullet is redundant with `Target:` above.
+        line!(prompt, "- Stored assignee: {assignee} (overridden)");
     }
-    line!(prompt, "Project: {}", tasks.project);
-    line!(prompt, "Status: {}", task.status);
-    line!(prompt, "Phase: {}", task.phase);
-    line!(prompt, "Bundle: {}", task.bundle);
-    let eff = efficiency(task);
-    line!(
-        prompt,
-        "Scores: D:{}/B:{}/U:{} -> Eff:{} {}",
-        task.scores.d,
-        task.scores.b,
-        task.scores.u,
-        format_efficiency(eff),
-        tier_glyph(eff)
-    );
-
+    line!(prompt, "- Status: {}", task.status);
+    line!(prompt, "- Phase: {}", task.phase);
+    line!(prompt, "- Bundle: {}", task.bundle);
     if !task.markers.is_empty() {
-        line!(prompt, "Markers: {}", task.markers.join(", "));
+        line!(prompt, "- Markers: {}", task.markers.join(", "));
     }
     if let Some(linear_id) = &task.linear_id {
-        line!(prompt, "Linear: {linear_id}");
+        line!(prompt, "- Linear: {linear_id}");
     }
     if let Some(shipped_in) = &task.shipped_in {
-        line!(prompt, "Shipped in: {shipped_in}");
+        line!(prompt, "- Shipped in: {shipped_in}");
     }
 
-    append_dependencies(&mut prompt, tasks, task);
-    append_cross_repo(&mut prompt, task);
-    append_body(&mut prompt, task);
-    append_acceptance_criteria(&mut prompt, task);
-    append_files_to_modify(&mut prompt, task);
-    append_out_of_scope(&mut prompt, task);
-    append_agent_notes(&mut prompt, target);
-    append_instructions(&mut prompt);
-
-    prompt
+    append_dependencies(prompt, tasks, task);
+    append_cross_repo(prompt, task);
 }
 
 fn append_dependencies(prompt: &mut String, tasks: &Tasks, task: &Task) {
@@ -101,7 +97,7 @@ fn append_dependencies(prompt: &mut String, tasks: &Tasks, task: &Task) {
     }
 
     line!(prompt);
-    line!(prompt, "## Dependencies");
+    line!(prompt, "### Dependencies");
     for dependency in &task.depends_on {
         match find_task(tasks, &dependency.to_string()) {
             Some(dependency_task) => line!(
@@ -122,7 +118,7 @@ fn append_cross_repo(prompt: &mut String, task: &Task) {
     }
 
     line!(prompt);
-    line!(prompt, "## Cross-repo dependencies");
+    line!(prompt, "### Cross-repo dependencies");
     for dependency in &task.cross_repo {
         let linear = dependency
             .linear_id
@@ -140,7 +136,7 @@ fn append_cross_repo(prompt: &mut String, task: &Task) {
     }
 }
 
-fn append_body(prompt: &mut String, task: &Task) {
+fn append_task_body(prompt: &mut String, task: &Task) {
     let Some(body) = task.body.as_ref().map(|body| body.trim()) else {
         return;
     };
@@ -149,7 +145,7 @@ fn append_body(prompt: &mut String, task: &Task) {
     }
 
     line!(prompt);
-    line!(prompt, "## Task body");
+    line!(prompt, "## Task");
     line!(prompt, "{body}");
 }
 
@@ -165,18 +161,6 @@ fn append_acceptance_criteria(prompt: &mut String, task: &Task) {
     }
 }
 
-fn append_files_to_modify(prompt: &mut String, task: &Task) {
-    if task.files_to_modify.is_empty() {
-        return;
-    }
-
-    line!(prompt);
-    line!(prompt, "## Files to modify");
-    for path in &task.files_to_modify {
-        line!(prompt, "- {path}");
-    }
-}
-
 fn append_out_of_scope(prompt: &mut String, task: &Task) {
     if task.out_of_scope.is_empty() {
         return;
@@ -187,6 +171,41 @@ fn append_out_of_scope(prompt: &mut String, task: &Task) {
     for item in &task.out_of_scope {
         line!(prompt, "- {item}");
     }
+}
+
+// When `files_to_modify` is empty but `module` is set, the module path is
+// surfaced as a one-bullet hint so the delegated agent knows where to look
+// even if the author didn't enumerate files. When both are empty the section
+// is omitted — there is nothing to fall back to.
+fn append_files_to_modify(prompt: &mut String, task: &Task) {
+    let entries: Vec<&str> = if !task.files_to_modify.is_empty() {
+        task.files_to_modify.iter().map(String::as_str).collect()
+    } else if let Some(module) = &task.module {
+        vec![module.as_str()]
+    } else {
+        return;
+    };
+
+    line!(prompt);
+    line!(prompt, "## Files to modify");
+    for entry in entries {
+        line!(prompt, "- {entry}");
+    }
+}
+
+fn append_scoring(prompt: &mut String, task: &Task) {
+    let eff = efficiency(task);
+    line!(prompt);
+    line!(prompt, "## Scoring");
+    line!(
+        prompt,
+        "[D:{}/B:{}/U:{} → Eff:{}] {}",
+        task.scores.d,
+        task.scores.b,
+        task.scores.u,
+        format_efficiency(eff),
+        tier_glyph(eff)
+    );
 }
 
 // Per-agent reachability notes. Source of truth is
