@@ -1231,6 +1231,63 @@ fn mark_command_unknown_task_id_aborts_write() {
 }
 
 #[test]
+fn mark_command_places_new_markers_field_in_canonical_position() {
+    // Task 74 in PHASE4_TASKS lacks `markers`. Adding one should land between
+    // `scores` and any later fields, mirroring `add_task_str`'s canonical
+    // write order rather than appending at the end of the table.
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", PHASE4_TASKS);
+    write_file(
+        &dir,
+        "ROADMAP.md",
+        ROADMAP.replace("phase=1", "phase=12").as_str(),
+    );
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("mark")
+        .arg("74")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .arg("+parallel")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap mark 74 +parallel");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    // Task 74's block should now have markers right after scores. The next
+    // task (75) starts with `id = 75`, so finding the substring works.
+    let task_74_block_start = tasks.find("id = 74").expect("task 74 id present");
+    let task_75_block_start = tasks.find("id = 75").expect("task 75 id present");
+    let task_74_block = &tasks[task_74_block_start..task_75_block_start];
+
+    let scores_idx = task_74_block
+        .find("scores = {")
+        .expect("scores present in task 74");
+    let markers_idx = task_74_block
+        .find("markers = ")
+        .expect("markers present in task 74");
+    assert!(
+        scores_idx < markers_idx,
+        "markers should land after scores in task 74's block:\n{task_74_block}"
+    );
+}
+
+#[test]
 fn depend_command_adds_in_repo_dependency() {
     let dir = temp_dir();
     fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");

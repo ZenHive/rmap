@@ -1,4 +1,4 @@
-use rmap::mutate::update_status_str;
+use rmap::mutate::{MarkerOp, update_markers_str, update_status_str};
 use rmap::validate::validate_tasks_str;
 
 const TASKS: &str = r#"# Roadmap source.
@@ -74,4 +74,132 @@ fn update_status_rejects_invalid_status() {
         err.to_string().contains("invalid status \"shipped\""),
         "{err}"
     );
+}
+
+const TASKS_WITH_TRAILING_FIELDS: &str = r#"schema_version = 1
+project = "ccxt_extract"
+default_branch = "development"
+
+[phases.12]
+name = "Response parsing contract"
+order = 12
+status = "pending"
+
+[bundles.simple]
+phase = 12
+order = 1
+description = "Simple normalization tasks"
+
+[[task]]
+id = 5
+phase = 12
+bundle = "simple"
+status = "pending"
+title = "parseTrades field map"
+scores = { d = 3, b = 6, u = 6 }
+acceptance_criteria = [
+  "accepts spot payloads",
+  "accepts futures payloads",
+]
+assignee = "claude"
+"#;
+
+#[test]
+fn update_markers_new_field_lands_in_canonical_position() {
+    let updated = update_markers_str(
+        "roadmap/tasks.toml",
+        TASKS_WITH_TRAILING_FIELDS,
+        "5",
+        &[MarkerOp::Add("parallel")],
+    )
+    .expect("update markers");
+
+    let scores_idx = updated.find("scores = {").expect("scores present");
+    let markers_idx = updated
+        .find("markers = [\"parallel\"]")
+        .expect("markers present");
+    let ac_idx = updated
+        .find("acceptance_criteria = [")
+        .expect("acceptance_criteria present");
+    let assignee_idx = updated.find("assignee = ").expect("assignee present");
+
+    assert!(
+        scores_idx < markers_idx,
+        "markers should follow scores; got\n{updated}"
+    );
+    assert!(
+        markers_idx < ac_idx,
+        "markers should precede acceptance_criteria; got\n{updated}"
+    );
+    assert!(
+        ac_idx < assignee_idx,
+        "acceptance_criteria should still precede assignee; got\n{updated}"
+    );
+    validate_tasks_str("roadmap/tasks.toml", &updated).expect("validates");
+}
+
+const TASKS_WITH_EXISTING_MARKERS: &str = r#"schema_version = 1
+project = "ccxt_extract"
+default_branch = "development"
+
+[phases.12]
+name = "Response parsing contract"
+order = 12
+status = "pending"
+
+[bundles.simple]
+phase = 12
+order = 1
+description = "Simple normalization tasks"
+
+[[task]]
+id = 7
+phase = 12
+bundle = "simple"
+status = "pending"
+title = "task seven"
+scores = { d = 3, b = 6, u = 6 }
+acceptance_criteria = [
+  "ac1",
+]
+markers = ["parallel"]
+assignee = "claude"
+"#;
+
+#[test]
+fn update_markers_existing_field_does_not_reorder() {
+    // Add `cx` to a task that already has `markers = ["parallel"]`.
+    // The author placed markers AFTER acceptance_criteria — that order must be preserved.
+    let updated = update_markers_str(
+        "roadmap/tasks.toml",
+        TASKS_WITH_EXISTING_MARKERS,
+        "7",
+        &[MarkerOp::Add("cx")],
+    )
+    .expect("update markers");
+
+    let ac_idx = updated
+        .find("acceptance_criteria = [")
+        .expect("acceptance_criteria present");
+    let markers_idx = updated.find("markers = ").expect("markers present");
+
+    assert!(
+        ac_idx < markers_idx,
+        "author-placed marker order must survive idempotent-style adds; got\n{updated}"
+    );
+    assert!(updated.contains(r#"markers = ["parallel", "cx"]"#));
+}
+
+#[test]
+fn update_markers_idempotent_add_does_not_reorder() {
+    // `+parallel` on a task whose markers already contains "parallel" must be byte-equal.
+    let updated = update_markers_str(
+        "roadmap/tasks.toml",
+        TASKS_WITH_EXISTING_MARKERS,
+        "7",
+        &[MarkerOp::Add("parallel")],
+    )
+    .expect("update markers");
+
+    assert_eq!(updated, TASKS_WITH_EXISTING_MARKERS);
 }

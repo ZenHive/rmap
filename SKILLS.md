@@ -239,12 +239,13 @@ rmap render --stdout
 
 ### Marker conventions
 
-Two marker pairs live inside `ROADMAP.md`. Bytes outside these markers are preserved exactly — hand-edited prose, headings, and blank lines all round-trip byte-equal.
+Three marker pairs live inside `ROADMAP.md`. Bytes outside these markers are preserved exactly — hand-edited prose, headings, and blank lines all round-trip byte-equal.
 
 - `<!-- TASKS:BEGIN phase=N -->` … `<!-- TASKS:END -->` — one pair per phase. Body is the rendered task table for phase N. The phase number is parsed from the BEGIN line.
 - `<!-- FOCUS:BEGIN -->` … `<!-- FOCUS:END -->` — at most one pair per file. When `[focus]` is set in `tasks.toml`, the body emits three lines: `**Focus phase:** N — <name> (M of K done · J in progress)`, `**Last shipped:** Task A — <title>, Task B — <title> on YYYY-MM-DD` (within 7 days; `"no recent shipments"` otherwise), `**Up next:** Task C — <title> [D/B/U → Eff]` (or `"none — focus phase complete or all blocked"`). When `[focus]` is absent, emits a single `**Focus phase:** not set — add [focus] to tasks.toml`.
+- `<!-- MERMAID:BEGIN -->` … `<!-- MERMAID:END -->` — at most one pair per file. Body is a fenced ```` ```mermaid ```` `gantt` diagram, one `section` per phase (in `phases.order` order), one row per task with `started_at`. Rows: `done` → `<title> :done, <started_at>, <done_at>`; `in_progress` → `:active, <started_at>, <today>`; `blocked` → `:crit, <started_at>, <today>`. Pending tasks and tasks without `started_at` are omitted (mermaid gantt requires dates). When no task qualifies, the body collapses to a placeholder gantt with `%% no tasks with started_at yet`. Colons / commas / semicolons (`:`, `,`, `;`) in task titles are rewritten to em-dash (`—`) at render time so mermaid's `task :status, start, end` grammar doesn't get confused.
 
-If the FOCUS markers aren't present in `ROADMAP.md`, the focus block isn't rendered — zero-config default.
+If a marker pair isn't present in `ROADMAP.md`, the corresponding block isn't rendered — zero-config default for all three pairs.
 
 ## Exit code reference
 

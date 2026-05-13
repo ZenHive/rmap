@@ -1,0 +1,80 @@
+schema_version = 1
+project = "ccxt_extract"
+default_branch = "development"
+
+[phases.11]
+name = "Polish"
+order = 11
+status = "done"
+
+[phases.12]
+name = "Per-Exchange Normalization"
+order = 12
+status = "in_progress"
+
+[bundles.polish]
+phase = 11
+order = 1
+description = "Polish bundle"
+
+[bundles.ticker_normalization]
+phase = 12
+order = 1
+description = "Unified ticker fields"
+
+[bundles.order_normalization]
+phase = 12
+order = 2
+description = "Unified order fields"
+
+[[task]]
+id = 70
+phase = 11
+bundle = "polish"
+status = "done"
+title = "mark mutator"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-08"
+started_at = "2026-05-08"
+done_at = "2026-05-09"
+
+[[task]]
+id = 74
+phase = 12
+bundle = "ticker_normalization"
+status = "done"
+title = "parseTicker field map"
+scores = { d = 5, b = 8, u = 8 }
+scored_at = "2026-05-08"
+started_at = "2026-05-08"
+done_at = "2026-05-10"
+
+[[task]]
+id = 75
+phase = 12
+bundle = "order_normalization"
+status = "in_progress"
+title = "parseOrder field map"
+scores = { d = 6, b = 8, u = 8 }
+scored_at = "2026-05-10"
+started_at = "2026-05-11"
+
+[[task]]
+id = 76
+phase = 12
+bundle = "order_normalization"
+status = "blocked"
+title = "venue normalization"
+scores = { d = 3, b = 6, u = 5 }
+scored_at = "2026-05-10"
+started_at = "2026-05-11"
+blocked_reason = "waiting on schema review"
+
+[[task]]
+id = 77
+phase = 12
+bundle = "order_normalization"
+status = "pending"
+title = "emit normalized errors"
+scores = { d = 2, b = 8, u = 8 }
+scored_at = "2026-05-10"

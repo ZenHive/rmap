@@ -123,9 +123,13 @@ Optional, all additive:
 <!-- FOCUS:BEGIN -->
 …generated focus block…
 <!-- FOCUS:END -->
+
+<!-- MERMAID:BEGIN -->
+…generated mermaid gantt block (one section per phase, one row per task with started_at)…
+<!-- MERMAID:END -->
 ```
 
-Everything outside the markers — your headings, prose, links, blank lines — is **byte-equal in/out**. You can freely hand-edit narrative around the generated tables.
+Everything outside the markers — your headings, prose, links, blank lines — is **byte-equal in/out**. You can freely hand-edit narrative around the generated tables. Drop in a marker pair when you want the corresponding block; omit it for zero-config default.
 
 ## Agent contract
 

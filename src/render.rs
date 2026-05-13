@@ -12,6 +12,9 @@ const END_MARKER: &str = "<!-- TASKS:END -->";
 const FOCUS_BEGIN_MARKER: &str = "<!-- FOCUS:BEGIN -->";
 const FOCUS_END_MARKER: &str = "<!-- FOCUS:END -->";
 
+const MERMAID_BEGIN_MARKER: &str = "<!-- MERMAID:BEGIN -->";
+const MERMAID_END_MARKER: &str = "<!-- MERMAID:END -->";
+
 /// Tasks whose `done_at` is within this many days of `today` count as "recently
 /// shipped" in the FOCUS block. Older shipments don't appear; the line falls
 /// back to "no recent shipments".
@@ -25,16 +28,21 @@ pub enum RenderError {
     InvalidPhaseMarker { start: usize },
     #[error("missing <!-- FOCUS:END --> for marker starting at byte {start}")]
     MissingFocusEndMarker { start: usize },
+    #[error("missing <!-- MERMAID:END --> for marker starting at byte {start}")]
+    MissingMermaidEndMarker { start: usize },
 }
 
-/// Render with an explicit `today` date (`YYYY-MM-DD`). Pass `""` to disable decay suffixes.
+/// Render with an explicit `today` date (`YYYY-MM-DD`). Pass `""` only when
+/// the input has no MERMAID markers — empty `today` disables decay suffixes
+/// but also produces malformed gantt rows for in_progress/blocked tasks.
 pub fn render_roadmap_str_with_today(
     roadmap: &str,
     tasks: &Tasks,
     today: &str,
 ) -> Result<String, RenderError> {
     let after_focus = render_focus_pass(roadmap, tasks, today)?;
-    render_tasks_pass(&after_focus, tasks, today)
+    let after_mermaid = render_mermaid_pass(&after_focus, tasks, today)?;
+    render_tasks_pass(&after_mermaid, tasks, today)
 }
 
 /// Render using `today_iso()` (reads `RMAP_TODAY` env var or the system clock).
@@ -162,6 +170,87 @@ fn up_next_line(tasks: &Tasks) -> String {
             )
         }
         None => "**Up next:** none — focus phase complete or all blocked".to_string(),
+    }
+}
+
+fn render_mermaid_pass(roadmap: &str, tasks: &Tasks, today: &str) -> Result<String, RenderError> {
+    let Some(begin) = roadmap.find(MERMAID_BEGIN_MARKER) else {
+        return Ok(roadmap.to_string());
+    };
+    let marker_line_end = roadmap[begin..]
+        .find('\n')
+        .map(|offset| begin + offset + '\n'.len_utf8())
+        .unwrap_or(roadmap.len());
+    let end = roadmap[marker_line_end..]
+        .find(MERMAID_END_MARKER)
+        .map(|offset| marker_line_end + offset)
+        .ok_or(RenderError::MissingMermaidEndMarker { start: begin })?;
+    let end_line_end = roadmap[end..]
+        .find('\n')
+        .map(|offset| end + offset + '\n'.len_utf8())
+        .unwrap_or(roadmap.len());
+
+    let mut rendered = String::with_capacity(roadmap.len());
+    rendered.push_str(&roadmap[..marker_line_end]);
+    rendered.push_str(&render_mermaid_body(tasks, today));
+    rendered.push_str(&roadmap[end..end_line_end]);
+    rendered.push_str(&roadmap[end_line_end..]);
+    Ok(rendered)
+}
+
+fn render_mermaid_body(tasks: &Tasks, today: &str) -> String {
+    let mut body = String::new();
+    body.push_str("```mermaid\n");
+    body.push_str("gantt\n");
+    writeln!(body, "    title {}", tasks.project).expect("write to string");
+    body.push_str("    dateFormat YYYY-MM-DD\n");
+
+    let mut phase_entries: Vec<(&String, &crate::schema::Phase)> = tasks.phases.iter().collect();
+    phase_entries.sort_by_key(|(_, phase)| phase.order);
+
+    let mut any_row = false;
+    for (key, phase) in phase_entries {
+        let Ok(phase_number) = key.parse::<u32>() else {
+            continue;
+        };
+        let rows: Vec<String> = tasks
+            .task
+            .iter()
+            .filter(|task| task.phase == phase_number)
+            .filter_map(|task| gantt_row(task, today))
+            .collect();
+        if rows.is_empty() {
+            continue;
+        }
+        if !any_row {
+            any_row = true;
+        }
+        writeln!(body, "    section Phase {} — {}", phase_number, phase.name)
+            .expect("write to string");
+        for row in rows {
+            writeln!(body, "    {row}").expect("write to string");
+        }
+    }
+
+    if !any_row {
+        body.push_str("    %% no tasks with started_at yet\n");
+    }
+
+    body.push_str("```\n");
+    body
+}
+
+fn gantt_row(task: &Task, today: &str) -> Option<String> {
+    let started_at = task.started_at.as_deref()?;
+    let title = task.title.replace([':', ',', ';'], "—");
+    match task.status.as_str() {
+        "done" => {
+            let done_at = task.done_at.as_deref()?;
+            Some(format!("{title} :done, {started_at}, {done_at}"))
+        }
+        "in_progress" => Some(format!("{title} :active, {started_at}, {today}")),
+        "blocked" => Some(format!("{title} :crit, {started_at}, {today}")),
+        _ => None,
     }
 }
 

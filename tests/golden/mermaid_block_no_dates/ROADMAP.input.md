@@ -1,12 +1,9 @@
-# skills_demo Roadmap
-
-<!-- FOCUS:BEGIN -->
-<!-- FOCUS:END -->
+# Blankslate
 
 <!-- MERMAID:BEGIN -->
+stale
 <!-- MERMAID:END -->
 
-## Phase 1 — Bootstrapping
-
 <!-- TASKS:BEGIN phase=1 -->
+stale
 <!-- TASKS:END -->

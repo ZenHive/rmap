@@ -172,6 +172,12 @@ fn item_to_task_id(item: &Item) -> Option<String> {
 /// Add is a no-op if the marker is already present; remove is a no-op if absent.
 /// Validation runs once at the end; if any op produces an invalid file the input
 /// is returned unchanged. Preserves comments and formatting via `toml_edit`.
+///
+/// When a new `markers` field is inserted into a task that didn't have one, the
+/// task's keys are re-sorted into canonical order (mirroring `add_task_str`'s
+/// write order) so the new field lands near the other small scalars rather than
+/// appended at the end. Existing-field mutations (marker already present) do not
+/// trigger the reorder.
 pub fn update_markers_str(
     path: impl Into<String>,
     input: &str,
@@ -232,6 +238,11 @@ pub fn update_markers_str(
         // No-op ops on an absent `markers` field must not leave `markers = []` behind.
         if !was_present && became_empty {
             task.remove("markers");
+        } else if !was_present {
+            // Newly inserted markers: place near the other small scalars.
+            task.sort_values_by(|a, _, b, _| {
+                canonical_task_key_index(a.get()).cmp(&canonical_task_key_index(b.get()))
+            });
         }
 
         break;
@@ -244,6 +255,37 @@ pub fn update_markers_str(
     let output = document.to_string();
     validate_tasks_str(path, &output)?;
     Ok(output)
+}
+
+/// Canonical position for keys inside a `[[task]]` table, used to re-place a
+/// freshly-inserted field (e.g. `markers` from `rmap mark <id> +x`) near the
+/// other small scalars. Returns `u32::MAX` for unknown keys so they sort to
+/// the end without disturbing each other (stable sort preserves their
+/// relative order).
+fn canonical_task_key_index(key: &str) -> u32 {
+    match key {
+        "id" => 0,
+        "phase" => 1,
+        "bundle" => 2,
+        "status" => 3,
+        "title" => 4,
+        "scores" => 5,
+        "markers" => 6,
+        "depends_on" => 7,
+        "acceptance_criteria" => 8,
+        "cross_repo" => 9,
+        "assignee" => 10,
+        "linear_id" => 11,
+        "module" => 12,
+        "blocked_reason" => 13,
+        "body" => 14,
+        "created_at" => 15,
+        "started_at" => 16,
+        "scored_at" => 17,
+        "done_at" => 18,
+        "shipped_in" => 19,
+        _ => u32::MAX,
+    }
 }
 
 /// Atomically add an in-repo and/or cross-repo dependency to a single task.

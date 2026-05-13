@@ -1,0 +1,31 @@
+schema_version = 1
+project = "blankslate"
+default_branch = "main"
+
+[phases.1]
+name = "Bootstrap"
+order = 1
+status = "pending"
+
+[bundles.boot]
+phase = 1
+order = 1
+description = "Boot"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "boot"
+status = "pending"
+title = "task one"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-12"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "boot"
+status = "pending"
+title = "task two"
+scores = { d = 3, b = 6, u = 6 }
+scored_at = "2026-05-12"

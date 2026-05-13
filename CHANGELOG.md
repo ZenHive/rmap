@@ -4,6 +4,20 @@ Completed roadmap tasks. For upcoming work, see [tool_roadmap.md](tool_roadmap.m
 
 ---
 
+## Phase 11b (close-out): mermaid render + `mark` canonical-position helper
+
+**What was done:**
+- Added a third optional marker pair `<!-- MERMAID:BEGIN -->` / `<!-- MERMAID:END -->` in `ROADMAP.md`. When present, `rmap render` populates the body with a fenced ```` ```mermaid ```` `gantt` block: one `section` per phase (sorted by `phases[*].order`), one row per task with `started_at`. Row shape by status: `done` → `:done, started_at, done_at`; `in_progress` → `:active, started_at, today`; `blocked` → `:crit, started_at, today`. Pending tasks (and tasks without `started_at`) are omitted — mermaid gantt requires dates. Empty-state body collapses to a minimal valid gantt with `%% no tasks with started_at yet`. Title colons / commas / semicolons (`:`, `,`, `;`) are rewritten to em-dash because mermaid parses `task :status, start, end` (`,` is the field separator; `;` is reserved for `dateformat`/etc.). Zero-config default — absence of the markers renders no mermaid block. The pass uses the same byte-preservation rule as TASKS/FOCUS and is automatically covered by `validate --check-render`.
+- Closed Phase 12c.4: `rmap mark <id> +<marker>` on a task that didn't have a `markers` field used to append the field at the end of the task block (after multi-line entries like `acceptance_criteria`). `update_markers_str` now sorts the affected task's keys into canonical order via `task.sort_values_by(canonical_task_key_index)` immediately after the new-key insert, so the new field lands between `scores` and `depends_on`/`acceptance_criteria`. Idempotent ops and ops on a pre-existing `markers` field do NOT trigger the sort — author-placed ordering is preserved when the field already exists. `add_dependency_str` is intentionally not auto-sorted (helper is `mark`-only until a second consumer asks).
+- Three new golden fixtures: `tests/golden/mermaid_block/` (populated gantt with mixed statuses), `mermaid_block_no_markers/` (zero-config no-op), `mermaid_block_no_dates/` (empty-state body). `tests/skills_fixture/ROADMAP.md` gained MERMAID markers so the existing `skills_smoke` suite exercises the new pass on every documented `rmap render` invocation.
+- Three new mutate tests cover the canonical-position rule (new-insert reorders, idempotent add is byte-equal, existing-markers add preserves author order) plus a black-box CLI test (`mark_command_places_new_markers_field_in_canonical_position`).
+- New invariants in `CLAUDE.md`: third marker pair (MERMAID byte-preservation + body-shape contract), `mark` canonical-position rule (`mark` auto-sorts on new-key insert; other mutators do not).
+- `README.md` and `SKILLS.md` updated with the third marker pair.
+
+**Phase 11b is now complete.** Remaining roadmap bets are Phase 6 (HTML render) and Phase 7 (`rmap watch`).
+
+---
+
 ## Phase 11b (continued): `rmap new` + `rmap new --from-stdin`
 
 **What was done:**
