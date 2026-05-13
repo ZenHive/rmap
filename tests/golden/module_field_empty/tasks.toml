@@ -1,0 +1,43 @@
+schema_version = 1
+project = "onchain"
+default_branch = "main"
+
+[phases.7]
+name = "ERC20 + Subscription"
+order = 7
+status = "in_progress"
+
+[bundles.module_split]
+phase = 7
+order = 1
+description = "Edge case: explicit empty/whitespace module strings"
+
+[[task]]
+id = 201
+phase = 7
+bundle = "module_split"
+status = "pending"
+title = "empty-string module"
+module = ""
+scores = { d = 3, b = 6, u = 6 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 202
+phase = 7
+bundle = "module_split"
+status = "pending"
+title = "whitespace-only module"
+module = "   "
+scores = { d = 3, b = 6, u = 6 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 203
+phase = 7
+bundle = "module_split"
+status = "pending"
+title = "real module — padded"
+module = "  Onchain.Padded  "
+scores = { d = 3, b = 6, u = 6 }
+scored_at = "2026-05-10"

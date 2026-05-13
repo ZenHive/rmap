@@ -219,6 +219,8 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
         let module_segment = task
             .module
             .as_deref()
+            .map(str::trim)
+            .filter(|m| !m.is_empty())
             .map(|m| format!("*{m}* · "))
             .unwrap_or_default();
         writeln!(
