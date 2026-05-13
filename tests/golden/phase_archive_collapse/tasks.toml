@@ -1,0 +1,52 @@
+schema_version = 1
+project = "rmap_archive_demo"
+default_branch = "main"
+
+[phases.11]
+name = "Skills-parity polish"
+order = 11
+status = "done"
+
+[phases.12]
+name = "Per-Exchange Normalization"
+order = 12
+status = "in_progress"
+
+[bundles.polish]
+phase = 11
+order = 1
+description = "Cheap visible wins"
+
+[bundles.normalization]
+phase = 12
+order = 1
+description = "Unified parser shape"
+
+[[task]]
+id = 70
+phase = 11
+bundle = "polish"
+status = "done"
+title = "eff tier emoji"
+scores = { d = 2, b = 7, u = 7 }
+shipped_in = "PR #42"
+scored_at = "2026-05-01"
+
+[[task]]
+id = 71
+phase = 11
+bundle = "polish"
+status = "done"
+title = "archive collapse"
+scores = { d = 3, b = 6, u = 6 }
+shipped_in = "PR #42"
+scored_at = "2026-05-01"
+
+[[task]]
+id = 80
+phase = 12
+bundle = "normalization"
+status = "pending"
+title = "parseTicker field map"
+scores = { d = 5, b = 8, u = 8 }
+scored_at = "2026-05-01"

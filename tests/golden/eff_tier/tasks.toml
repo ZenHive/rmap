@@ -1,0 +1,49 @@
+schema_version = 1
+project = "rmap_eff_tier"
+default_branch = "main"
+
+[phases.1]
+name = "Tier showcase"
+order = 1
+status = "in_progress"
+
+[bundles.tiers]
+phase = 1
+order = 1
+description = "One task per Eff tier band"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "tiers"
+status = "pending"
+title = "bullseye tier task"
+scores = { d = 2, b = 8, u = 8 }
+scored_at = "2026-05-01"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "tiers"
+status = "pending"
+title = "rocket tier task"
+scores = { d = 5, b = 8, u = 8 }
+scored_at = "2026-05-01"
+
+[[task]]
+id = 3
+phase = 1
+bundle = "tiers"
+status = "pending"
+title = "clipboard tier task"
+scores = { d = 5, b = 6, u = 6 }
+scored_at = "2026-05-01"
+
+[[task]]
+id = 4
+phase = 1
+bundle = "tiers"
+status = "pending"
+title = "warning tier task"
+scores = { d = 8, b = 4, u = 4 }
+scored_at = "2026-05-01"

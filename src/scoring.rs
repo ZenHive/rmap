@@ -18,6 +18,22 @@ pub fn format_efficiency(value: f64) -> String {
     }
 }
 
+/// Tier glyph for a computed efficiency value. Single source of truth for the
+/// D/B/U rubric — `>= 2.0` is 🎯 (highest priority), `>= 1.5` is 🚀,
+/// `>= 1.0` is 📋, anything below is ⚠️. The thresholds and glyphs are part of
+/// the agent-grep contract; renaming or shifting them is a breaking change.
+pub fn tier_glyph(efficiency: f64) -> &'static str {
+    if efficiency >= 2.0 {
+        "🎯"
+    } else if efficiency >= 1.5 {
+        "🚀"
+    } else if efficiency >= 1.0 {
+        "📋"
+    } else {
+        "⚠️"
+    }
+}
+
 /// Score-decay threshold in days. A `scored_at` older than this — or missing —
 /// flags the task as having a stale score in `render` and `doctor`.
 pub const SCORE_DECAY_DAYS: i64 = 30;
@@ -105,5 +121,17 @@ mod tests {
         assert_eq!(days_since("not-a-date", "2026-05-11"), None);
         assert_eq!(days_since("2026-05-11", "bad"), None);
         assert_eq!(days_since("", "2026-05-11"), None);
+    }
+
+    #[test]
+    fn tier_glyph_boundaries() {
+        assert_eq!(tier_glyph(2.5), "🎯");
+        assert_eq!(tier_glyph(2.0), "🎯");
+        assert_eq!(tier_glyph(1.99), "🚀");
+        assert_eq!(tier_glyph(1.5), "🚀");
+        assert_eq!(tier_glyph(1.49), "📋");
+        assert_eq!(tier_glyph(1.0), "📋");
+        assert_eq!(tier_glyph(0.99), "⚠️");
+        assert_eq!(tier_glyph(0.0), "⚠️");
     }
 }

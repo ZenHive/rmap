@@ -4,6 +4,18 @@ Completed roadmap tasks. For upcoming work, see [tool_roadmap.md](tool_roadmap.m
 
 ---
 
+## Phase 13 — Skills-parity polish
+
+### Phase 13a: render polish — Eff tier glyph + phase archive collapse
+
+**What was done:**
+- Centralized the Eff tier rubric as `scoring::tier_glyph(eff: f64) -> &'static str` — `>= 2.0 → 🎯`, `>= 1.5 → 🚀`, `>= 1.0 → 📋`, else `⚠️`. Single source of truth; the previous file-local `render::priority_symbol` is gone. Glyph rendering wired into every Eff surface: TASKS-table row (placement unchanged), FOCUS Up next line (`**Up next:** Task C — <title> [D/B/U → Eff] <tier_glyph>`), `rmap show` scores line, `rmap list` row, `rmap next` row, `rmap delegate` scores line. JSON payloads (`data.json`, `show --json`, `list --json`, `next --json`, `diff --json`) stay numeric — `format_efficiency` is untouched and the glyph is a pure render-time concatenation.
+- Phase archive collapse: when `[phases.N].status = "done"`, `render_phase_table` short-circuits and replaces the body of the matching `<!-- TASKS:BEGIN phase=N -->` block with a single line `> N tasks. See [CHANGELOG.md](CHANGELOG.md#phase-N-<slug>).`. Slug = `phase_slug(name)` (lowercased, split on `!c.is_alphanumeric()`, empty segments dropped, joined with `-`), so a phase named `"Skills-parity polish"` collapses to `phase-N-skills-parity-polish`. Marker boundaries stay byte-preserved; per-phase scoped (non-done phases in the same file still render the full task table).
+- Two new golden fixtures: `tests/golden/eff_tier/` (all four tier ranges in one TASKS table) and `tests/golden/phase_archive_collapse/` (done phase collapses, adjacent in-progress phase renders normally). Existing fixtures `focus_block` (Up next glyph) and `mermaid_block` (phase 11 done → collapse line) updated to match the new shape.
+- New invariants in `CLAUDE.md`: tier glyph centralized in `scoring::tier_glyph` with the four-tier rubric as the agent-grep contract; archive collapse line shape `> N tasks. See [CHANGELOG.md](CHANGELOG.md#phase-N-<slug>).` is agent-grep + `validate --check-render` locked-in. The existing FOCUS invariant amended to include the trailing tier glyph on Up next.
+
+---
+
 ## Phase 11b (correction): Codex environment notes — distinguish hex.pm gap from a general no-HTTP claim
 
 **What was done:**

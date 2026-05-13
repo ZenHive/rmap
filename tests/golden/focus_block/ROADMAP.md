@@ -7,7 +7,7 @@ Hand-written intro stays exactly here.
 
 **Last shipped:** Task 74 — parseTicker field map + coercion + enums, Task 75 — parseOrder field map on 2026-05-10
 
-**Up next:** Task 77 — emit normalized errors [D:2/B:8/U:8 → Eff:4.0]
+**Up next:** Task 77 — emit normalized errors [D:2/B:8/U:8 → Eff:4.0] 🎯
 <!-- FOCUS:END -->
 
 ## Phase 12

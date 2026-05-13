@@ -1,5 +1,5 @@
 use crate::schema::{Task, Tasks};
-use crate::scoring::{efficiency, format_efficiency};
+use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 
 #[derive(Debug, Default)]
 pub struct TaskFilter {
@@ -23,6 +23,7 @@ pub fn list_tasks<'a>(tasks: &'a Tasks, filter: &TaskFilter) -> Vec<&'a Task> {
 }
 
 pub fn format_task(task: &Task) -> String {
+    let eff = efficiency(task);
     let mut lines = vec![
         format!("Task {}", task.id),
         format!("title: {}", task.title),
@@ -30,11 +31,12 @@ pub fn format_task(task: &Task) -> String {
         format!("phase: {}", task.phase),
         format!("bundle: {}", task.bundle),
         format!(
-            "scores: D:{}/B:{}/U:{} -> Eff:{}",
+            "scores: D:{}/B:{}/U:{} -> Eff:{} {}",
             task.scores.d,
             task.scores.b,
             task.scores.u,
-            format_efficiency(efficiency(task))
+            format_efficiency(eff),
+            tier_glyph(eff)
         ),
     ];
 
@@ -87,11 +89,13 @@ pub fn format_task(task: &Task) -> String {
 }
 
 pub fn format_task_row(task: &Task) -> String {
+    let eff = efficiency(task);
     format!(
-        "Task {} [{} Eff:{}] {}",
+        "Task {} [{} Eff:{}] {} {}",
         task.id,
         task.status,
-        format_efficiency(efficiency(task)),
+        format_efficiency(eff),
+        tier_glyph(eff),
         task.title
     )
 }

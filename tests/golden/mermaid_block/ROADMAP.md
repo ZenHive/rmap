@@ -19,9 +19,7 @@ gantt
 ## Phase 11
 
 <!-- TASKS:BEGIN phase=11 -->
-| Task | Status | Notes |
-|------|--------|-------|
-| Task 70 | ✅ | 🎁 **polish** · mark mutator [D:2/B:4/U:4 → Eff:2.0] 🎯 |
+> 1 task. See [CHANGELOG.md](CHANGELOG.md#phase-11-polish).
 <!-- TASKS:END -->
 
 ## Phase 12

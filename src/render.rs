@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::next::next_task;
 use crate::schema::{Task, Tasks};
-use crate::scoring::{days_since, efficiency, format_efficiency, score_decay_suffix};
+use crate::scoring::{days_since, efficiency, format_efficiency, score_decay_suffix, tier_glyph};
 
 const BEGIN_MARKER: &str = "<!-- TASKS:BEGIN phase=";
 const END_MARKER: &str = "<!-- TASKS:END -->";
@@ -160,13 +160,14 @@ fn up_next_line(tasks: &Tasks) -> String {
         Some(task) => {
             let eff = efficiency(task);
             format!(
-                "**Up next:** Task {} — {} [D:{}/B:{}/U:{} → Eff:{}]",
+                "**Up next:** Task {} — {} [D:{}/B:{}/U:{} → Eff:{}] {}",
                 task.id,
                 task.title,
                 task.scores.d,
                 task.scores.b,
                 task.scores.u,
-                format_efficiency(eff)
+                format_efficiency(eff),
+                tier_glyph(eff)
             )
         }
         None => "**Up next:** none — focus phase complete or all blocked".to_string(),
@@ -298,6 +299,17 @@ fn parse_phase(marker_line: &str) -> Option<u32> {
 }
 
 fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
+    if let Some(phase_entry) = tasks.phases.get(&phase.to_string())
+        && phase_entry.status == "done"
+    {
+        let count = tasks.task.iter().filter(|task| task.phase == phase).count();
+        let noun = if count == 1 { "task" } else { "tasks" };
+        let slug = phase_slug(&phase_entry.name);
+        return format!(
+            "> {count} {noun}. See [CHANGELOG.md](CHANGELOG.md#phase-{phase}-{slug}).\n"
+        );
+    }
+
     let mut table = String::new();
     table.push_str("| Task | Status | Notes |\n");
     table.push_str("|------|--------|-------|\n");
@@ -326,7 +338,7 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
             task.scores.u,
             format_efficiency(eff),
             decay,
-            priority_symbol(eff)
+            tier_glyph(eff)
         )
         .expect("write to string");
     }
@@ -353,6 +365,18 @@ fn marker_suffix(task: &Task) -> String {
     }
 }
 
+/// Kebab-case a phase name for the archive-collapse CHANGELOG anchor.
+/// Lowercases, splits on any non-alphanumeric run, drops empty segments,
+/// joins with `-`. Used only by `render_phase_table` when collapsing a
+/// `status = "done"` phase.
+fn phase_slug(name: &str) -> String {
+    name.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
 fn status_symbol(status: &str) -> &str {
     match status {
         "pending" => "⬜",
@@ -361,17 +385,5 @@ fn status_symbol(status: &str) -> &str {
         "done" => "✅",
         "superseded" => "⛔",
         _ => status,
-    }
-}
-
-fn priority_symbol(efficiency: f64) -> &'static str {
-    if efficiency >= 2.0 {
-        "🎯"
-    } else if efficiency >= 1.5 {
-        "🚀"
-    } else if efficiency >= 1.0 {
-        "📋"
-    } else {
-        "⚠️"
     }
 }

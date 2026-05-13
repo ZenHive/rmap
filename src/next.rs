@@ -1,5 +1,5 @@
 use crate::schema::{Task, Tasks};
-use crate::scoring::{efficiency, format_efficiency};
+use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 
 pub fn next_task<'a>(tasks: &'a Tasks, marker: Option<&str>) -> Option<&'a Task> {
     let candidates = tasks
@@ -32,10 +32,12 @@ where
 }
 
 pub fn format_next_task(task: &Task) -> String {
+    let eff = efficiency(task);
     format!(
-        "Task {} [Eff:{}] {}",
+        "Task {} [Eff:{}] {} {}",
         task.id,
-        format_efficiency(efficiency(task)),
+        format_efficiency(eff),
+        tier_glyph(eff),
         task.title
     )
 }

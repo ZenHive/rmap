@@ -205,12 +205,12 @@ Grouped into three session-sized bundles below. Recommended order: 13a → 13b �
 
 **Out of audit (deliberately).** Coverage gates (Elixir harness), Ceremony Floor (review-time triage), and auto-CHANGELOG / auto-CLAUDE.md updates are process conventions enforced by code-review and audit skills, not roadmap data. They're not Phase 13 work — see *Out of scope* below.
 
-**Phase 13a — Render polish [D:3/B:6/U:5 → Eff:1.83] 🚀.** No schema change. Two render-only features.
+**Phase 13a — Render polish [D:3/B:6/U:5 → Eff:1.83] 🚀.** ✅ Shipped 2026-05-13. No schema change. Two render-only features landed in one bundle.
 
-1. **Eff tier emoji.** Append the tier glyph to every rendered Eff value: `🎯 > 2.0` / `🚀 1.5–2.0` / `📋 1.0–1.5` / `⚠️ < 1.0` per the rubric. Single source of truth in `scoring.rs` as `tier_glyph(eff: f64) -> &'static str`; called wherever `format_efficiency` is.
-2. **Phase archive collapse.** When `[phases.N].status = "done"`, the renderer replaces the contents of the matching `<!-- TASKS:BEGIN phase=N -->` block with a single line `> N tasks. See [CHANGELOG.md](CHANGELOG.md#phase-N-<slug>).` Slug = kebab-cased `phase.name`. Keeps `ROADMAP.md` scannable as completed phases accumulate. Marker boundaries still byte-preserved.
+1. **Eff tier emoji.** ✅ Every rendered Eff value now carries the tier glyph: `🎯 ≥ 2.0` / `🚀 ≥ 1.5` / `📋 ≥ 1.0` / `⚠️ < 1.0`. Single source of truth: `scoring::tier_glyph(eff: f64) -> &'static str`. Wired into the TASKS table row, the FOCUS "Up next" line, `rmap show`, `rmap list`, `rmap next`, and the `rmap delegate` scores line. Glyph is render-only — `format_efficiency` and every `--json` payload stay numeric.
+2. **Phase archive collapse.** ✅ When `[phases.N].status = "done"`, the `<!-- TASKS:BEGIN phase=N -->` body collapses to a single line `> N tasks. See [CHANGELOG.md](CHANGELOG.md#phase-N-<slug>).` where `slug = phase_slug(name)` (lowercased, non-alphanumeric→`-`, empty segments dropped). Marker boundaries stay byte-preserved. Per-phase scoped — non-done phases in the same file continue to render the full task table.
 
-Touches `src/render.rs`, `src/scoring.rs`, `tests/golden/eff_tier/` (new), `tests/golden/phase_archive_collapse/` (new), `CLAUDE.md` (invariants: tier-glyph spelling and the archive-collapse line shape are part of the agent-grep contract).
+Touched `src/render.rs`, `src/scoring.rs`, `src/delegate.rs`, `src/query.rs`, `src/next.rs`, `tests/golden/eff_tier/` (new), `tests/golden/phase_archive_collapse/` (new), `tests/golden/focus_block/` + `tests/golden/mermaid_block/` (glyph + collapse), `CLAUDE.md` (invariants: tier-glyph spelling + archive-collapse line shape are agent-grep contract), `CHANGELOG.md`.
 
 **Phase 13b — Schema parity for top-level + per-task fields [D:4/B:7/U:6 → Eff:1.625] 🚀.** Three schema additions + one validator tightening. Each Task field follows the three-place edit (`schema.rs` + `diff::diff_fields!` + `export::ExportedTask`); the top-level `vision` follows the top-level three-place (`schema.rs` + `diff::diff_metadata` + `export::ExportedTasks`).
 

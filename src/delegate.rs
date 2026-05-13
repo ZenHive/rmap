@@ -4,7 +4,7 @@ use clap::ValueEnum;
 
 use crate::query::find_task;
 use crate::schema::{Task, Tasks};
-use crate::scoring::{efficiency, format_efficiency};
+use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 
 // `Write for String` is infallible — the macro lets call sites read like
 // plain text without `.expect(...)` noise on every line.
@@ -62,13 +62,15 @@ fn format_prompt(tasks: &Tasks, task: &Task, target: DelegateTarget) -> String {
     line!(prompt, "Status: {}", task.status);
     line!(prompt, "Phase: {}", task.phase);
     line!(prompt, "Bundle: {}", task.bundle);
+    let eff = efficiency(task);
     line!(
         prompt,
-        "Scores: D:{}/B:{}/U:{} -> Eff:{}",
+        "Scores: D:{}/B:{}/U:{} -> Eff:{} {}",
         task.scores.d,
         task.scores.b,
         task.scores.u,
-        format_efficiency(efficiency(task))
+        format_efficiency(eff),
+        tier_glyph(eff)
     );
 
     if !task.markers.is_empty() {
