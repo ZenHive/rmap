@@ -21,6 +21,8 @@ Edition is `2024` (Cargo.toml). MSRV: whatever ships with Rust 1.85+.
 
 **Reinstall after any source change.** rmap is dogfooded on itself (`roadmap/tasks.toml` → `ROADMAP.md`), so a stale `~/.cargo/bin/rmap` will silently render with the old schema or reject a TOML using a newly-added field (Phase 12c discovery #2: `[focus]` was rejected by a pre-`schema::Focus` binary). After any change to `src/`, run `cargo install --path .` before invoking `rmap` again — the binary on `$PATH` is what matters, not whatever `target/release/rmap` happens to hold. The smoke test (`cargo test --test skills_smoke`) compiles fresh under cargo and catches regressions in `SKILLS.md` examples regardless of the installed binary, but interactive `rmap` calls do not.
 
+**Prefer `rmap` CLI over direct `tasks.toml` edits for operations that have a mutator.** Today the mutator surface is `rmap status` (single + bulk), `rmap mark`, `rmap depend`, and `rmap new` — those go through `toml_edit` (comments/formatting preserved) and the validate-then-write contract (invalid mutations leave the file byte-equal). Use them when the operation matches. Direct TOML edits are the only path for everything else — bundle CRUD, phase CRUD, focus changes, score/title/AC edits, top-level metadata. After any direct edit, run `cargo run -- validate --check-render` (or `rmap render` then `rmap validate`) before committing so render drift and schema breakage are caught at the source.
+
 ## Architecture
 
 Pipeline: `tasks.toml` → `schema::Tasks` → either `render_roadmap_str` (markdown) or `export_json_str` (data.json) → write back. Mutations route through `toml_edit` to preserve user formatting and comments.
