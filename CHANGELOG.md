@@ -15,6 +15,33 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 13 — Skills-parity polish
 
+### Phase 13 Task 17: `rmap next-bundle` selects one session-sized bundle (bundle_selector bundle)
+
+**What was done:**
+- New `rmap next-bundle` subcommand: picks one bundle worth of dep-satisfied pending tasks for a single Claude Code session. Flags: `--phase <N>` (override `[focus].phase`), `--bundle <name>` (force-pick, bypasses ranking), `--json`, `--tasks-path`. No D-budget subsetting (Option 1) — output is *every* actionable pending task in the chosen bundle.
+- Ranking rule: `(in_focus_phase desc, sum_eff desc, bundle.order asc)`. Bundles with zero actionable tasks are skipped. Actionability is **broad**: a pending task T is actionable iff every dep is either `done` (anywhere) OR an in-bundle pending task that is itself broadly actionable (recursive, memoized DFS with belt-and-suspenders cycle defense — `validate` already rejects cycles).
+- Force-pick (`--bundle X`) bypasses ranking entirely, including focus-phase preference and `--phase N` (when both passed, `--bundle` wins silently). Force-pick on a declared-but-zero-actionable bundle returns `Some` with empty tasks; force-pick on an undeclared bundle is a hard error (exit 1, stderr `bundle '<X>' is not declared in tasks.toml`).
+- Tasks emitted in dep-topological order via Kahn's algorithm with stable Eff-desc tie-break.
+- New `src/next_bundle.rs` carries the pure selector `pick(tasks, filter, today) -> Option<BundlePick>`. Reuses `query::matches_bundle` and `scoring::efficiency` — no duplicated dep-satisfaction logic. `today` parameter mirrors `next::next_tasks` for future score-decay-sensitive ranking; unused today.
+- `src/export.rs` gained `export_bundle_pick_json_str(tasks, effective_focus, pick)` — JSON envelope `{ schema_version, focus_phase, bundle: {name, phase, description} | null, tasks: [ExportedTask, ...] }`. `focus_phase` is the **effective** focus (post-`--phase` override). Empty pick emits `bundle: null, tasks: []` in the same envelope (mirrors `rmap bundles --json` rather than `rmap next --json`).
+- Human output: header `bundle <name>  phase <N> — <phase_name>  [<done>/<total>]  — <description>`, then one row per task using `format_task_row` (mirrors `rmap list`).
+- Three empty-state spellings (stderr, exit 0): `none — no actionable bundle in any phase`, `none — no actionable bundle in phase N`, `none — bundle '<X>' has no actionable pending tasks`. Missing-bundle (`--bundle X` where X is not declared) is a hard error (exit 1).
+- New CLAUDE.md "Load-bearing invariants" bullet locks the ranking rule, empty-state spellings, JSON envelope shape, no-subsetting rule, and force-pick precedence.
+- SKILLS.md gained three fenced examples (`rmap next-bundle`, `rmap next-bundle --json`, `rmap next-bundle --bundle alpha`); `skills_smoke.rs` locks them.
+- No `schema_version` bump — additive subcommand.
+- Tests: 10 new in `tests/cli.rs` covering focus-phase-wins, tie-by-order, all-blocked-skipped, unmet-external-dep-skips, force-pick-bypass, JSON envelope shape, topo order, `--phase` override, empty-pick stderr+exit-0, force-pick-zero-actionable stderr, and missing-bundle exit-1. 7 in-module unit tests in `src/next_bundle.rs` covering the same matrix at selector depth.
+
+### Phase 13 Task 16: `rmap bundles` selector listing (batch_selection bundle)
+
+**What was done:**
+- New `rmap bundles` subcommand: lists authoring-time `[bundles.*]` with per-bundle status counts and the next dep-satisfied pending task. Flags: `--phase <N>`, `--has-next`, `--in-focus`, `--json`, `--tasks-path`.
+- New `src/bundles.rs`: `list_bundles(tasks, filter) -> Vec<BundleSummary>` + `BundleFilter { phase, has_next, in_focus }`. Per-bundle `next_task` reuses `next::next_task` with a bundle-restricted `TaskFilter` — single source of truth for dep-satisfaction.
+- Human row shape `<name>    <done>/<total> <glyph_or_next>  — <description>` under per-phase headers `phase <N> — <phase_name>  [<phase_status>{, focus}]`. Five-branch `status_glyph_or_next` ladder: all-done → `✅`, in-progress only → `🚧`, all-blocked → `all-blocked ⛔`, pending-with-no-next → `pending:<n> (deps unmet) ⏸`, otherwise → `next:<id> [Eff:<x.y>] <tier_glyph>`.
+- JSON envelope `{ schema_version, focus_phase, bundles }`; `focus_phase` serializes as explicit `null` when unset (deliberately not skipped). `status_counts` always zero-fills all four keys. `NextTaskSummary.eff` matches `ExportedTask.eff` rounding.
+- New CLAUDE.md "Load-bearing invariants" bullet locks the row shape, status-glyph ladder, separator spacing, JSON envelope, and `next_task` reuse rule.
+- SKILLS.md gained `rmap bundles`, `rmap bundles --in-focus --has-next --json` fenced examples; `skills_smoke.rs` locks them.
+- No `schema_version` bump — additive read surface.
+
 ### Phase 13 Task 15: `rmap next --count N` returns top-N candidates (batch_selection bundle)
 
 **What was done:**

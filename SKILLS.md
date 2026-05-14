@@ -98,6 +98,23 @@ rmap bundles --in-focus --has-next --json
 # exit: 0
 ```
 
+`rmap next-bundle` picks one session-sized bundle and emits every actionable pending task in it, dep-topologically ordered. A task is actionable when every dep is either `done` (anywhere) or an in-bundle pending task that is itself actionable. Ranking: focus-phase bundles win; within phase rank by sum-of-Eff over actionable tasks; ties broken by `bundles.<name>.order`. `--bundle <name>` force-picks a specific bundle (bypassing ranking); `--phase N` overrides `[focus].phase`. Empty pick prints `none — …` to **stderr** with exit 0; a missing `--bundle <name>` (not declared in `tasks.toml`) is a hard error (exit 1).
+
+```bash
+rmap next-bundle
+# exit: 0
+```
+
+```bash
+rmap next-bundle --json
+# exit: 0
+```
+
+```bash
+rmap next-bundle --bundle alpha
+# exit: 0
+```
+
 ## Mutating state
 
 All mutators route through `toml_edit` to preserve comments + formatting, then re-validate before writing. Invalid mutations leave the file byte-equal to its pre-call state.

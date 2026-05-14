@@ -28,6 +28,11 @@
       "order": 4,
       "description": "Surface authoring-time bundles as selector input (list --bundle, next --bundle, next --count)"
     },
+    "bundle_selector": {
+      "phase": 13,
+      "order": 5,
+      "description": "rmap next-bundle: pick one bundle worth of dep-satisfied pending tasks for a single Claude Code session"
+    },
     "delegate_parity": {
       "phase": 13,
       "order": 2,
@@ -455,6 +460,37 @@
         "CLAUDE.md Architecture section gains a `bundles.rs` bullet matching the style of the existing `next.rs` / `query.rs` entries.",
         "No schema_version bump — purely additive read surface. show/list/next/diff JSON contracts untouched."
       ],
+      "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 17,
+      "phase": 13,
+      "bundle": "bundle_selector",
+      "status": "done",
+      "title": "rmap next-bundle: select one session-sized bundle (Option 1: bundle = session, no subsetting)",
+      "scores": {
+        "d": 3,
+        "b": 8,
+        "u": 6
+      },
+      "eff": 2.33,
+      "markers": [],
+      "depends_on": [],
+      "module": "src/next_bundle.rs",
+      "acceptance_criteria": [
+        "New `rmap next-bundle` subcommand. Flags: `--phase <N>` (override focus), `--bundle <name>` (force-pick), `--json`, `--tasks-path`. Emits a bundle picked per the ranking rule plus every currently-actionable pending task in that bundle in dep-topological order.",
+        "Ranking rule: focus-phase bundles win over non-focus; within a phase, rank by sum-of-Eff over the bundle's dep-satisfied pending tasks (descending); ties broken by `bundles.<name>.order` ascending; bundles with zero actionable pending tasks (all-done, all-blocked, or all deps unmet) are skipped.",
+        "No auto-subsetting (Option 1). Output is *all* dep-satisfied pending tasks in the chosen bundle — never a D-budget slice. Bundle sizing is the author's responsibility; oversized bundles get split in `tasks.toml`, not windowed here.",
+        "Human output: header line `bundle <name>  phase <N> — <phase_name>  [<bundle_done>/<bundle_total>]  — <description>` followed by one row per task using the same row shape as `rmap list` (id, status glyph, title, `[D/B/U → Eff:x.y] <tier_glyph>`). Empty pick prints a single line `none — no actionable bundle in <phase or 'any phase'>` to stderr (exit 0).",
+        "JSON envelope: `{ schema_version, focus_phase, bundle: { name, phase, description } | null, tasks: [ExportedTask, ...] }`. Empty pick → `bundle: null`, `tasks: []`. Tasks reuse `ExportedTask` (so `eff` is included). Renaming or removing any envelope key is a `schema_version` bump.",
+        "Dep-topological ordering inside the chosen bundle: tasks emitted such that for every emitted task its `depends_on` entries either point outside the bundle (already done by invariant — dep-satisfied) or appear earlier in the output. Cycles inside a bundle are already rejected by `validate`, so the topological sort never fails.",
+        "Selector logic factored as `next_bundle::pick(tasks, filter, today) -> Option<BundlePick>` in a new `src/next_bundle.rs`. Reuses `next::next_tasks` / `query::matches_bundle` / `scoring::efficiency` / `bundles::list_bundles`-derived per-bundle state — no duplicated dep-satisfaction logic. Pure function; no I/O.",
+        "Tests: at least (a) focus-phase wins over a higher-sum-Eff bundle in another phase, (b) ties broken by `bundle.order`, (c) bundle with all-blocked tasks is skipped, (d) bundle whose only pending task has unmet deps is skipped, (e) `--bundle <name>` force-picks even when its sum-Eff is lower, (f) JSON shape stable (snapshot or field-presence asserts), (g) topological order assertion when bundle has internal `depends_on` chain. Smoke test in `tests/skills_smoke.rs` picks up the new `SKILLS.md` example automatically.",
+        "Doc updates: SKILLS.md gets a new example block (`rmap next-bundle`, `rmap next-bundle --json`, `rmap next-bundle --bundle <name>`). CLAUDE.md gains a Load-bearing-invariants bullet for the JSON envelope, the ranking-rule contract, the empty-pick line spelling, and the no-subsetting rule. Architecture section gets a `next_bundle.rs` entry. Files touched: src/next_bundle.rs, src/main.rs, src/export.rs, tests/cli.rs, SKILLS.md, CLAUDE.md.",
+        "Out of scope: `--delegate <target>` for bundles (deferred to a follow-up task — needs its own design pass on how to concatenate multiple task prompts), D-budget subsetting (Option 2 — explicitly rejected), cross-bundle planning, and any change to existing `rmap next` semantics."
+      ],
+      "created_at": "2026-05-13",
       "scored_at": "2026-05-13",
       "cross_repo": []
     }

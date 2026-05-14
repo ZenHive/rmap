@@ -5,6 +5,7 @@ pub mod doctor;
 pub mod export;
 pub mod mutate;
 pub mod next;
+pub mod next_bundle;
 pub mod paths;
 pub mod query;
 pub mod render;

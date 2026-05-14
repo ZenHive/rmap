@@ -9,13 +9,15 @@ use rmap::delegate::{DelegateTarget, format_delegate_prompt};
 use rmap::diff::{diff_toml, format_diff};
 use rmap::doctor::DoctorReport;
 use rmap::export::{
-    export_filtered_json_str, export_json_str, export_task_json_str, export_tasks_array_json_str,
+    export_bundle_pick_json_str, export_filtered_json_str, export_json_str, export_task_json_str,
+    export_tasks_array_json_str,
 };
 use rmap::mutate::{
     CrossRepoSpec, MarkerOp, NewTaskFields, add_dependency_str, add_task_str, update_markers_str,
     update_status_many_str,
 };
 use rmap::next::{format_next_task, next_tasks};
+use rmap::next_bundle::{BundlePick, NextBundleFilter, pick as pick_next_bundle};
 use rmap::paths::{ResolvedPaths, resolve_paths};
 use rmap::query::{TaskFilter, find_task, format_task, format_task_row, list_tasks};
 use rmap::render::render_roadmap_str;
@@ -208,6 +210,24 @@ enum Commands {
         /// Only bundles in `[focus].phase`.
         #[arg(long)]
         in_focus: bool,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+    },
+    /// Pick one session-sized bundle and emit every actionable pending task in it.
+    ///
+    /// Ranking: focus-phase bundles win over non-focus; within a phase, rank by
+    /// sum-of-Eff over actionable pending tasks (descending); ties broken by
+    /// `bundles.<name>.order`. Bundles with zero actionable tasks are skipped.
+    /// `--bundle <name>` bypasses ranking entirely.
+    NextBundle {
+        /// Override `[focus].phase` for this query.
+        #[arg(long)]
+        phase: Option<u32>,
+        /// Force-pick a specific bundle, bypassing ranking.
+        #[arg(long)]
+        bundle: Option<String>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -457,6 +477,46 @@ fn run() -> Result<ExitCode> {
                 println!("{}", serde_json::to_string_pretty(&envelope)?);
             } else {
                 print!("{}", format_bundles_human(&tasks, &summaries));
+            }
+        }
+        Commands::NextBundle {
+            phase,
+            bundle,
+            json,
+            tasks_path,
+        } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+
+            if let Some(requested) = bundle.as_deref()
+                && !tasks.bundles.contains_key(requested)
+            {
+                bail!("bundle '{requested}' is not declared in tasks.toml");
+            }
+
+            let filter = NextBundleFilter {
+                phase,
+                bundle: bundle.clone(),
+            };
+            let today = today_iso();
+            let pick = pick_next_bundle(&tasks, &filter, &today);
+            let effective_focus = phase.or(tasks.focus.as_ref().map(|f| f.phase));
+
+            let non_empty_pick = pick.as_ref().filter(|p| !p.tasks.is_empty());
+
+            if json {
+                println!(
+                    "{}",
+                    export_bundle_pick_json_str(&tasks, effective_focus, non_empty_pick)?
+                );
+            } else if let Some(p) = non_empty_pick {
+                print!("{}", format_next_bundle_human(&tasks, p));
+            } else if let Some(name) = bundle.as_deref() {
+                eprintln!("none — bundle '{name}' has no actionable pending tasks");
+            } else if let Some(focus) = effective_focus {
+                eprintln!("none — no actionable bundle in phase {focus}");
+            } else {
+                eprintln!("none — no actionable bundle in any phase");
             }
         }
         Commands::Stale {
@@ -925,6 +985,35 @@ fn prompt_score(theme: &dialoguer::theme::ColorfulTheme, label: &str) -> Result<
         })
         .interact_text()?;
     Ok(value)
+}
+
+/// Human-readable `rmap next-bundle` output. Header `bundle <name>  phase <N> —
+/// <phase_name>  [<done>/<total>]  — <description>`, then one task per line
+/// using `format_task_row` (mirroring `rmap list`) with a two-space indent.
+fn format_next_bundle_human(tasks: &rmap::schema::Tasks, pick: &BundlePick<'_>) -> String {
+    let phase_name = tasks
+        .phases
+        .get(&pick.bundle.phase.to_string())
+        .map(|phase| phase.name.as_str())
+        .unwrap_or("");
+    let (done_count, total_count) = tasks
+        .task
+        .iter()
+        .filter(|task| task.bundle == pick.name)
+        .fold((0u32, 0u32), |(d, t), task| {
+            (d + u32::from(task.status == "done"), t + 1)
+        });
+
+    let mut out = format!(
+        "bundle {}  phase {} — {}  [{}/{}]  — {}\n",
+        pick.name, pick.bundle.phase, phase_name, done_count, total_count, pick.bundle.description,
+    );
+    for task in &pick.tasks {
+        out.push_str("  ");
+        out.push_str(&format_task_row(task));
+        out.push('\n');
+    }
+    out
 }
 
 fn render_outputs(paths: &ResolvedPaths, tasks: &rmap::schema::Tasks) -> Result<(String, String)> {

@@ -2250,6 +2250,529 @@ scores = { d = 2, b = 6, u = 6 }
     );
 }
 
+const NEXT_BUNDLE_FOCUS_VS_OTHER: &str = r#"
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[focus]
+phase = 1
+
+[phases.1]
+name = "Focus"
+order = 1
+status = "in_progress"
+
+[phases.2]
+name = "Other"
+order = 2
+status = "pending"
+
+[bundles.focus_b]
+phase = 1
+order = 1
+description = "focus bundle"
+
+[bundles.other_b]
+phase = 2
+order = 1
+description = "other bundle"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "focus_b"
+status = "pending"
+title = "low-eff focus"
+scores = { d = 5, b = 5, u = 5 }
+
+[[task]]
+id = 2
+phase = 2
+bundle = "other_b"
+status = "pending"
+title = "high-eff other"
+scores = { d = 2, b = 10, u = 10 }
+"#;
+
+#[test]
+fn next_bundle_focus_phase_wins_over_higher_sum_eff_other_phase() {
+    let path = write_temp_tasks("nb_focus.toml", NEXT_BUNDLE_FOCUS_VS_OTHER);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next-bundle")
+        .arg("--tasks-path")
+        .arg(&path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap next-bundle");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("bundle focus_b  phase 1 — Focus"),
+        "focus_b should win over other_b; stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("Task 1"),
+        "task 1 should appear; stdout: {stdout}"
+    );
+    assert!(
+        !stdout.contains("Task 2"),
+        "task 2 (other phase) should not appear; stdout: {stdout}"
+    );
+}
+
+const NEXT_BUNDLE_TIE_BY_ORDER: &str = r#"
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "P"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 2
+description = "second"
+
+[bundles.beta]
+phase = 1
+order = 1
+description = "first"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "a"
+scores = { d = 3, b = 6, u = 6 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "beta"
+status = "pending"
+title = "b"
+scores = { d = 3, b = 6, u = 6 }
+"#;
+
+#[test]
+fn next_bundle_tie_broken_by_bundle_order() {
+    let path = write_temp_tasks("nb_tie.toml", NEXT_BUNDLE_TIE_BY_ORDER);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next-bundle")
+        .arg("--tasks-path")
+        .arg(&path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap next-bundle");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("bundle beta  phase 1 — P"),
+        "beta (order=1) wins over alpha (order=2); stdout: {stdout}"
+    );
+}
+
+const NEXT_BUNDLE_ALL_BLOCKED: &str = r#"
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "P"
+order = 1
+status = "in_progress"
+
+[bundles.blocked_b]
+phase = 1
+order = 1
+description = "all blocked"
+
+[bundles.healthy]
+phase = 1
+order = 2
+description = "has work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "blocked_b"
+status = "blocked"
+title = "wait"
+scores = { d = 3, b = 3, u = 3 }
+blocked_reason = "external"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "healthy"
+status = "pending"
+title = "go"
+scores = { d = 3, b = 3, u = 3 }
+"#;
+
+#[test]
+fn next_bundle_all_blocked_bundle_is_skipped() {
+    let path = write_temp_tasks("nb_blocked.toml", NEXT_BUNDLE_ALL_BLOCKED);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next-bundle")
+        .arg("--tasks-path")
+        .arg(&path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap next-bundle");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("bundle healthy"),
+        "healthy bundle picked over all-blocked; stdout: {stdout}"
+    );
+}
+
+const NEXT_BUNDLE_UNMET_DEP: &str = r#"
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "P"
+order = 1
+status = "in_progress"
+
+[bundles.gated]
+phase = 1
+order = 1
+description = "external dep"
+
+[bundles.open]
+phase = 1
+order = 2
+description = "no deps"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "open"
+status = "pending"
+title = "external pending"
+scores = { d = 3, b = 3, u = 3 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "gated"
+status = "pending"
+title = "gated by 1"
+scores = { d = 3, b = 9, u = 9 }
+depends_on = [1]
+"#;
+
+#[test]
+fn next_bundle_unmet_external_dep_skips_bundle() {
+    let path = write_temp_tasks("nb_unmet.toml", NEXT_BUNDLE_UNMET_DEP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next-bundle")
+        .arg("--tasks-path")
+        .arg(&path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap next-bundle");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("bundle open"),
+        "open bundle picked (gated has unmet external dep); stdout: {stdout}"
+    );
+}
+
+const NEXT_BUNDLE_FORCE_PICK: &str = r#"
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "P"
+order = 1
+status = "in_progress"
+
+[bundles.high]
+phase = 1
+order = 1
+description = "higher Eff"
+
+[bundles.low]
+phase = 1
+order = 2
+description = "lower Eff"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "high"
+status = "pending"
+title = "h"
+scores = { d = 2, b = 10, u = 10 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "low"
+status = "pending"
+title = "l"
+scores = { d = 5, b = 5, u = 5 }
+"#;
+
+#[test]
+fn next_bundle_force_pick_bypasses_ranking() {
+    let path = write_temp_tasks("nb_force.toml", NEXT_BUNDLE_FORCE_PICK);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next-bundle")
+        .arg("--bundle")
+        .arg("low")
+        .arg("--tasks-path")
+        .arg(&path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap next-bundle --bundle low");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("bundle low"),
+        "--bundle low force-picks lower-eff bundle; stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("Task 2"),
+        "task 2 in body; stdout: {stdout}"
+    );
+}
+
+#[test]
+fn next_bundle_json_envelope_shape_is_stable() {
+    let path = write_temp_tasks("nb_json.toml", NEXT_BUNDLE_FOCUS_VS_OTHER);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next-bundle")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap next-bundle --json");
+
+    assert!(output.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+
+    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["focus_phase"], 1);
+    assert_eq!(value["bundle"]["name"], "focus_b");
+    assert_eq!(value["bundle"]["phase"], 1);
+    assert_eq!(value["bundle"]["description"], "focus bundle");
+
+    let tasks = value["tasks"].as_array().expect("tasks is array");
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0]["id"], 1);
+    assert!(
+        tasks[0]["eff"].is_number(),
+        "tasks[0].eff must be numeric; got {:?}",
+        tasks[0]["eff"]
+    );
+    assert_eq!(tasks[0]["status"], "pending");
+}
+
+const NEXT_BUNDLE_TOPO_CHAIN: &str = r#"
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "P"
+order = 1
+status = "in_progress"
+
+[bundles.chain]
+phase = 1
+order = 1
+description = "internal chain"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "chain"
+status = "pending"
+title = "first"
+scores = { d = 5, b = 5, u = 5 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "chain"
+status = "pending"
+title = "second"
+scores = { d = 2, b = 10, u = 10 }
+depends_on = [1]
+"#;
+
+#[test]
+fn next_bundle_emits_topological_order_within_bundle() {
+    let path = write_temp_tasks("nb_topo.toml", NEXT_BUNDLE_TOPO_CHAIN);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next-bundle")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap next-bundle --json");
+
+    assert!(output.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    let tasks = value["tasks"].as_array().expect("tasks is array");
+    assert_eq!(tasks.len(), 2);
+    // Task 2 has higher Eff but depends on 1, so 1 emits first.
+    assert_eq!(tasks[0]["id"], 1);
+    assert_eq!(tasks[1]["id"], 2);
+}
+
+#[test]
+fn next_bundle_phase_override_changes_effective_focus() {
+    let path = write_temp_tasks("nb_phase.toml", NEXT_BUNDLE_FOCUS_VS_OTHER);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next-bundle")
+        .arg("--phase")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap next-bundle --phase 2 --json");
+
+    assert!(output.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    assert_eq!(
+        value["focus_phase"], 2,
+        "--phase 2 overrides stored focus.phase=1 in envelope"
+    );
+    assert_eq!(value["bundle"]["name"], "other_b");
+}
+
+const NEXT_BUNDLE_NO_ACTIONABLE: &str = r#"
+schema_version = 1
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "P"
+order = 1
+status = "in_progress"
+
+[bundles.idle]
+phase = 1
+order = 1
+description = "no work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "idle"
+status = "done"
+title = "done one"
+scores = { d = 3, b = 3, u = 3 }
+started_at = "2026-05-01"
+done_at = "2026-05-02"
+"#;
+
+#[test]
+fn next_bundle_empty_pick_goes_to_stderr_with_exit_zero() {
+    let path = write_temp_tasks("nb_empty.toml", NEXT_BUNDLE_NO_ACTIONABLE);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next-bundle")
+        .arg("--tasks-path")
+        .arg(&path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap next-bundle");
+
+    assert!(output.status.success(), "empty pick still exits 0");
+    assert!(
+        output.stdout.is_empty(),
+        "stdout must be empty; got: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("none — no actionable bundle in any phase"),
+        "stderr message; got: {stderr}"
+    );
+}
+
+#[test]
+fn next_bundle_force_pick_zero_actionable_uses_bundle_specific_stderr() {
+    let path = write_temp_tasks("nb_force_empty.toml", NEXT_BUNDLE_NO_ACTIONABLE);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next-bundle")
+        .arg("--bundle")
+        .arg("idle")
+        .arg("--tasks-path")
+        .arg(&path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap next-bundle --bundle idle");
+
+    assert!(output.status.success(), "zero-actionable still exits 0");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("none — bundle 'idle' has no actionable pending tasks"),
+        "bundle-specific empty message; got: {stderr}"
+    );
+}
+
+#[test]
+fn next_bundle_missing_bundle_errors_with_exit_one() {
+    let path = write_temp_tasks("nb_missing.toml", NEXT_BUNDLE_FORCE_PICK);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next-bundle")
+        .arg("--bundle")
+        .arg("ghost")
+        .arg("--tasks-path")
+        .arg(&path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap next-bundle --bundle ghost");
+
+    assert!(!output.status.success(), "missing bundle is a hard error");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("bundle 'ghost' is not declared in tasks.toml"),
+        "missing-bundle message; got: {stderr}"
+    );
+}
+
 fn write_temp_tasks(file_name: &str, contents: &str) -> PathBuf {
     let dir = temp_dir();
     write_file(&dir, file_name, contents)

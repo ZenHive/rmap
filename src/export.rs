@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::next_bundle::BundlePick;
 use crate::schema::{Bundle, CrossRepo, Focus, Linear, Phase, Scores, Task, TaskId, Tasks};
 use crate::scoring::efficiency;
 
@@ -76,6 +77,52 @@ pub fn export_task_json_str(task: Option<&Task>) -> serde_json::Result<String> {
 pub fn export_tasks_array_json_str(tasks: &[&Task]) -> serde_json::Result<String> {
     let exported: Vec<ExportedTask<'_>> = tasks.iter().copied().map(exported_task).collect();
     serde_json::to_string_pretty(&exported)
+}
+
+/// JSON envelope for `rmap next-bundle --json`.
+///
+/// Shape: `{ schema_version, focus_phase, bundle: {name, phase, description} | null, tasks: [ExportedTask, ...] }`.
+/// `focus_phase` is the **effective** focus phase the selector used (after any
+/// `--phase` override), not the stored `[focus].phase`. `bundle` and `tasks`
+/// are `null` / `[]` together when there is no pick.
+pub fn export_bundle_pick_json_str(
+    tasks: &Tasks,
+    effective_focus: Option<u32>,
+    pick: Option<&BundlePick<'_>>,
+) -> serde_json::Result<String> {
+    let (bundle, exported_tasks) = match pick {
+        Some(p) => (
+            Some(BundlePickInfo {
+                name: p.name,
+                phase: p.bundle.phase,
+                description: p.bundle.description.as_str(),
+            }),
+            p.tasks.iter().copied().map(exported_task).collect(),
+        ),
+        None => (None, Vec::new()),
+    };
+    let envelope = BundlePickJson {
+        schema_version: tasks.schema_version,
+        focus_phase: effective_focus,
+        bundle,
+        tasks: exported_tasks,
+    };
+    serde_json::to_string_pretty(&envelope)
+}
+
+#[derive(Serialize)]
+struct BundlePickJson<'a> {
+    schema_version: u32,
+    focus_phase: Option<u32>,
+    bundle: Option<BundlePickInfo<'a>>,
+    tasks: Vec<ExportedTask<'a>>,
+}
+
+#[derive(Serialize)]
+struct BundlePickInfo<'a> {
+    name: &'a str,
+    phase: u32,
+    description: &'a str,
 }
 
 fn exported_tasks(tasks: &Tasks) -> ExportedTasks<'_> {

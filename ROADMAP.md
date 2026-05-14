@@ -5,7 +5,7 @@
 ## Current Focus
 
 <!-- FOCUS:BEGIN -->
-**Focus phase:** 13 — Skills-parity polish (10 of 12 done · 0 in progress)
+**Focus phase:** 13 — Skills-parity polish (11 of 13 done · 0 in progress)
 
 **Last shipped:** Task 1 — Tasks::vision field + VISION marker pair, Task 2 — Task::branch field on in-progress rows, Task 3 — Excluded-category markers (bug/security/docs), Task 4 — D/B/U 1..=10 range validation on 2026-05-13
 
@@ -50,6 +50,7 @@ Phase 13a (Eff-tier glyph + phase archive collapse) shipped 2026-05-13 — see [
 | Task 14 | ✅ | 🎁 **batch_selection** · rmap list/next --bundle <name> filter [D:2/B:7/U:7 → Eff:3.5] 🎯 |
 | Task 15 | ✅ | 🎁 **batch_selection** · rmap next --count N returns top-N candidates [D:3/B:5/U:4 → Eff:1.5] 🚀 |
 | Task 16 | ✅ | 🎁 **batch_selection** · rmap bundles selector listing [D:3/B:7/U:5 → Eff:2.0] 🎯 |
+| Task 17 | ✅ | 🎁 **bundle_selector** · *src/next_bundle.rs* · rmap next-bundle: select one session-sized bundle (Option 1: bundle = session, no subsetting) [D:3/B:8/U:6 → Eff:2.33] 🎯 |
 <!-- TASKS:END -->
 
 ## Phase 6 — HTML render (planned)
