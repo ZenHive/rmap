@@ -5,9 +5,9 @@
 ## Current Focus
 
 <!-- FOCUS:BEGIN -->
-**Focus phase:** 13 — Skills-parity polish (13 of 13 done · 0 in progress)
+**Focus phase:** 6 — HTML render (1 of 2 done · 0 in progress)
 
-**Last shipped:** Task 1 — Tasks::vision field + VISION marker pair, Task 2 — Task::branch field on in-progress rows, Task 3 — Excluded-category markers (bug/security/docs), Task 4 — D/B/U 1..=10 range validation on 2026-05-13
+**Last shipped:** Task 8 — rmap render --html single-project view on 2026-05-14
 
 **Up next:** Task 9 — rmap render --html --multi portfolio view [D:6/B:6/U:5 → Eff:0.92] ⚠️
 <!-- FOCUS:END -->
@@ -19,11 +19,25 @@
 gantt
     title rmap
     dateFormat YYYY-MM-DD
+    section Phase 6 — HTML render
+    rmap render --html single-project view :done, 2026-05-14, 2026-05-14
+    section Phase 7 — rmap watch (optional)
+    rmap watch FS watcher :done, 2026-05-14, 2026-05-14
+    rmap watch --json event stream :done, 2026-05-14, 2026-05-14
     section Phase 13 — Skills-parity polish
     Tasks——vision field + VISION marker pair :done, 2026-05-13, 2026-05-13
     Task——branch field on in-progress rows :done, 2026-05-13, 2026-05-13
     Excluded-category markers (bug/security/docs) :done, 2026-05-13, 2026-05-13
     D/B/U 1..=10 range validation :done, 2026-05-13, 2026-05-13
+    Task——files_to_modify field :done, 2026-05-13, 2026-05-13
+    Task——out_of_scope field :done, 2026-05-13, 2026-05-13
+    delegate.rs section restructure (task-writing.md template) :done, 2026-05-13, 2026-05-13
+    rmap doctor --threshold-days override :done, 2026-05-14, 2026-05-14
+    rmap doctor --ac-threshold override :done, 2026-05-14, 2026-05-14
+    rmap list/next --bundle <name> filter :done, 2026-05-13, 2026-05-13
+    rmap next --count N returns top-N candidates :done, 2026-05-13, 2026-05-13
+    rmap bundles selector listing :done, 2026-05-13, 2026-05-13
+    rmap next-bundle— select one session-sized bundle (Option 1— bundle = session— no subsetting) :done, 2026-05-14, 2026-05-14
 ```
 <!-- MERMAID:END -->
 
@@ -53,7 +67,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 9 | ⬜ | 🎁 **html_portfolio** · rmap render --html --multi portfolio view [D:6/B:6/U:5 → Eff:0.92] ⚠️ |
 <!-- TASKS:END -->
 
-## Phase 7 — `rmap watch` (optional)
+## Phase 7 — `rmap watch` (done)
 
 🎁 `watch_core` — FS-watch render loop for live dev.
 🎁 `watch_stream` — optional `--json` event stream on top of the watch loop.

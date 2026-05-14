@@ -3,7 +3,7 @@ project = "rmap"
 default_branch = "development"
 
 [focus]
-phase = 13
+phase = 6
 
 [phases.6]
 name = "HTML render"
@@ -137,6 +137,8 @@ status = "done"
 title = "Task::files_to_modify field"
 scores = { d = 3, b = 5, u = 5 }
 scored_at = "2026-05-13"
+started_at = "2026-05-13"
+done_at = "2026-05-13"
 acceptance_criteria = [
   "Task::files_to_modify Vec<String>",
   "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
@@ -151,6 +153,8 @@ status = "done"
 title = "Task::out_of_scope field"
 scores = { d = 2, b = 5, u = 5 }
 scored_at = "2026-05-13"
+started_at = "2026-05-13"
+done_at = "2026-05-13"
 acceptance_criteria = [
   "Task::out_of_scope Vec<String>",
   "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
@@ -170,6 +174,8 @@ status = "done"
 title = "delegate.rs section restructure (task-writing.md template)"
 scores = { d = 3, b = 6, u = 5 }
 scored_at = "2026-05-13"
+started_at = "2026-05-13"
+done_at = "2026-05-13"
 depends_on = [5, 6]
 acceptance_criteria = [
   "Sections in order: Context → Task → Acceptance criteria → Out of scope → Files to modify → Scoring → Environment notes",
@@ -186,6 +192,8 @@ status = "done"
 title = "rmap render --html single-project view"
 scores = { d = 6, b = 7, u = 6 }
 scored_at = "2026-05-13"
+started_at = "2026-05-14"
+done_at = "2026-05-14"
 acceptance_criteria = [
   "Writes roadmap/dist/index.html (gitignored)",
   "Self-contained <50KB target — inline CSS plus vanilla JS, no CDN, no framework",
@@ -222,6 +230,8 @@ status = "done"
 title = "rmap watch FS watcher"
 scores = { d = 4, b = 5, u = 4 }
 scored_at = "2026-05-13"
+started_at = "2026-05-14"
+done_at = "2026-05-14"
 acceptance_criteria = [
   "Watches roadmap/tasks.toml via notify crate",
   "Re-renders ROADMAP.md plus roadmap/data.json on change",
@@ -236,6 +246,8 @@ status = "done"
 title = "rmap watch --json event stream"
 scores = { d = 3, b = 4, u = 4 }
 scored_at = "2026-05-13"
+started_at = "2026-05-14"
+done_at = "2026-05-14"
 depends_on = [10]
 acceptance_criteria = [
   "Emits one JSON line per render event to stdout",
@@ -250,6 +262,8 @@ status = "done"
 title = "rmap doctor --threshold-days override"
 scores = { d = 2, b = 3, u = 3 }
 scored_at = "2026-05-13"
+started_at = "2026-05-14"
+done_at = "2026-05-14"
 acceptance_criteria = [
   "--threshold-days <N> overrides the hardcoded 30-day stale/decay cutoff",
   "Constants STALE_THRESHOLD_DAYS / DECAY_THRESHOLD_DAYS remain the defaults",
@@ -263,6 +277,8 @@ status = "done"
 title = "rmap doctor --ac-threshold override"
 scores = { d = 2, b = 3, u = 3 }
 scored_at = "2026-05-13"
+started_at = "2026-05-14"
+done_at = "2026-05-14"
 acceptance_criteria = [
   "--ac-threshold <N> overrides AC_DIFFICULTY_THRESHOLD / AC_BENEFIT_THRESHOLD",
   "Lands together with --threshold-days if implemented in the same session",
@@ -276,6 +292,8 @@ status = "done"
 title = "rmap list/next --bundle <name> filter"
 scores = { d = 2, b = 7, u = 7 }
 scored_at = "2026-05-13"
+started_at = "2026-05-13"
+done_at = "2026-05-13"
 acceptance_criteria = [
   "TaskFilter::bundle: Option<String> added to query.rs",
   "list_tasks honors bundle filter (task.bundle == name) alongside existing status/marker/phase",
@@ -294,6 +312,8 @@ status = "done"
 title = "rmap next --count N returns top-N candidates"
 scores = { d = 3, b = 5, u = 4 }
 scored_at = "2026-05-13"
+started_at = "2026-05-13"
+done_at = "2026-05-13"
 depends_on = [14]
 acceptance_criteria = [
   "next_task refactored to next_tasks(tasks, filter, count) -> Vec<&Task>; existing next_task becomes thin wrapper (next_tasks(..., 1).into_iter().next())",
@@ -312,6 +332,8 @@ status = "done"
 title = "rmap bundles selector listing"
 scores = { d = 3, b = 7, u = 5 }
 scored_at = "2026-05-13"
+started_at = "2026-05-13"
+done_at = "2026-05-13"
 acceptance_criteria = [
   "New subcommand `rmap bundles` lists every declared `[bundles.*]` entry — agent-discoverable replacement for `grep '^\\[bundles\\.' roadmap/tasks.toml`. Closes the ergonomics gap where `rmap next --bundle` requires already knowing the bundle name.",
   "New module src/bundles.rs holds `BundleSummary { name, phase, phase_name, order, description, task_count, status_counts, next_task, in_focus }` plus pure `list_bundles(tasks, filter) -> Vec<BundleSummary>`. Per-bundle `next_task` is computed by reusing `next::next_task` with a `TaskFilter { bundle: Some(name), .. }` — do NOT duplicate the dep-satisfaction logic.",
@@ -338,3 +360,5 @@ acceptance_criteria = ["New `rmap next-bundle` subcommand. Flags: `--phase <N>` 
 module = "src/next_bundle.rs"
 created_at = "2026-05-13"
 scored_at = "2026-05-13"
+started_at = "2026-05-14"
+done_at = "2026-05-14"

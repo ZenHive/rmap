@@ -21,6 +21,14 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 - No `schema_version` bump — additive flag.
 - Tests: 8 inline `#[cfg(test)]` unit tests in `src/render_html.rs` (DAG layering: no-deps, chain-of-3, diamond longest-path; single-node coords; one-edge-per-dep; empty-roadmap render; data-island + attrs presence; `truncate_label`). 5 new `tests/cli.rs` black-box tests (writes a self-contained index; no index without the flag; `--dry` writes nothing; `--stdout` prints HTML without writing; six `data-*` attrs present + idempotent re-run).
 
+### Phase 6 — HTML render polish: phase-status badge
+
+**What was done:**
+- `PhaseView` now carries the `[phases.N].status` field — previously dropped, so a `done` phase rendered identically to an active one (just with empty Pending/In Progress columns).
+- The phase header gains an uppercase status badge (`.phase-status`, colored by status), and each `<section class="phase">` gains a `data-phase-status` attribute. `done` phases are dimmed (opacity 0.6); hover and `@media print` restore full opacity.
+- New inline test asserts the badge + `data-phase-status` attribute render.
+- No `schema_version` bump — additive: a new badge element, a new `data-*` attribute on the section, and CSS only.
+
 ---
 
 ## Phase 7 — `rmap watch` (optional)

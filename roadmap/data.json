@@ -3,7 +3,7 @@
   "project": "rmap",
   "default_branch": "development",
   "focus": {
-    "phase": 13
+    "phase": 6
   },
   "phases": {
     "13": {
@@ -185,6 +185,8 @@
         "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
         "Surfaced only by rmap delegate, not rendered into ROADMAP.md rows"
       ],
+      "started_at": "2026-05-13",
+      "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -212,6 +214,8 @@
         "Rendering out_of_scope in ROADMAP.md TASKS, FOCUS, or MERMAID blocks",
         "schema_version bump (additive field, no consumer breakage)"
       ],
+      "started_at": "2026-05-13",
+      "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -238,6 +242,8 @@
         "Files to modify falls back to module as one-item list when files_to_modify is empty",
         "tests/delegate.rs asserts each section header present plus one distinguishing line"
       ],
+      "started_at": "2026-05-13",
+      "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -264,6 +270,8 @@
         "Dep graph as collapsed SVG layered DAG"
       ],
       "body": "See DESIGN.md (Phase 6 — HTML render design) for the full layout, design invariants, and boundary with the Phoenix dashboard.\n",
+      "started_at": "2026-05-14",
+      "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -311,6 +319,8 @@
         "Re-renders ROADMAP.md plus roadmap/data.json on change",
         "Idempotent — no-change events do not trigger writes"
       ],
+      "started_at": "2026-05-14",
+      "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -334,6 +344,8 @@
         "Emits one JSON line per render event to stdout",
         "Event shape stable and documented in SKILLS.md"
       ],
+      "started_at": "2026-05-14",
+      "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -355,6 +367,8 @@
         "--threshold-days <N> overrides the hardcoded 30-day stale/decay cutoff",
         "Constants STALE_THRESHOLD_DAYS / DECAY_THRESHOLD_DAYS remain the defaults"
       ],
+      "started_at": "2026-05-14",
+      "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -376,6 +390,8 @@
         "--ac-threshold <N> overrides AC_DIFFICULTY_THRESHOLD / AC_BENEFIT_THRESHOLD",
         "Lands together with --threshold-days if implemented in the same session"
       ],
+      "started_at": "2026-05-14",
+      "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -402,6 +418,8 @@
         "SKILLS.md examples: `rmap list --bundle <name>` and `rmap next --bundle <name>` (exit 0)",
         "No schema_version bump (additive flags; agent JSON contract preserved — bundle is already in ExportedTask)"
       ],
+      "started_at": "2026-05-13",
+      "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -429,6 +447,8 @@
         "SKILLS.md example: `rmap next --count 3 --bundle batch_selection --json`",
         "No schema_version bump (count==1 shape unchanged; count>1 is a new shape only reachable via explicit opt-in flag)"
       ],
+      "started_at": "2026-05-13",
+      "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -460,6 +480,8 @@
         "CLAUDE.md Architecture section gains a `bundles.rs` bullet matching the style of the existing `next.rs` / `query.rs` entries.",
         "No schema_version bump — purely additive read surface. show/list/next/diff JSON contracts untouched."
       ],
+      "started_at": "2026-05-13",
+      "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
       "cross_repo": []
     },
@@ -491,6 +513,8 @@
         "Out of scope: `--delegate <target>` for bundles (deferred to a follow-up task — needs its own design pass on how to concatenate multiple task prompts), D-budget subsetting (Option 2 — explicitly rejected), cross-bundle planning, and any change to existing `rmap next` semantics."
       ],
       "created_at": "2026-05-13",
+      "started_at": "2026-05-14",
+      "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
       "cross_repo": []
     }

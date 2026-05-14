@@ -53,6 +53,10 @@ struct TaskView<'a> {
 struct PhaseView<'a> {
     number: u32,
     name: &'a str,
+    /// The phase-level `[phases.N].status` field — rendered as a header badge
+    /// and a `data-phase-status` attribute so a `done` phase reads as distinct
+    /// from an active one (not just "all columns happen to be in Done").
+    status: &'a str,
     /// Count of `done` tasks in the phase (shown in the header).
     done: usize,
     total: usize,
@@ -157,6 +161,7 @@ fn build_phase_views(tasks: &Tasks) -> Vec<PhaseView<'_>> {
             PhaseView {
                 number,
                 name: &phase.name,
+                status: phase.status.as_str(),
                 done,
                 total,
                 pct,
@@ -465,6 +470,15 @@ mod tests {
         assert!(html.contains("data-phase=\"1\""));
         assert!(html.contains("@media print"));
         assert!(html.contains("<svg"));
+    }
+
+    #[test]
+    fn render_html_str_carries_phase_status_badge_and_attr() {
+        // BASE declares `[phases.1]` with `status = "in_progress"`.
+        let tasks = tasks_from(&task_toml(1, "done", &[]));
+        let html = render_html_str(&tasks, "2026-05-14").expect("render html");
+        assert!(html.contains("data-phase-status=\"in_progress\""));
+        assert!(html.contains("phase-status-in_progress"));
     }
 
     #[test]
