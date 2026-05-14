@@ -18,7 +18,7 @@ status = "pending"
 [phases.13]
 name = "Skills-parity polish"
 order = 13
-status = "in_progress"
+status = "done"
 
 [bundles.schema_parity]
 phase = 13
@@ -33,7 +33,7 @@ description = "Phase 13c: delegate prompt parity with task-writing.md"
 [bundles.doctor_tuning]
 phase = 13
 order = 3
-description = "Hardcoded doctor thresholds → CLI overrides; deferred until a real consumer asks"
+description = "Hardcoded doctor thresholds → CLI overrides (--threshold-days, --ac-threshold)"
 
 [bundles.batch_selection]
 phase = 13
@@ -246,7 +246,7 @@ acceptance_criteria = [
 id = 12
 phase = 13
 bundle = "doctor_tuning"
-status = "pending"
+status = "done"
 title = "rmap doctor --threshold-days override"
 scores = { d = 2, b = 3, u = 3 }
 scored_at = "2026-05-13"
@@ -259,7 +259,7 @@ acceptance_criteria = [
 id = 13
 phase = 13
 bundle = "doctor_tuning"
-status = "pending"
+status = "done"
 title = "rmap doctor --ac-threshold override"
 scores = { d = 2, b = 3, u = 3 }
 scored_at = "2026-05-13"

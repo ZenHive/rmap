@@ -5,11 +5,11 @@
 ## Current Focus
 
 <!-- FOCUS:BEGIN -->
-**Focus phase:** 13 — Skills-parity polish (11 of 13 done · 0 in progress)
+**Focus phase:** 13 — Skills-parity polish (13 of 13 done · 0 in progress)
 
 **Last shipped:** Task 1 — Tasks::vision field + VISION marker pair, Task 2 — Task::branch field on in-progress rows, Task 3 — Excluded-category markers (bug/security/docs), Task 4 — D/B/U 1..=10 range validation on 2026-05-13
 
-**Up next:** Task 12 — rmap doctor --threshold-days override [D:2/B:3/U:3 → Eff:1.5] 🚀
+**Up next:** Task 10 — rmap watch FS watcher [D:4/B:5/U:4 → Eff:1.12] 📋
 <!-- FOCUS:END -->
 
 ## Gantt
@@ -27,30 +27,16 @@ gantt
 ```
 <!-- MERMAID:END -->
 
-## Phase 13 — Skills-parity polish (in progress)
+## Phase 13 — Skills-parity polish (done)
 
 🎁 `schema_parity` — additive schema fields (`vision`, `branch`, `bug`/`security`/`docs` markers) plus D/B/U range validation.
 🎁 `delegate_parity` — `rmap delegate` prompt shape matches `task-writing.md` (`files_to_modify`, `out_of_scope`, section restructure).
-🎁 `doctor_tuning` — CLI overrides for `rmap doctor`'s hardcoded thresholds. Deferred until a real consumer asks.
+🎁 `doctor_tuning` — CLI overrides for `rmap doctor`'s hardcoded thresholds (`--threshold-days`, `--ac-threshold`).
 
 Phase 13a (Eff-tier glyph + phase archive collapse) shipped 2026-05-13 — see [CHANGELOG.md](CHANGELOG.md#phase-13a-render-polish--eff-tier-glyph--phase-archive-collapse).
 
 <!-- TASKS:BEGIN phase=13 -->
-| Task | Status | Notes |
-|------|--------|-------|
-| Task 1 | ✅ | 🎁 **schema_parity** · Tasks::vision field + VISION marker pair [D:3/B:6/U:5 → Eff:1.83] 🚀 |
-| Task 2 | ✅ | 🎁 **schema_parity** · Task::branch field on in-progress rows [D:2/B:5/U:4 → Eff:2.25] 🎯 |
-| Task 3 | ✅ | 🎁 **schema_parity** · Excluded-category markers (bug/security/docs) [D:3/B:6/U:5 → Eff:1.83] 🚀 |
-| Task 4 | ✅ | 🎁 **schema_parity** · D/B/U 1..=10 range validation [D:2/B:5/U:5 → Eff:2.5] 🎯 |
-| Task 5 | ✅ | 🎁 **delegate_parity** · Task::files_to_modify field [D:3/B:5/U:5 → Eff:1.67] 🚀 |
-| Task 6 | ✅ | 🎁 **delegate_parity** · Task::out_of_scope field [D:2/B:5/U:5 → Eff:2.5] 🎯 |
-| Task 7 | ✅ | 🎁 **delegate_parity** · delegate.rs section restructure (task-writing.md template) [D:3/B:6/U:5 → Eff:1.83] 🚀 |
-| Task 12 | ⬜ | 🎁 **doctor_tuning** · rmap doctor --threshold-days override [D:2/B:3/U:3 → Eff:1.5] 🚀 |
-| Task 13 | ⬜ | 🎁 **doctor_tuning** · rmap doctor --ac-threshold override [D:2/B:3/U:3 → Eff:1.5] 🚀 |
-| Task 14 | ✅ | 🎁 **batch_selection** · rmap list/next --bundle <name> filter [D:2/B:7/U:7 → Eff:3.5] 🎯 |
-| Task 15 | ✅ | 🎁 **batch_selection** · rmap next --count N returns top-N candidates [D:3/B:5/U:4 → Eff:1.5] 🚀 |
-| Task 16 | ✅ | 🎁 **batch_selection** · rmap bundles selector listing [D:3/B:7/U:5 → Eff:2.0] 🎯 |
-| Task 17 | ✅ | 🎁 **bundle_selector** · *src/next_bundle.rs* · rmap next-bundle: select one session-sized bundle (Option 1: bundle = session, no subsetting) [D:3/B:8/U:6 → Eff:2.33] 🎯 |
+> 13 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-13-skills-parity-polish).
 <!-- TASKS:END -->
 
 ## Phase 6 — HTML render (planned)

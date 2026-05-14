@@ -9,7 +9,7 @@
     "13": {
       "name": "Skills-parity polish",
       "order": 13,
-      "status": "in_progress"
+      "status": "done"
     },
     "6": {
       "name": "HTML render",
@@ -41,7 +41,7 @@
     "doctor_tuning": {
       "phase": 13,
       "order": 3,
-      "description": "Hardcoded doctor thresholds → CLI overrides; deferred until a real consumer asks"
+      "description": "Hardcoded doctor thresholds → CLI overrides (--threshold-days, --ac-threshold)"
     },
     "html_portfolio": {
       "phase": 6,
@@ -341,7 +341,7 @@
       "id": 12,
       "phase": 13,
       "bundle": "doctor_tuning",
-      "status": "pending",
+      "status": "done",
       "title": "rmap doctor --threshold-days override",
       "scores": {
         "d": 2,
@@ -362,7 +362,7 @@
       "id": 13,
       "phase": 13,
       "bundle": "doctor_tuning",
-      "status": "pending",
+      "status": "done",
       "title": "rmap doctor --ac-threshold override",
       "scores": {
         "d": 2,

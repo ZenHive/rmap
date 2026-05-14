@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use rmap::bundles::{BundleFilter, bundles_json, format_bundles_human, list_bundles};
 use rmap::delegate::{DelegateTarget, format_delegate_prompt};
 use rmap::diff::{diff_toml, format_diff};
-use rmap::doctor::DoctorReport;
+use rmap::doctor::{DoctorReport, DoctorThresholds};
 use rmap::export::{
     export_bundle_pick_json_str, export_filtered_json_str, export_json_str, export_task_json_str,
     export_tasks_array_json_str,
@@ -126,6 +126,12 @@ enum Commands {
     /// Always exits 0 — informational. Use `rmap validate` for strict schema gating.
     /// Exception: if tasks.toml is unparseable, exits non-zero (nothing to analyze).
     Doctor {
+        /// Override the 30-day stale + score-decay cutoff (in days).
+        #[arg(long)]
+        threshold_days: Option<u32>,
+        /// Override the D/B bar for the missing-acceptance_criteria lint (defaults 5/8).
+        #[arg(long)]
+        ac_threshold: Option<u32>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -539,6 +545,8 @@ fn run() -> Result<ExitCode> {
             }
         }
         Commands::Doctor {
+            threshold_days,
+            ac_threshold,
             json,
             tasks_path,
             roadmap_path,
@@ -550,6 +558,7 @@ fn run() -> Result<ExitCode> {
             let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &input)?;
             let roadmap_input = std::fs::read_to_string(&paths.roadmap_path).ok();
             let today = today_iso();
+            let thresholds = DoctorThresholds::resolve(threshold_days, ac_threshold);
 
             let report = DoctorReport::run(
                 &tasks,
@@ -557,6 +566,7 @@ fn run() -> Result<ExitCode> {
                 &input,
                 roadmap_input.as_deref(),
                 &today,
+                thresholds,
             );
 
             if json {

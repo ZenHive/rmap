@@ -3,10 +3,12 @@ use std::fmt;
 
 use crate::render::render_roadmap_str_with_today;
 use crate::schema::{Scores, TaskId, Tasks};
-use crate::scoring::{SCORE_DECAY_DAYS, days_since};
+use crate::scoring::days_since;
 use crate::stale::find_stale;
 use crate::validate;
 
+/// Default cutoff (in days) for both the stale-in-progress check and the
+/// score-decay check. Overridable per-invocation via `rmap doctor --threshold-days`.
 const STALE_THRESHOLD_DAYS: u32 = 30;
 
 /// Minimum D or B at which a pending/in_progress task without `acceptance_criteria`
@@ -15,10 +17,32 @@ const STALE_THRESHOLD_DAYS: u32 = 30;
 const AC_DIFFICULTY_THRESHOLD: u32 = 5;
 const AC_BENEFIT_THRESHOLD: u32 = 8;
 
+/// Effective doctor thresholds for one `rmap doctor` invocation: the constant
+/// defaults above unless overridden by `--threshold-days` / `--ac-threshold`.
+/// `--threshold-days` collapses the stale and score-decay cutoffs into one
+/// `days` value; `--ac-threshold` collapses the distinct D/B defaults into one.
+#[derive(serde::Serialize, Clone, Copy)]
+pub struct DoctorThresholds {
+    pub days: u32,
+    pub ac_difficulty: u32,
+    pub ac_benefit: u32,
+}
+
+impl DoctorThresholds {
+    pub fn resolve(threshold_days: Option<u32>, ac_threshold: Option<u32>) -> Self {
+        Self {
+            days: threshold_days.unwrap_or(STALE_THRESHOLD_DAYS),
+            ac_difficulty: ac_threshold.unwrap_or(AC_DIFFICULTY_THRESHOLD),
+            ac_benefit: ac_threshold.unwrap_or(AC_BENEFIT_THRESHOLD),
+        }
+    }
+}
+
 #[derive(serde::Serialize)]
 pub struct DoctorReport {
     pub ok: bool,
     pub findings: Vec<DoctorFinding>,
+    pub thresholds: DoctorThresholds,
 }
 
 #[derive(serde::Serialize)]
@@ -50,16 +74,18 @@ pub enum DoctorFinding {
 
 impl DoctorReport {
     /// Builds a composite health report: validation findings (non-short-circuiting),
-    /// stale in-progress tasks (>`STALE_THRESHOLD_DAYS` via `started_at`), score-decay
-    /// candidates (`scored_at` missing or >`SCORE_DECAY_DAYS`), and render drift (when
+    /// stale in-progress tasks (>`thresholds.days` via `started_at`), score-decay
+    /// candidates (`scored_at` missing or >`thresholds.days`), and render drift (when
     /// `roadmap_input` is supplied). Pure — no I/O. `today` is the `YYYY-MM-DD`
-    /// reference date.
+    /// reference date. `thresholds` carries the effective stale/decay and AC cutoffs
+    /// for this invocation (defaults unless overridden on the CLI).
     pub fn run(
         tasks: &Tasks,
         path: &str,
         input: &str,
         roadmap_input: Option<&str>,
         today: &str,
+        thresholds: DoctorThresholds,
     ) -> Self {
         let mut findings: Vec<DoctorFinding> = Vec::new();
 
@@ -71,7 +97,7 @@ impl DoctorReport {
         }
 
         // 2. stale in-progress tasks
-        for task in find_stale(tasks, STALE_THRESHOLD_DAYS, today) {
+        for task in find_stale(tasks, thresholds.days, today) {
             let started_at = task.started_at.clone().unwrap_or_default();
             let days_idle = days_since(today, &started_at).unwrap_or(0);
             findings.push(DoctorFinding::Stale {
@@ -86,7 +112,7 @@ impl DoctorReport {
             let decayed = match task.scored_at.as_deref() {
                 None => true,
                 Some(s) => days_since(today, s)
-                    .map(|d| d > SCORE_DECAY_DAYS)
+                    .map(|d| d > i64::from(thresholds.days))
                     .unwrap_or(false),
             };
             if decayed {
@@ -130,7 +156,7 @@ impl DoctorReport {
         // 5. missing acceptance_criteria on substantive active tasks
         for task in &tasks.task {
             let substantive =
-                task.scores.d >= AC_DIFFICULTY_THRESHOLD || task.scores.b >= AC_BENEFIT_THRESHOLD;
+                task.scores.d >= thresholds.ac_difficulty || task.scores.b >= thresholds.ac_benefit;
             let active = task.status == "pending" || task.status == "in_progress";
             if substantive && active && task.acceptance_criteria.is_empty() {
                 findings.push(DoctorFinding::MissingAcceptanceCriteria {
@@ -151,6 +177,7 @@ impl DoctorReport {
         DoctorReport {
             ok: findings.is_empty(),
             findings,
+            thresholds,
         }
     }
 }
@@ -212,7 +239,7 @@ impl fmt::Display for DoctorReport {
             .collect();
 
         if !stale_findings.is_empty() {
-            writeln!(f, "\nStale (in-progress > {STALE_THRESHOLD_DAYS}d):")?;
+            writeln!(f, "\nStale (in-progress > {}d):", self.thresholds.days)?;
             for (id, started_at, days) in stale_findings {
                 writeln!(f, "  - task {id} — started {started_at} ({days} days idle)")?;
             }
@@ -231,7 +258,7 @@ impl fmt::Display for DoctorReport {
             .collect();
 
         if !decay_findings.is_empty() {
-            writeln!(f, "\nScore decay (> {SCORE_DECAY_DAYS}d or missing):")?;
+            writeln!(f, "\nScore decay (> {}d or missing):", self.thresholds.days)?;
             for (id, scored_at) in decay_findings {
                 let label = scored_at.unwrap_or("<missing>");
                 writeln!(f, "  - task {id} — scored_at: {label}")?;
@@ -280,7 +307,8 @@ impl fmt::Display for DoctorReport {
         if !missing_ac_findings.is_empty() {
             writeln!(
                 f,
-                "\nMissing acceptance_criteria (D >= {AC_DIFFICULTY_THRESHOLD} or B >= {AC_BENEFIT_THRESHOLD}):"
+                "\nMissing acceptance_criteria (D >= {} or B >= {}):",
+                self.thresholds.ac_difficulty, self.thresholds.ac_benefit
             )?;
             for (id, scores) in missing_ac_findings {
                 writeln!(

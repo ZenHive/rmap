@@ -15,6 +15,18 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 13 — Skills-parity polish
 
+### Phase 13 Tasks 12 & 13: `rmap doctor` threshold CLI overrides (doctor_tuning bundle)
+
+**What was done:**
+- New `rmap doctor --threshold-days <N>` flag (`Option<u32>`): overrides the hardcoded 30-day cutoff for **both** the stale-in-progress check and the score-decay check. The flag name carries its unit, so it takes a bare integer (not a `7d`/`2w` duration string like `rmap stale --over`).
+- New `rmap doctor --ac-threshold <N>` flag (`Option<u32>`): a single value that overrides **both** `AC_DIFFICULTY_THRESHOLD` (5) and `AC_BENEFIT_THRESHOLD` (8) for the missing-`acceptance_criteria` lint — when set, the predicate becomes `d >= N || b >= N`. Defaults stay distinct (5 / 8) when the flag is absent.
+- New `DoctorThresholds { days, ac_difficulty, ac_benefit }` struct in `src/doctor.rs` with `resolve(threshold_days, ac_threshold)` applying the constant defaults. `DoctorReport::run` takes it as a parameter; the three threshold-sensitive call sites (`find_stale`, score-decay comparison, missing-AC predicate) read from it instead of module constants.
+- `DoctorReport` gained a `thresholds` field — the effective thresholds are now echoed in the `rmap doctor --json` envelope, so an agent running with an override can interpret the findings. Additive JSON field; the `Display` impl reads the runtime values for its section headers.
+- `STALE_THRESHOLD_DAYS` / `AC_*` constants stay as the defaults inside `resolve`; the now-unused `SCORE_DECAY_DAYS` import was dropped from `doctor.rs` (it still lives in `scoring.rs` for the render path).
+- SKILLS.md Health section gained a `rmap doctor --threshold-days 60 --ac-threshold 6` fenced example; `skills_smoke.rs` locks the exit code.
+- No `schema_version` bump — two additive optional flags + one additive JSON field; no `kind` string, render shape, or existing field touched.
+- Tests: three new in `tests/cli.rs` (`doctor_command_threshold_days_suppresses_stale_and_decay`, `doctor_command_ac_threshold_changes_missing_ac_set`, `doctor_command_thresholds_in_json`).
+
 ### Phase 13 Task 17: `rmap next-bundle` selects one session-sized bundle (bundle_selector bundle)
 
 **What was done:**

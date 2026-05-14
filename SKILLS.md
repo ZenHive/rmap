@@ -222,6 +222,13 @@ rmap doctor
 # exit: 0
 ```
 
+`--threshold-days <N>` overrides the 30d stale + score-decay cutoff; `--ac-threshold <N>` overrides the missing-`acceptance_criteria` D/B bar (default 5/8, collapsed to one value when set). The effective thresholds are echoed in the `--json` envelope.
+
+```bash
+rmap doctor --threshold-days 60 --ac-threshold 6
+# exit: 0
+```
+
 ## Strict gates
 
 `rmap validate` (exit 1 on schema error) and `rmap validate --check-render` (exit 2 on render drift) are the strict gates. Use them in pre-commit hooks; use `doctor` for soft signals.

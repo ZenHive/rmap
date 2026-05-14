@@ -3495,6 +3495,234 @@ fn doctor_command_lint_findings_in_json() {
 }
 
 // ---------------------------------------------------------------------------
+// doctor threshold-override fixtures + tests (Tasks 12 & 13)
+// ---------------------------------------------------------------------------
+
+/// One in-progress task 40d idle (started 2026-04-01, at RMAP_TODAY=2026-05-11)
+/// and one pending task scored 40d ago. At the default 30d cutoff both fire
+/// (stale + score-decay); at `--threshold-days 60` neither does. Two bundles in
+/// one phase so no degenerate-bundle finding; scores are D<5/B<8 so missing-AC
+/// stays quiet.
+const DOCTOR_THRESHOLD_TASKS: &str = r#"
+schema_version = 1
+project = "doctor_threshold"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[bundles.secondary]
+phase = 1
+order = 2
+description = "Secondary work"
+
+[[task]]
+id = 40
+phase = 1
+bundle = "core"
+status = "in_progress"
+title = "Idle 40 days"
+scores = { d = 2, b = 4, u = 4 }
+started_at = "2026-04-01"
+scored_at = "2026-05-10"
+
+[[task]]
+id = 41
+phase = 1
+bundle = "secondary"
+status = "pending"
+title = "Scored 40 days ago"
+scores = { d = 1, b = 3, u = 3 }
+scored_at = "2026-04-01"
+"#;
+
+/// Task 50 sits at D=4/B=4 — below the default 5/8 missing-AC bar but caught by
+/// `--ac-threshold 4`. Task 51 at D=2/B=3 stays below even the lowered bar, so
+/// it doubles as an over-flagging control. Both pending with recent `scored_at`
+/// (no decay) and no `started_at` (not stale). Two bundles → no degenerate.
+const DOCTOR_AC_THRESHOLD_TASKS: &str = r#"
+schema_version = 1
+project = "doctor_ac_threshold"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha work"
+
+[bundles.beta]
+phase = 1
+order = 2
+description = "Beta work"
+
+[[task]]
+id = 50
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Straddles the AC bar"
+scores = { d = 4, b = 4, u = 5 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 51
+phase = 1
+bundle = "beta"
+status = "pending"
+title = "Below even the lowered bar"
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+"#;
+
+#[test]
+fn doctor_command_threshold_days_suppresses_stale_and_decay() {
+    let path = write_temp_tasks("doctor_threshold.toml", DOCTOR_THRESHOLD_TASKS);
+
+    // Default 30d cutoff: both findings fire.
+    let default_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor default");
+    assert!(default_out.status.success(), "expected exit 0");
+    let default_stdout = String::from_utf8_lossy(&default_out.stdout);
+    assert!(
+        default_stdout.contains("Stale") && default_stdout.contains("task 40"),
+        "expected stale finding at default cutoff:\n{default_stdout}"
+    );
+    assert!(
+        default_stdout.contains("Score decay") && default_stdout.contains("task 41"),
+        "expected score-decay finding at default cutoff:\n{default_stdout}"
+    );
+
+    // --threshold-days 60: both ages fall under the cutoff.
+    let override_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--threshold-days")
+        .arg("60")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor --threshold-days 60");
+    assert!(
+        override_out.status.success(),
+        "expected exit 0, stderr: {}",
+        String::from_utf8_lossy(&override_out.stderr)
+    );
+    let override_stdout = String::from_utf8_lossy(&override_out.stdout);
+    assert!(
+        override_stdout.contains("all checks passed"),
+        "expected --threshold-days 60 to suppress stale + decay:\n{override_stdout}"
+    );
+}
+
+#[test]
+fn doctor_command_ac_threshold_changes_missing_ac_set() {
+    let path = write_temp_tasks("doctor_ac_threshold.toml", DOCTOR_AC_THRESHOLD_TASKS);
+
+    // Default 5/8 bar: neither D=4/B=4 task qualifies.
+    let default_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor default");
+    assert!(default_out.status.success(), "expected exit 0");
+    let default_stdout = String::from_utf8_lossy(&default_out.stdout);
+    assert!(
+        default_stdout.contains("all checks passed"),
+        "expected no missing-AC finding at default bar:\n{default_stdout}"
+    );
+
+    // --ac-threshold 4: task 50 (D=4) now qualifies; task 51 (D=2/B=3) still does not.
+    let override_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--ac-threshold")
+        .arg("4")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor --ac-threshold 4");
+    assert!(
+        override_out.status.success(),
+        "expected exit 0, stderr: {}",
+        String::from_utf8_lossy(&override_out.stderr)
+    );
+    let override_stdout = String::from_utf8_lossy(&override_out.stdout);
+    assert!(
+        override_stdout.contains("Missing acceptance_criteria")
+            && override_stdout.contains("task 50"),
+        "expected task 50 flagged at --ac-threshold 4:\n{override_stdout}"
+    );
+    assert!(
+        !override_stdout.contains("task 51"),
+        "expected task 51 (D=2/B=3) to stay below the lowered bar:\n{override_stdout}"
+    );
+}
+
+#[test]
+fn doctor_command_thresholds_in_json() {
+    let path = write_temp_tasks("doctor_thresholds_json.toml", DOCTOR_DIRTY_TASKS);
+
+    // Default invocation: thresholds object carries the constant defaults.
+    let default_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor --json default");
+    assert!(default_out.status.success(), "expected exit 0");
+    let default_json: serde_json::Value =
+        serde_json::from_slice(&default_out.stdout).expect("stdout should be valid JSON");
+    assert_eq!(default_json["thresholds"]["days"], 30);
+    assert_eq!(default_json["thresholds"]["ac_difficulty"], 5);
+    assert_eq!(default_json["thresholds"]["ac_benefit"], 8);
+
+    // Overrides flow into the JSON envelope; --ac-threshold collapses both AC fields.
+    let override_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--threshold-days")
+        .arg("45")
+        .arg("--ac-threshold")
+        .arg("6")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor --json with overrides");
+    assert!(
+        override_out.status.success(),
+        "expected exit 0, stderr: {}",
+        String::from_utf8_lossy(&override_out.stderr)
+    );
+    let override_json: serde_json::Value =
+        serde_json::from_slice(&override_out.stdout).expect("stdout should be valid JSON");
+    assert_eq!(override_json["thresholds"]["days"], 45);
+    assert_eq!(override_json["thresholds"]["ac_difficulty"], 6);
+    assert_eq!(override_json["thresholds"]["ac_benefit"], 6);
+}
+
+// ---------------------------------------------------------------------------
 // `rmap bundles` — Task 16 / batch_selection
 // ---------------------------------------------------------------------------
 
