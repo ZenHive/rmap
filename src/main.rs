@@ -4,6 +4,7 @@ use std::process::ExitCode;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
+use notify::Watcher;
 use rmap::bundles::{BundleFilter, bundles_json, format_bundles_human, list_bundles};
 use rmap::delegate::{DelegateTarget, format_delegate_prompt};
 use rmap::diff::{diff_toml, format_diff};
@@ -26,6 +27,7 @@ use rmap::schema_json::schema_json_str;
 use rmap::stale::{find_stale, parse_duration};
 use rmap::today_iso;
 use rmap::validate::{validate_tasks_file, validate_tasks_str};
+use rmap::watch;
 
 #[derive(Debug, Parser)]
 #[command(name = "rmap")]
@@ -54,6 +56,20 @@ enum Commands {
         dry: bool,
         #[arg(long)]
         stdout: bool,
+    },
+    /// Watch `roadmap/tasks.toml` and re-render `ROADMAP.md` + `roadmap/data.json`
+    /// on every change. Foreground and blocking; stop with Ctrl-C.
+    ///
+    /// Idempotent — a save that produces no rendered change writes nothing and
+    /// prints nothing. Validation failures print to stderr and the loop keeps
+    /// running, so a mid-edit broken TOML recovers on the next valid save.
+    Watch {
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+        #[arg(long)]
+        roadmap_path: Option<PathBuf>,
+        #[arg(long)]
+        data_path: Option<PathBuf>,
     },
     Status {
         id: String,
@@ -299,6 +315,14 @@ fn run() -> Result<ExitCode> {
         } => {
             let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
             render(paths, dry, stdout)?;
+        }
+        Commands::Watch {
+            tasks_path,
+            roadmap_path,
+            data_path,
+        } => {
+            let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
+            watch_command(paths)?;
         }
         Commands::Status {
             id,
@@ -599,6 +623,77 @@ fn render(paths: ResolvedPaths, dry: bool, stdout: bool) -> Result<()> {
     println!("rendered");
 
     Ok(())
+}
+
+/// `rmap watch`: re-render `ROADMAP.md` + `roadmap/data.json` whenever
+/// `roadmap/tasks.toml` changes. Blocks until the process is interrupted.
+///
+/// The watcher is registered on the `roadmap/` directory (not the file) so it
+/// survives editor atomic-save renames; events are filtered down to
+/// `tasks.toml` by `watch::is_tasks_toml_event`, which also keeps our own
+/// `data.json` writes from re-triggering the loop. Idempotency comes from
+/// `watch::write_if_changed`. A failed render (e.g. mid-edit invalid TOML) is
+/// reported to stderr and the loop continues.
+fn watch_command(paths: ResolvedPaths) -> Result<()> {
+    let watch_dir = paths
+        .tasks_path
+        .parent()
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "cannot determine parent directory of {}",
+                paths.tasks_path.display()
+            )
+        })?
+        .to_path_buf();
+
+    let (tx, rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
+    let mut watcher = notify::recommended_watcher(tx).context("create filesystem watcher")?;
+    watcher
+        .watch(&watch_dir, notify::RecursiveMode::NonRecursive)
+        .with_context(|| format!("watch {}", watch_dir.display()))?;
+
+    eprintln!("watching {} — Ctrl-C to stop", paths.tasks_path.display());
+
+    // Initial render so the outputs are current before the first event — a
+    // no-op when ROADMAP.md / data.json already match. A startup failure
+    // (tasks.toml missing or invalid) is reported but does not abort: the loop
+    // still starts and recovers on the next valid save.
+    report_render(rerender_if_changed(&paths));
+
+    for res in rx {
+        match res {
+            Ok(event) => {
+                if watch::is_tasks_toml_event(&paths.tasks_path, &event) {
+                    report_render(rerender_if_changed(&paths));
+                }
+            }
+            Err(err) => eprintln!("rmap watch: watcher error: {err}"),
+        }
+    }
+
+    Ok(())
+}
+
+/// Print the outcome of one watch-loop render attempt: `rendered` to stdout on a
+/// real write, nothing on a no-op, the error to stderr on failure. The stdout /
+/// stderr split is the agent contract — `watch` emits exactly one `rendered`
+/// line per change, leaving stderr for informational and error output.
+fn report_render(result: Result<bool>) {
+    match result {
+        Ok(true) => println!("rendered"),
+        Ok(false) => {}
+        Err(err) => eprintln!("rmap watch: {err:#}"),
+    }
+}
+
+/// Validate `tasks.toml`, re-render both outputs, and write each only when its
+/// content changed. Returns `true` when at least one file was written.
+fn rerender_if_changed(paths: &ResolvedPaths) -> Result<bool> {
+    let tasks = validate_tasks_file(&paths.tasks_path)?;
+    let (rendered_roadmap, rendered_data) = render_outputs(paths, &tasks)?;
+    let roadmap_changed = watch::write_if_changed(&paths.roadmap_path, &rendered_roadmap)?;
+    let data_changed = watch::write_if_changed(&paths.data_path, &rendered_data)?;
+    Ok(roadmap_changed || data_changed)
 }
 
 fn update_markers(paths: ResolvedPaths, task_id: &str, op_tokens: &[String]) -> Result<()> {

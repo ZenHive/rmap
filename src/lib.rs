@@ -14,6 +14,7 @@ pub mod schema_json;
 pub mod scoring;
 pub mod stale;
 pub mod validate;
+pub mod watch;
 
 pub use stale::{find_stale, parse_duration};
 

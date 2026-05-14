@@ -14,6 +14,7 @@ schemars = { version = "0.8", features = ["derive"] }
 thiserror = "2"
 toml = "0.8"
 toml_edit = "0.22"
+notify = "8"
 
 [dev-dependencies]
 jsonschema = "0.17"

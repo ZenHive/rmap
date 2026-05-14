@@ -218,7 +218,7 @@ acceptance_criteria = [
 id = 10
 phase = 7
 bundle = "watch_core"
-status = "pending"
+status = "done"
 title = "rmap watch FS watcher"
 scores = { d = 4, b = 5, u = 4 }
 scored_at = "2026-05-13"

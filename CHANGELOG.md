@@ -4,6 +4,23 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ---
 
+## Phase 7 — `rmap watch` (optional)
+
+### Phase 7 Task 10: `rmap watch` FS watcher (watch_core bundle)
+
+**What was done:**
+- New `rmap watch` subcommand: a foreground, blocking FS-watch loop that re-renders `ROADMAP.md` + `roadmap/data.json` whenever `roadmap/tasks.toml` changes. Flags: `--tasks-path` / `--roadmap-path` / `--data-path` (same path-override set as `rmap render`). Stop with Ctrl-C (default SIGINT — no `ctrlc` crate added).
+- New `notify = "8"` dependency, used via the synchronous `recommended_watcher` + `std::sync::mpsc` channel path — no async runtime. `notify` was already named in `DESIGN.md`'s planned crate-dependency list.
+- New `src/watch.rs` module carries two pure, unit-tested helpers: `write_if_changed(path, content) -> io::Result<bool>` (writes only when rendered bytes differ from disk; returns whether it wrote — the idempotency primitive) and `is_tasks_toml_event(tasks_path, &notify::Event) -> bool` (filters directory-level FS events to `tasks.toml` by exact-path OR `file_name()` match). The `notify` wiring and the blocking `for res in rx` loop live in `main.rs::watch_command`.
+- The watcher is registered on the `roadmap/` **directory** (`RecursiveMode::NonRecursive`), not on `tasks.toml` directly — watching the file breaks on editor atomic-save renames (the held inode gets replaced). The filename filter is the infinite-loop guard: `roadmap/data.json` is rewritten by every render and lives in the same watched directory, so without it our own `data.json` write would re-trigger the loop endlessly.
+- Idempotent (AC #3): every render goes through `write_if_changed`, so a save that produces no rendered change (a TOML comment edit, `touch`) writes nothing and prints nothing.
+- Resilient: a mid-edit invalid `tasks.toml` prints its error to stderr and the loop continues — it never aborts on a bad save. The startup `watching …` line and all errors go to stderr; stdout carries exactly one `rendered` line per real re-render (the stdout/stderr split leaves room for a future `watch --json`, Task 11). `watch_command` also does one initial idempotent render at startup so outputs are current before the first event.
+- New CLAUDE.md "Load-bearing invariants" bullets lock the directory-watch + filename-filter guard and the idempotency / stdout-stderr split. SKILLS.md gained a "Live dev" section — deliberately in a `text` fence, not `bash`, because `rmap watch` never exits and would hang `skills_smoke.rs`. Exit-code table gained a `watch` row.
+- No `schema_version` bump — additive subcommand.
+- Tests: 7 inline `#[cfg(test)]` unit tests in `src/watch.rs` covering `write_if_changed` (writes-on-missing, writes-on-differ, skips-on-equal) and `is_tasks_toml_event` (exact match, file-name match after rename, ignores `data.json`, ignores `ROADMAP.md`). Per the chosen test strategy no integration test was added; the `notify` wiring was verified by manual smoke — atomic-save re-render, comment-edit no-op, `data.json`-edit loop-guard, and broken-TOML resilience + recovery.
+
+---
+
 ## Repo reorganization: `tool_roadmap.md` → `DESIGN.md` + `ROADMAP.md` (2026-05-13)
 
 **What was done:**

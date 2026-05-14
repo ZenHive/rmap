@@ -296,7 +296,7 @@
       "id": 10,
       "phase": 7,
       "bundle": "watch_core",
-      "status": "pending",
+      "status": "done",
       "title": "rmap watch FS watcher",
       "scores": {
         "d": 4,

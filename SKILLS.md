@@ -304,6 +304,22 @@ Three marker pairs live inside `ROADMAP.md`. Bytes outside these markers are pre
 
 If a marker pair isn't present in `ROADMAP.md`, the corresponding block isn't rendered — zero-config default for all three pairs.
 
+## Live dev
+
+`rmap watch` watches `roadmap/tasks.toml` and re-renders `ROADMAP.md` + `roadmap/data.json` on every change — the live-dev companion to `rmap render`. It runs in the foreground and blocks until you stop it with Ctrl-C.
+
+```text
+rmap watch
+# blocks; Ctrl-C to stop
+```
+
+Behavior:
+- **Idempotent** — a save that produces no rendered change (a TOML comment edit, `touch`) writes nothing and prints nothing. Each real re-render prints exactly one `rendered` line to **stdout**.
+- **Resilient** — a mid-edit invalid `tasks.toml` prints its error to **stderr** and the loop keeps running; the next valid save recovers.
+- The startup `watching …` line and all errors go to **stderr**; stdout carries only `rendered` lines.
+
+Unlike the other commands here, `rmap watch` is shown in a `text` block rather than a `bash` block: it never exits on its own, so the `skills_smoke.rs` runner — which blocks on each `bash` invocation — would hang. Keep it out of `bash` fences.
+
 ## Exit code reference
 
 | Command | 0 | 1 | 2 |
@@ -313,6 +329,7 @@ If a marker pair isn't present in `ROADMAP.md`, the corresponding block isn't re
 | `doctor` | always (informational) | unparseable input | — |
 | `diff` | success | schema/git error | — |
 | `render` | success | schema/IO error | — |
+| `watch` | — (runs until Ctrl-C) | watcher setup error | — |
 | `show` | found | unknown id | — |
 | `list`, `next`, `schema`, `delegate`, `stale` | success | schema/IO error | — |
 | Mutators (`status`, `mark`, `depend`, `new`) | success + re-rendered | mutation rejected by re-validation | — |
