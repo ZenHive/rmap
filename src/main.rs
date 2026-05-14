@@ -63,6 +63,10 @@ enum Commands {
     /// Idempotent — a save that produces no rendered change writes nothing and
     /// prints nothing. Validation failures print to stderr and the loop keeps
     /// running, so a mid-edit broken TOML recovers on the next valid save.
+    ///
+    /// With `--json`, each render event is emitted as one compact JSON line to
+    /// stdout (`rendered` / `error`); no-op renders stay silent. The startup
+    /// line and watcher-infrastructure errors remain text on stderr.
     Watch {
         #[arg(long)]
         tasks_path: Option<PathBuf>,
@@ -70,6 +74,9 @@ enum Commands {
         roadmap_path: Option<PathBuf>,
         #[arg(long)]
         data_path: Option<PathBuf>,
+        /// Emit one JSON event line per render to stdout instead of `rendered`.
+        #[arg(long)]
+        json: bool,
     },
     Status {
         id: String,
@@ -320,9 +327,10 @@ fn run() -> Result<ExitCode> {
             tasks_path,
             roadmap_path,
             data_path,
+            json,
         } => {
             let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
-            watch_command(paths)?;
+            watch_command(paths, json)?;
         }
         Commands::Status {
             id,
@@ -625,6 +633,21 @@ fn render(paths: ResolvedPaths, dry: bool, stdout: bool) -> Result<()> {
     Ok(())
 }
 
+/// Which outputs one `rerender_if_changed` pass wrote. `report_render` turns
+/// this into either the `rendered` text line or a JSON `rendered` event whose
+/// `outputs` array lists exactly the files that changed.
+struct RenderOutcome {
+    roadmap_changed: bool,
+    data_changed: bool,
+}
+
+impl RenderOutcome {
+    /// True when at least one output file was written this render.
+    fn changed(&self) -> bool {
+        self.roadmap_changed || self.data_changed
+    }
+}
+
 /// `rmap watch`: re-render `ROADMAP.md` + `roadmap/data.json` whenever
 /// `roadmap/tasks.toml` changes. Blocks until the process is interrupted.
 ///
@@ -633,8 +656,11 @@ fn render(paths: ResolvedPaths, dry: bool, stdout: bool) -> Result<()> {
 /// `tasks.toml` by `watch::is_tasks_toml_event`, which also keeps our own
 /// `data.json` writes from re-triggering the loop. Idempotency comes from
 /// `watch::write_if_changed`. A failed render (e.g. mid-edit invalid TOML) is
-/// reported to stderr and the loop continues.
-fn watch_command(paths: ResolvedPaths) -> Result<()> {
+/// reported and the loop continues.
+///
+/// `json` selects the output mode for render events (see `report_render`); the
+/// startup line and watcher-infrastructure errors stay text on stderr either way.
+fn watch_command(paths: ResolvedPaths, json: bool) -> Result<()> {
     let watch_dir = paths
         .tasks_path
         .parent()
@@ -658,13 +684,13 @@ fn watch_command(paths: ResolvedPaths) -> Result<()> {
     // no-op when ROADMAP.md / data.json already match. A startup failure
     // (tasks.toml missing or invalid) is reported but does not abort: the loop
     // still starts and recovers on the next valid save.
-    report_render(rerender_if_changed(&paths));
+    report_render(rerender_if_changed(&paths), &paths, json);
 
     for res in rx {
         match res {
             Ok(event) => {
                 if watch::is_tasks_toml_event(&paths.tasks_path, &event) {
-                    report_render(rerender_if_changed(&paths));
+                    report_render(rerender_if_changed(&paths), &paths, json);
                 }
             }
             Err(err) => eprintln!("rmap watch: watcher error: {err}"),
@@ -674,26 +700,70 @@ fn watch_command(paths: ResolvedPaths) -> Result<()> {
     Ok(())
 }
 
-/// Print the outcome of one watch-loop render attempt: `rendered` to stdout on a
-/// real write, nothing on a no-op, the error to stderr on failure. The stdout /
-/// stderr split is the agent contract — `watch` emits exactly one `rendered`
-/// line per change, leaving stderr for informational and error output.
-fn report_render(result: Result<bool>) {
+/// Print the outcome of one watch-loop render attempt.
+///
+/// In text mode (`json == false`): `rendered` to stdout on a real write,
+/// nothing on a no-op, the error to stderr on failure. In `--json` mode: one
+/// compact JSON event line to stdout per render event — `rendered` (with the
+/// changed `outputs`) on a write, `error` on a failure — and nothing on a
+/// no-op. The stdout / stderr split is the agent contract: stdout carries only
+/// render events, leaving stderr for the startup line and watcher-level errors.
+fn report_render(result: Result<RenderOutcome>, paths: &ResolvedPaths, json: bool) {
     match result {
-        Ok(true) => println!("rendered"),
-        Ok(false) => {}
-        Err(err) => eprintln!("rmap watch: {err:#}"),
+        Ok(outcome) => {
+            if !outcome.changed() {
+                return;
+            }
+            if json {
+                let mut names: Vec<&str> = Vec::with_capacity(2);
+                if outcome.roadmap_changed {
+                    names.push(output_basename(&paths.roadmap_path));
+                }
+                if outcome.data_changed {
+                    names.push(output_basename(&paths.data_path));
+                }
+                emit_json_line(&watch::render_event_line(&names));
+            } else {
+                println!("rendered");
+            }
+        }
+        Err(err) => {
+            if json {
+                emit_json_line(&watch::error_event_line(&format!("{err:#}")));
+            } else {
+                eprintln!("rmap watch: {err:#}");
+            }
+        }
     }
 }
 
+/// Basename of an output path for the `--json` event `outputs` array — keeps
+/// host-absolute paths out of the stable agent contract.
+fn output_basename(path: &std::path::Path) -> &str {
+    path.file_name().and_then(|n| n.to_str()).unwrap_or("?")
+}
+
+/// Write one JSON event line to stdout and flush. The explicit flush matters:
+/// Rust stdout is block-buffered when piped, and an event stream consumed by
+/// `jq` must not be batched.
+fn emit_json_line(line: &str) {
+    use std::io::Write;
+    let mut stdout = std::io::stdout();
+    let _ = writeln!(stdout, "{line}");
+    let _ = stdout.flush();
+}
+
 /// Validate `tasks.toml`, re-render both outputs, and write each only when its
-/// content changed. Returns `true` when at least one file was written.
-fn rerender_if_changed(paths: &ResolvedPaths) -> Result<bool> {
+/// content changed. The returned `RenderOutcome` records which files were written.
+fn rerender_if_changed(paths: &ResolvedPaths) -> Result<RenderOutcome> {
     let tasks = validate_tasks_file(&paths.tasks_path)?;
     let (rendered_roadmap, rendered_data) = render_outputs(paths, &tasks)?;
     let roadmap_changed = watch::write_if_changed(&paths.roadmap_path, &rendered_roadmap)?;
     let data_changed = watch::write_if_changed(&paths.data_path, &rendered_data)?;
-    Ok(roadmap_changed || data_changed)
+    Ok(RenderOutcome {
+        roadmap_changed,
+        data_changed,
+    })
 }
 
 fn update_markers(paths: ResolvedPaths, task_id: &str, op_tokens: &[String]) -> Result<()> {

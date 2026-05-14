@@ -2,9 +2,61 @@
 //!
 //! The `notify` wiring and the blocking event loop live in `main.rs`
 //! (`watch_command`); this module holds only the pure, unit-testable pieces:
-//! the idempotent write and the event-path filter.
+//! the idempotent write, the event-path filter, and the `--json` event-line
+//! serializers.
 
 use std::path::Path;
+
+use serde::Serialize;
+
+/// Schema version for the `rmap watch --json` event stream. Bumped only on a
+/// breaking change to the event shape (rename/remove a field); adding a field
+/// is additive and does not bump.
+const WATCH_SCHEMA_VERSION: u32 = 1;
+
+/// One `rmap watch --json` event line. Serialized compact (one line) — the
+/// stream contract is one JSON object per render event, so this is the single
+/// place in rmap that uses `serde_json::to_string` rather than `to_string_pretty`.
+#[derive(Serialize)]
+struct WatchEventJson<'a> {
+    schema_version: u32,
+    event: &'a str,
+    /// Basenames of the outputs written this render. Present on `rendered`
+    /// events; empty (and skipped) on `error` events.
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    outputs: &'a [&'a str],
+    /// Rendered error text. Present on `error` events only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<&'a str>,
+}
+
+/// Serialize a `rendered` event: one render that wrote `outputs` (basenames).
+///
+/// Returns a compact, single-line JSON string with no trailing newline — the
+/// caller adds the newline (`println!`).
+pub fn render_event_line(outputs: &[&str]) -> String {
+    let event = WatchEventJson {
+        schema_version: WATCH_SCHEMA_VERSION,
+        event: "rendered",
+        outputs,
+        message: None,
+    };
+    // A struct of `&str` / `u32` / `&[&str]` cannot fail to serialize.
+    serde_json::to_string(&event).expect("WatchEventJson serializes")
+}
+
+/// Serialize an `error` event: one render that failed validation or rendering.
+///
+/// Returns a compact, single-line JSON string with no trailing newline.
+pub fn error_event_line(message: &str) -> String {
+    let event = WatchEventJson {
+        schema_version: WATCH_SCHEMA_VERSION,
+        event: "error",
+        outputs: &[],
+        message: Some(message),
+    };
+    serde_json::to_string(&event).expect("WatchEventJson serializes")
+}
 
 /// Write `content` to `path` only when it differs from what is already there.
 ///
@@ -123,5 +175,38 @@ mod tests {
             &tasks_path,
             &event_for(&["/project/ROADMAP.md"])
         ));
+    }
+
+    #[test]
+    fn render_event_line_lists_both_outputs() {
+        let line = render_event_line(&["ROADMAP.md", "data.json"]);
+        assert_eq!(
+            line,
+            r#"{"schema_version":1,"event":"rendered","outputs":["ROADMAP.md","data.json"]}"#
+        );
+        // Compact — exactly one line, no trailing newline.
+        assert!(!line.contains('\n'));
+    }
+
+    #[test]
+    fn render_event_line_lists_only_changed_output() {
+        // Only ROADMAP.md changed this render — data.json must be absent.
+        let line = render_event_line(&["ROADMAP.md"]);
+        assert_eq!(
+            line,
+            r#"{"schema_version":1,"event":"rendered","outputs":["ROADMAP.md"]}"#
+        );
+        assert!(!line.contains("data.json"));
+    }
+
+    #[test]
+    fn error_event_line_carries_message_and_omits_outputs() {
+        let line = error_event_line("tasks.toml:3 invalid status");
+        assert_eq!(
+            line,
+            r#"{"schema_version":1,"event":"error","message":"tasks.toml:3 invalid status"}"#
+        );
+        // `outputs` is skipped entirely on error events.
+        assert!(!line.contains("outputs"));
     }
 }

@@ -19,7 +19,7 @@
     "7": {
       "name": "rmap watch (optional)",
       "order": 7,
-      "status": "pending"
+      "status": "done"
     }
   },
   "bundles": {
@@ -318,7 +318,7 @@
       "id": 11,
       "phase": 7,
       "bundle": "watch_stream",
-      "status": "pending",
+      "status": "done",
       "title": "rmap watch --json event stream",
       "scores": {
         "d": 3,

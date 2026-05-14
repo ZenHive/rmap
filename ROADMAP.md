@@ -9,7 +9,7 @@
 
 **Last shipped:** Task 1 — Tasks::vision field + VISION marker pair, Task 2 — Task::branch field on in-progress rows, Task 3 — Excluded-category markers (bug/security/docs), Task 4 — D/B/U 1..=10 range validation on 2026-05-13
 
-**Up next:** Task 11 — rmap watch --json event stream [D:3/B:4/U:4 → Eff:1.33] 📋
+**Up next:** Task 8 — rmap render --html single-project view [D:6/B:7/U:6 → Eff:1.08] 📋
 <!-- FOCUS:END -->
 
 ## Gantt
@@ -59,8 +59,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 🎁 `watch_stream` — optional `--json` event stream on top of the watch loop.
 
 <!-- TASKS:BEGIN phase=7 -->
-| Task | Status | Notes |
-|------|--------|-------|
-| Task 10 | ✅ | 🎁 **watch_core** · rmap watch FS watcher [D:4/B:5/U:4 → Eff:1.12] 📋 |
-| Task 11 | ⬜ | 🎁 **watch_stream** · rmap watch --json event stream [D:3/B:4/U:4 → Eff:1.33] 📋 |
+> 2 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-7-rmap-watch-optional).
 <!-- TASKS:END -->

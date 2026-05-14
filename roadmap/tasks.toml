@@ -13,7 +13,7 @@ status = "pending"
 [phases.7]
 name = "rmap watch (optional)"
 order = 7
-status = "pending"
+status = "done"
 
 [phases.13]
 name = "Skills-parity polish"
@@ -232,7 +232,7 @@ acceptance_criteria = [
 id = 11
 phase = 7
 bundle = "watch_stream"
-status = "pending"
+status = "done"
 title = "rmap watch --json event stream"
 scores = { d = 3, b = 4, u = 4 }
 scored_at = "2026-05-13"

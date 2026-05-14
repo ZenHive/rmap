@@ -19,6 +19,18 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 - No `schema_version` bump — additive subcommand.
 - Tests: 7 inline `#[cfg(test)]` unit tests in `src/watch.rs` covering `write_if_changed` (writes-on-missing, writes-on-differ, skips-on-equal) and `is_tasks_toml_event` (exact match, file-name match after rename, ignores `data.json`, ignores `ROADMAP.md`). Per the chosen test strategy no integration test was added; the `notify` wiring was verified by manual smoke — atomic-save re-render, comment-edit no-op, `data.json`-edit loop-guard, and broken-TOML resilience + recovery.
 
+### Phase 7 Task 11: `rmap watch --json` event stream (watch_stream bundle)
+
+**What was done:**
+- New `rmap watch --json` flag: the same FS-watch loop, but each render event is emitted as one **compact JSON line** to stdout instead of the `rendered` text line. Two event shapes — `{"schema_version":1,"event":"rendered","outputs":[...]}` on a real write and `{"schema_version":1,"event":"error","message":"..."}` on a failed render (AC #1). No-op renders stay silent in both modes.
+- `outputs` lists the basenames of *exactly* the files written this render — a single-entry array when only `ROADMAP.md` or only `data.json` changed. Basenames, not absolute paths, keep host filesystem layout out of the stable agent contract.
+- An `error` is treated as a render event and goes to **stdout** as a JSON `error` event — the `--json` stream is self-contained. Only the startup `watching …` line and `notify` watcher-infrastructure errors stay text on stderr; `--json` changes stdout only.
+- New `src/watch.rs` pure helpers `render_event_line(outputs)` / `error_event_line(message)` build a private `WatchEventJson` and serialize via `serde_json::to_string` (compact) — the one place in rmap that uses `to_string` over `to_string_pretty`, because the stream contract is one object per line. `WATCH_SCHEMA_VERSION = 1` is the bump point for the event shape.
+- `main.rs`: `rerender_if_changed` now returns `RenderOutcome { roadmap_changed, data_changed }` instead of a bare `bool` so `report_render` can list the changed outputs; `report_render(result, &paths, json)` branches on the flag. `--json` lines go through `emit_json_line`, which flushes stdout so a piped consumer (`jq`) isn't batched.
+- Event shape documented in `SKILLS.md` (AC #2) — extended the existing `text`-fenced "Live dev" block; kept out of `bash` fences since `rmap watch` never exits. CLAUDE.md's `rmap watch` invariant rewritten from the old "future `watch --json`" forward-reference to the shipped contract (event spellings, field names, `schema_version` bump rule).
+- No `schema_version` bump for `tasks.toml` — additive flag; the `watch --json` event stream is a new contract surface versioned by its own `WATCH_SCHEMA_VERSION`.
+- Tests: 3 new inline `#[cfg(test)]` unit tests in `src/watch.rs` (`render_event_line` with both outputs, with one output, `error_event_line`). No integration test — `watch_command` blocks indefinitely; consistent with Task 10's strategy. Manual smoke verified: one JSON line per real change, no-op silence, `error` event on broken TOML with the loop continuing, startup line on stderr.
+
 ---
 
 ## Repo reorganization: `tool_roadmap.md` → `DESIGN.md` + `ROADMAP.md` (2026-05-13)

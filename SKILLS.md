@@ -311,6 +311,9 @@ If a marker pair isn't present in `ROADMAP.md`, the corresponding block isn't re
 ```text
 rmap watch
 # blocks; Ctrl-C to stop
+
+rmap watch --json
+# same loop, machine-readable event stream on stdout
 ```
 
 Behavior:
@@ -318,7 +321,19 @@ Behavior:
 - **Resilient** — a mid-edit invalid `tasks.toml` prints its error to **stderr** and the loop keeps running; the next valid save recovers.
 - The startup `watching …` line and all errors go to **stderr**; stdout carries only `rendered` lines.
 
-Unlike the other commands here, `rmap watch` is shown in a `text` block rather than a `bash` block: it never exits on its own, so the `skills_smoke.rs` runner — which blocks on each `bash` invocation — would hang. Keep it out of `bash` fences.
+With `--json`, each render event is emitted as one **compact JSON line** to **stdout** instead of the `rendered` text line. Two event shapes, both versioned with `schema_version`:
+
+```text
+{"schema_version":1,"event":"rendered","outputs":["ROADMAP.md","data.json"]}
+{"schema_version":1,"event":"error","message":"tasks.toml:3 invalid status 'foo'"}
+```
+
+- A `rendered` event carries `outputs` — the basenames of exactly the files written this render (one entry when only `ROADMAP.md` or only `data.json` changed).
+- An `error` event carries `message` (the rendered validation/render error) and omits `outputs`.
+- **No-op renders stay silent** in `--json` mode too — every emitted line carries signal.
+- The startup `watching …` line and watcher-infrastructure errors remain **text on stderr** in both modes; `--json` only changes what goes to stdout.
+
+Unlike the other commands here, `rmap watch` (with or without `--json`) is shown in a `text` block rather than a `bash` block: it never exits on its own, so the `skills_smoke.rs` runner — which blocks on each `bash` invocation — would hang. Keep it out of `bash` fences.
 
 ## Exit code reference
 
