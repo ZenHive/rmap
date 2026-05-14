@@ -20,6 +20,10 @@ fn resolves_default_paths_from_project_root() {
         paths.data_path,
         paths.project_root.join("roadmap/data.json")
     );
+    assert_eq!(
+        paths.html_path,
+        paths.project_root.join("roadmap/dist/index.html")
+    );
 }
 
 #[test]

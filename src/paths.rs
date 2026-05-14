@@ -6,6 +6,7 @@ use thiserror::Error;
 const TASKS_RELATIVE_PATH: &str = "roadmap/tasks.toml";
 const ROADMAP_FILE_NAME: &str = "ROADMAP.md";
 const DATA_RELATIVE_PATH: &str = "roadmap/data.json";
+const HTML_RELATIVE_PATH: &str = "roadmap/dist/index.html";
 const ROADMAP_DIR_NAME: &str = "roadmap";
 const TASKS_FILE_NAME: &str = "tasks.toml";
 
@@ -15,6 +16,10 @@ pub struct ResolvedPaths {
     pub tasks_path: PathBuf,
     pub roadmap_path: PathBuf,
     pub data_path: PathBuf,
+    /// `roadmap/dist/index.html` — the gitignored static HTML view written by
+    /// `rmap render --html`. Always derived from `project_root`; not separately
+    /// overridable (no `--html-path` flag).
+    pub html_path: PathBuf,
 }
 
 #[derive(Debug, Error)]
@@ -48,12 +53,14 @@ pub fn resolve_paths_from(
     let project_root = project_root_for_tasks_path(&tasks_path);
     let roadmap_path = roadmap_path.unwrap_or_else(|| project_root.join(ROADMAP_FILE_NAME));
     let data_path = data_path.unwrap_or_else(|| project_root.join(DATA_RELATIVE_PATH));
+    let html_path = project_root.join(HTML_RELATIVE_PATH);
 
     Ok(ResolvedPaths {
         project_root,
         tasks_path,
         roadmap_path,
         data_path,
+        html_path,
     })
 }
 

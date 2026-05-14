@@ -34,6 +34,19 @@ pub fn tier_glyph(efficiency: f64) -> &'static str {
     }
 }
 
+/// Round an efficiency value to 2 decimals for emission. `data.json`'s `eff`
+/// field, `rmap bundles` summaries, and the HTML `data-eff` attribute all agree
+/// because they share this single rounding.
+pub fn round_eff(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
+}
+
+/// `round_eff(efficiency(task))` — the common case for emitting a task's
+/// efficiency.
+pub fn rounded_efficiency(task: &Task) -> f64 {
+    round_eff(efficiency(task))
+}
+
 /// Score-decay threshold in days. A `scored_at` older than this — or missing —
 /// flags the task as having a stale score in `render` and `doctor`.
 pub const SCORE_DECAY_DAYS: i64 = 30;

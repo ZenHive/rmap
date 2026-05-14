@@ -182,7 +182,7 @@ acceptance_criteria = [
 id = 8
 phase = 6
 bundle = "html_single"
-status = "pending"
+status = "done"
 title = "rmap render --html single-project view"
 scores = { d = 6, b = 7, u = 6 }
 scored_at = "2026-05-13"

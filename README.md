@@ -69,7 +69,7 @@ rmap status 1 done         # transition
 |---|---|---|
 | `rmap validate` | Schema + semantic validation. Exit 1 on error. | no |
 | `rmap validate --check-render` | Detect drift between TOML and `ROADMAP.md`. Exit 2 on drift. | no |
-| `rmap render` | Render `ROADMAP.md` + `roadmap/data.json`. | yes (md + json) |
+| `rmap render` | Render `ROADMAP.md` + `roadmap/data.json`; `--html` also writes `roadmap/dist/index.html`. | yes (md + json) |
 | `rmap watch` | Re-render on every `tasks.toml` change (FS watch). Ctrl-C to stop. | yes (md + json) |
 | `rmap show <id>` | Inspect one task (`--json` for agent envelope). | no |
 | `rmap list` | Filter by `--status`, `--phase`, `--marker`, `--bundle` (`--json`). | no |

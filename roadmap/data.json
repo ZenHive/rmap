@@ -245,7 +245,7 @@
       "id": 8,
       "phase": 6,
       "bundle": "html_single",
-      "status": "pending",
+      "status": "done",
       "title": "rmap render --html single-project view",
       "scores": {
         "d": 6,

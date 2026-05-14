@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::next_bundle::BundlePick;
 use crate::schema::{Bundle, CrossRepo, Focus, Linear, Phase, Scores, Task, TaskId, Tasks};
-use crate::scoring::efficiency;
+use crate::scoring::rounded_efficiency;
 
 #[derive(Serialize)]
 struct ExportedTasks<'a> {
@@ -64,6 +64,13 @@ struct ExportedTask<'a> {
 
 pub fn export_json_str(tasks: &Tasks) -> serde_json::Result<String> {
     serde_json::to_string_pretty(&exported_tasks(tasks))
+}
+
+/// Compact (single-line) form of `export_json_str`, used for the `rmap-data`
+/// island embedded in `rmap render --html`. Same envelope as `data.json`, no
+/// pretty-printing — keeps the static HTML under its size budget.
+pub fn export_compact_json_str(tasks: &Tasks) -> serde_json::Result<String> {
+    serde_json::to_string(&exported_tasks(tasks))
 }
 
 pub fn export_filtered_json_str(tasks: &Tasks, task: &[&Task]) -> serde_json::Result<String> {
@@ -173,8 +180,4 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
         blocked_reason: task.blocked_reason.as_ref(),
         cross_repo: &task.cross_repo,
     }
-}
-
-fn rounded_efficiency(task: &Task) -> f64 {
-    (efficiency(task) * 100.0).round() / 100.0
 }

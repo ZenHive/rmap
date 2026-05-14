@@ -9,7 +9,7 @@
 
 **Last shipped:** Task 1 — Tasks::vision field + VISION marker pair, Task 2 — Task::branch field on in-progress rows, Task 3 — Excluded-category markers (bug/security/docs), Task 4 — D/B/U 1..=10 range validation on 2026-05-13
 
-**Up next:** Task 8 — rmap render --html single-project view [D:6/B:7/U:6 → Eff:1.08] 📋
+**Up next:** Task 9 — rmap render --html --multi portfolio view [D:6/B:6/U:5 → Eff:0.92] ⚠️
 <!-- FOCUS:END -->
 
 ## Gantt
@@ -49,7 +49,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 <!-- TASKS:BEGIN phase=6 -->
 | Task | Status | Notes |
 |------|--------|-------|
-| Task 8 | ⬜ | 🎁 **html_single** · rmap render --html single-project view [D:6/B:7/U:6 → Eff:1.08] 📋 |
+| Task 8 | ✅ | 🎁 **html_single** · rmap render --html single-project view [D:6/B:7/U:6 → Eff:1.08] 📋 |
 | Task 9 | ⬜ | 🎁 **html_portfolio** · rmap render --html --multi portfolio view [D:6/B:6/U:5 → Eff:0.92] ⚠️ |
 <!-- TASKS:END -->
 

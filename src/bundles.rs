@@ -3,7 +3,7 @@ use serde::Serialize;
 use crate::next::next_task;
 use crate::query::TaskFilter;
 use crate::schema::{Task, TaskId, Tasks};
-use crate::scoring::{efficiency, format_efficiency, tier_glyph};
+use crate::scoring::{format_efficiency, rounded_efficiency, tier_glyph};
 
 #[derive(Debug, Default)]
 pub struct BundleFilter {
@@ -205,8 +205,4 @@ fn next_task_summary(task: &Task) -> NextTaskSummary<'_> {
         title: task.title.as_str(),
         eff: rounded_efficiency(task),
     }
-}
-
-fn rounded_efficiency(task: &Task) -> f64 {
-    (efficiency(task) * 100.0).round() / 100.0
 }

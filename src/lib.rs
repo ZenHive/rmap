@@ -9,6 +9,7 @@ pub mod next_bundle;
 pub mod paths;
 pub mod query;
 pub mod render;
+pub mod render_html;
 pub mod schema;
 pub mod schema_json;
 pub mod scoring;

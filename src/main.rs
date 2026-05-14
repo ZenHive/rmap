@@ -22,6 +22,7 @@ use rmap::next_bundle::{BundlePick, NextBundleFilter, pick as pick_next_bundle};
 use rmap::paths::{ResolvedPaths, resolve_paths};
 use rmap::query::{TaskFilter, find_task, format_task, format_task_row, list_tasks};
 use rmap::render::render_roadmap_str;
+use rmap::render_html::render_html_str;
 use rmap::schema::{Scores, TaskId};
 use rmap::schema_json::schema_json_str;
 use rmap::stale::{find_stale, parse_duration};
@@ -56,6 +57,11 @@ enum Commands {
         dry: bool,
         #[arg(long)]
         stdout: bool,
+        /// Also write the self-contained static HTML view to
+        /// `roadmap/dist/index.html` (gitignored). With `--stdout`, prints the
+        /// HTML instead of writing it.
+        #[arg(long)]
+        html: bool,
     },
     /// Watch `roadmap/tasks.toml` and re-render `ROADMAP.md` + `roadmap/data.json`
     /// on every change. Foreground and blocking; stop with Ctrl-C.
@@ -319,9 +325,10 @@ fn run() -> Result<ExitCode> {
             data_path,
             dry,
             stdout,
+            html,
         } => {
             let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
-            render(paths, dry, stdout)?;
+            render(paths, dry, stdout, html)?;
         }
         Commands::Watch {
             tasks_path,
@@ -612,24 +619,54 @@ fn run() -> Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-fn render(paths: ResolvedPaths, dry: bool, stdout: bool) -> Result<()> {
+fn render(paths: ResolvedPaths, dry: bool, stdout: bool, html: bool) -> Result<()> {
     let tasks = validate_tasks_file(&paths.tasks_path)?;
-    let (rendered_roadmap, rendered_data) = render_outputs(&paths, &tasks)?;
 
     if stdout {
-        print!("{rendered_roadmap}");
+        // `--stdout` emits to stdout and writes no files. With `--html` the
+        // more specific request wins (the Unix convention rmap already uses
+        // for `--bundle` over focus): print the HTML, not the markdown.
+        if html {
+            print!("{}", render_html_str(&tasks, &today_iso())?);
+        } else {
+            let (rendered_roadmap, _) = render_outputs(&paths, &tasks)?;
+            print!("{rendered_roadmap}");
+        }
         return Ok(());
     }
+
+    let (rendered_roadmap, rendered_data) = render_outputs(&paths, &tasks)?;
+    let rendered_html = if html {
+        Some(render_html_str(&tasks, &today_iso())?)
+    } else {
+        None
+    };
 
     if dry {
         println!("would render {}", paths.roadmap_path.display());
         println!("would export {}", paths.data_path.display());
+        if html {
+            println!("would write {}", paths.html_path.display());
+        }
         return Ok(());
     }
 
     write_outputs(&paths, rendered_roadmap, rendered_data)?;
+    if let Some(rendered_html) = rendered_html {
+        write_html(&paths, rendered_html)?;
+    }
     println!("rendered");
 
+    Ok(())
+}
+
+/// Write the static HTML view, creating `roadmap/dist/` on first run.
+fn write_html(paths: &ResolvedPaths, rendered_html: String) -> Result<()> {
+    if let Some(dir) = paths.html_path.parent() {
+        std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
+    }
+    std::fs::write(&paths.html_path, rendered_html)
+        .with_context(|| format!("write {}", paths.html_path.display()))?;
     Ok(())
 }
 

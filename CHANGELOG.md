@@ -4,6 +4,25 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ---
 
+## Phase 6 — HTML render
+
+### Phase 6 Task 8: `rmap render --html` single-project view (html_single bundle)
+
+**What was done:**
+- New `--html` flag on `rmap render`: an additive output that writes a self-contained static HTML view to `roadmap/dist/index.html` (gitignored). Renders `ROADMAP.md` + `data.json` as usual, then writes the HTML; `roadmap/dist/` is created on first run. With `--dry` it adds a `would write …index.html` line; with `--stdout` the more-specific flag wins — the HTML is printed and nothing is written.
+- New `src/render_html.rs`: `render_html_str(tasks, today)` builds `PhaseView` / `TaskView` / `DagView` in pure Rust, then renders the template. Phases sort by `phase.order`; `blocked` tasks share the pending column (distinguished by `data-status="blocked"`).
+- New `templates/roadmap.html.j2`: the one minijinja template, `include_str!`'d so it ships in the binary (minijinja was already a declared-but-unused dependency). Inline CSS (screen + `@media print` with `✓ → ⏸ ⛔` status symbols and `N/M done` numerals), a sticky filter bar (marker chips + status toggles), per-phase progress bars + 3-column status layout, a collapsed `<details>` SVG layered-DAG dependency graph, the `<script id="rmap-data">` data island (compact `data.json` via `| safe` — the only `| safe` in the template; everything else relies on HTML autoescape), and ~40 lines of vanilla JS for client-side filtering.
+- DAG layout: longest-path layering over in-repo `depends_on` only (`cross_repo` is portfolio-mode, Task 9), memoized; nodes slotted by id within a layer, coords from fixed `NODE_W`/`NODE_H`/`H_GAP`/`V_GAP`/`PAD` constants, one downward edge per resolved dependency.
+- Every task card carries six `data-*` attributes (`data-id` / `data-status` / `data-eff` / `data-markers` / `data-depends-on` / `data-phase`); DAG nodes carry `data-id`. These plus the `rmap-data` island id are the agent contract — new CLAUDE.md invariants lock them.
+- `ResolvedPaths` gained `html_path` (`project_root/roadmap/dist/index.html`), always derived from `project_root` — no `--html-path` override flag.
+- New `export::export_compact_json_str` — the single-line `data.json` variant for the island.
+- `.gitignore` gained `/roadmap/dist`; `SKILLS.md` gained a `rmap render --html` block (auto-covered by `skills_smoke.rs`) and a layout-diagram line; CLAUDE.md gained the module entry, pipeline note, and two load-bearing invariants.
+- Out of scope (deliberate): `--multi`/portfolio view (Task 9), HTML coverage in `validate --check-render` (it gates `ROADMAP.md` drift only), HTML re-render in `rmap watch` (canonical artifacts only). The <50KB size budget is a target, not an asserted test — rmap's own roadmap renders to ~37KB.
+- No `schema_version` bump — additive flag.
+- Tests: 8 inline `#[cfg(test)]` unit tests in `src/render_html.rs` (DAG layering: no-deps, chain-of-3, diamond longest-path; single-node coords; one-edge-per-dep; empty-roadmap render; data-island + attrs presence; `truncate_label`). 5 new `tests/cli.rs` black-box tests (writes a self-contained index; no index without the flag; `--dry` writes nothing; `--stdout` prints HTML without writing; six `data-*` attrs present + idempotent re-run).
+
+---
+
 ## Phase 7 — `rmap watch` (optional)
 
 ### Phase 7 Task 10: `rmap watch` FS watcher (watch_core bundle)

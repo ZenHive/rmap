@@ -380,6 +380,150 @@ fn render_dry_reports_without_writing_files() {
 }
 
 #[test]
+fn render_html_writes_self_contained_index() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(&dir.join("roadmap"), "tasks.toml", VALID_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--html")
+        .current_dir(&dir)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap render --html");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let html_path = dir.join("roadmap/dist/index.html");
+    let html = fs::read_to_string(&html_path).expect("read rendered html");
+    assert!(html.contains("<!DOCTYPE html>"));
+    assert!(html.contains("id=\"rmap-data\""));
+    assert!(html.contains("data-id="));
+    assert!(html.contains("<style"));
+    assert!(html.contains("@media print"));
+    assert!(html.contains("<svg"));
+    // `--html` is additive — ROADMAP.md + data.json are still written.
+    assert!(dir.join("ROADMAP.md").exists());
+    assert!(dir.join("roadmap/data.json").exists());
+}
+
+#[test]
+fn render_without_html_flag_does_not_write_index() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(&dir.join("roadmap"), "tasks.toml", VALID_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap render");
+
+    assert!(output.status.success());
+    assert!(!dir.join("roadmap/dist/index.html").exists());
+}
+
+#[test]
+fn render_html_dry_writes_nothing() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(&dir.join("roadmap"), "tasks.toml", VALID_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--html")
+        .arg("--dry")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap render --html --dry");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("would write"));
+    assert!(stdout.contains("index.html"));
+    assert!(!dir.join("roadmap/dist/index.html").exists());
+}
+
+#[test]
+fn render_html_stdout_prints_html_without_writing() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(&dir.join("roadmap"), "tasks.toml", VALID_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--html")
+        .arg("--stdout")
+        .current_dir(&dir)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap render --html --stdout");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("<!DOCTYPE html>"));
+    assert!(!dir.join("roadmap/dist/index.html").exists());
+}
+
+#[test]
+fn render_html_carries_data_attrs_and_is_idempotent() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(&dir.join("roadmap"), "tasks.toml", PHASE4_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+    let html_path = dir.join("roadmap/dist/index.html");
+
+    let run = || {
+        let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+            .arg("render")
+            .arg("--html")
+            .current_dir(&dir)
+            .env("RMAP_TODAY", "2026-05-14")
+            .output()
+            .expect("run rmap render --html");
+        assert!(
+            output.status.success(),
+            "expected success, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        fs::read_to_string(&html_path).expect("read rendered html")
+    };
+
+    let first = run();
+    for attr in [
+        "data-id=",
+        "data-status=",
+        "data-eff=",
+        "data-markers=",
+        "data-depends-on=",
+        "data-phase=",
+    ] {
+        assert!(first.contains(attr), "missing {attr}");
+    }
+    assert!(first.contains("data-id=\"74\""));
+    assert!(first.contains("data-id=\"75\""));
+
+    let second = run();
+    assert_eq!(first, second, "render --html should be idempotent");
+}
+
+#[test]
 fn status_command_updates_tasks_and_rerenders_outputs() {
     let dir = temp_dir();
     let tasks_path = write_file(&dir, "tasks.toml", PHASE4_TASKS);
