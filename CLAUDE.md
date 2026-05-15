@@ -13,6 +13,7 @@ Universal includes (per `~/.claude/setup-guide.md`). No Rust-specific template e
 @~/.claude/includes/worktree-workflow.md
 @~/.claude/includes/task-prioritization.md
 @~/.claude/includes/task-writing.md
+@~/.claude/includes/rmap.md
 @~/.claude/includes/workflow-philosophy.md
 @~/.claude/includes/web-command.md
 
