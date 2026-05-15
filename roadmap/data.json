@@ -311,6 +311,7 @@
       "depends_on": [
         8
       ],
+      "model": "claude-sonnet-4-6",
       "acceptance_criteria": [
         "rmap render --html --multi P1 P2 … accepts project roots or data.json paths",
         "Output: roadmap/dist/portfolio.html (or --out <path>)",
@@ -552,6 +553,7 @@
       "eff": 1.25,
       "markers": [],
       "depends_on": [],
+      "model": "claude-opus-4-7",
       "acceptance_criteria": [
         "`rmap import [--roadmap-path PATH]` reads a hand-edited ROADMAP.md and writes a best-effort roadmap/tasks.toml",
         "Parses phase headings, task titles, D/B/U score brackets, and status glyphs",

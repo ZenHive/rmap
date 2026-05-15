@@ -241,6 +241,7 @@ acceptance_criteria = [
   "Repos-as-rows layout with cross-repo blocker arrows from the cross_repo field",
   "Click a repo row expands inline to single-project layout",
 ]
+model = "claude-sonnet-4-6"
 
 [[task]]
 id = 10
@@ -391,6 +392,7 @@ status = "pending"
 title = "rmap import — convert a hand-edited ROADMAP.md into tasks.toml"
 scores = { d = 6, b = 7, u = 8 }
 acceptance_criteria = ["`rmap import [--roadmap-path PATH]` reads a hand-edited ROADMAP.md and writes a best-effort roadmap/tasks.toml", "Parses phase headings, task titles, D/B/U score brackets, and status glyphs", "Unparseable sections reported as residue, not a hard failure", "Output passes `rmap validate`; user reviews before committing", "Consumer-side migration procedure in rmap.md updated to point at `rmap import` as the primary path"]
+model = "claude-opus-4-7"
 body = """
 Add an `rmap import` command that converts a hand-edited `ROADMAP.md` into `roadmap/tasks.toml`, replacing the manual migration procedure currently documented in the consumer's `rmap.md` include.
 
