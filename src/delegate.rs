@@ -74,6 +74,9 @@ fn append_context(prompt: &mut String, tasks: &Tasks, task: &Task, target: Deleg
         // the bullet is redundant with `Target:` above.
         line!(prompt, "- Stored assignee: {assignee} (overridden)");
     }
+    if let Some(model) = &task.model {
+        line!(prompt, "- Model: {model}");
+    }
     line!(prompt, "- Status: {}", task.status);
     line!(prompt, "- Phase: {}", task.phase);
     line!(prompt, "- Bundle: {}", task.bundle);

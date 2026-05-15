@@ -4,6 +4,22 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ---
 
+## Phase 15 — Schema extensions
+
+### Phase 15 Task 19: `Task::model` field — per-task LLM model pinning (agent_routing bundle)
+
+**What was done:**
+- New optional free-text `model` field on `schema::Task` — records which LLM model should do the task (e.g. `claude-opus-4-7`). Unvalidated: model IDs churn, so a closed enum would rot; mirrors `module` / `branch`. Distinct from `assignee` (who owns it) and `rmap delegate --to` (which agent *environment*).
+- `rmap delegate` surfaces it as a conditional `- Model:` bullet in the prompt's `## Context`, so the target agent knows which model to run; omitted when unset.
+- `rmap show` prints a `model:` line; the field surfaces in `data.json` / `show --json` / `list --json` / `next --json` and in `rmap diff` (on `TASK_VERBOSE_WHITELIST`).
+- Settable at creation: `NewTaskFields` + `StdinTask` + `add_task_str` + the interactive `rmap new` prompt all carry `model`; `canonical_task_key_index` places it immediately after `module`.
+- Not rendered into `ROADMAP.md` rows — mirrors `assignee`. No `render.rs` change, no golden fixtures, no `validate --check-render` drift.
+- No `schema_version` bump — additive optional field.
+- Consumer-facing `~/.claude/includes/rmap.md` gained a "Pinning an LLM model per task" subsection; CLAUDE.md gained a "keep rmap.md in sync" discipline note.
+- Tests: delegate `- Model:` bullet present/absent; `rmap new --from-stdin` round-trip (tasks.toml canonical order + data.json + `rmap show` human/JSON); `export` surfaces `model` and skips it when unset.
+
+---
+
 ## Phase 6 — HTML render
 
 ### Phase 6 Task 8: `rmap render --html` single-project view (html_single bundle)

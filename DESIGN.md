@@ -45,6 +45,7 @@ scores = { d = 5, b = 8, u = 8 }              # eff = (b+u)/(2d) computed by rma
 scored_at = "2026-04-15"                      # last D/B/U revision; >30d renders with `?` suffix
 markers = ["parallel"]                        # subset of: parallel | cx | csr
 assignee = "claude"                           # human | claude | codex | cursor (optional)
+model = "claude-opus-4-7"                     # LLM model to use (optional, free-text); rmap delegate surfaces it
 linear_id = "INE-247"                         # optional — when a Linear issue tracks this task
 created_at = "2026-04-01"                     # ISO-8601 date (optional)
 started_at = "2026-04-12"                     # set when status → in_progress

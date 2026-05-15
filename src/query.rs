@@ -73,6 +73,10 @@ pub fn format_task(task: &Task) -> String {
         lines.push(format!("assignee: {assignee}"));
     }
 
+    if let Some(model) = &task.model {
+        lines.push(format!("model: {model}"));
+    }
+
     if !task.acceptance_criteria.is_empty() {
         lines.push("acceptance_criteria:".to_string());
         lines.extend(

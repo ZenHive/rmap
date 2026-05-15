@@ -2141,6 +2141,86 @@ scores = { d = 3, b = 7, u = 7 }
 }
 
 #[test]
+fn new_from_stdin_round_trips_model_field() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Model-pinned task"
+scores = { d = 2, b = 6, u = 6 }
+module = "src/foo.rs"
+model = "claude-opus-4-7"
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Round-trips into tasks.toml, written immediately after `module` (canonical
+    // key order — `add_task_str` write order mirrors `canonical_task_key_index`).
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let module_idx = tasks.find("module = ").expect("module present");
+    let model_idx = tasks
+        .find(r#"model = "claude-opus-4-7""#)
+        .expect("model present");
+    assert!(
+        module_idx < model_idx,
+        "model should follow module in canonical order; tasks:\n{tasks}"
+    );
+
+    // Surfaces in data.json.
+    let data: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&data_path).expect("read data json"))
+            .expect("valid data json");
+    let new_row = data["task"]
+        .as_array()
+        .expect("task array")
+        .iter()
+        .find(|row| row["id"] == 2)
+        .expect("new row in data.json");
+    assert_eq!(new_row["model"], "claude-opus-4-7");
+
+    // Surfaces in `rmap show` (human + --json).
+    let human = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show");
+    assert!(human.status.success());
+    assert!(
+        String::from_utf8_lossy(&human.stdout).contains("model: claude-opus-4-7"),
+        "human show stdout: {}",
+        String::from_utf8_lossy(&human.stdout)
+    );
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show --json");
+    assert!(json.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    assert_eq!(value["model"], "claude-opus-4-7");
+}
+
+#[test]
 fn new_from_stdin_auto_allocates_id_when_omitted() {
     let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
 

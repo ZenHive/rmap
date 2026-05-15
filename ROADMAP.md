@@ -75,3 +75,11 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 <!-- TASKS:BEGIN phase=7 -->
 > 2 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-7-rmap-watch-optional).
 <!-- TASKS:END -->
+
+## Phase 15 — Schema extensions (done)
+
+🎁 `agent_routing` — per-task LLM model pinning (`Task::model`, surfaced by `rmap delegate`).
+
+<!-- TASKS:BEGIN phase=15 -->
+> 1 task. See [CHANGELOG.md](CHANGELOG.md#phase-15-schema-extensions).
+<!-- TASKS:END -->

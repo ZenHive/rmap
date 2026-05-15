@@ -25,10 +25,20 @@ name = "Migration tooling"
 order = 14
 status = "pending"
 
+[phases.15]
+name = "Schema extensions"
+order = 15
+status = "done"
+
 [bundles.import_command]
 phase = 14
 order = 1
 description = "rmap import: convert a hand-edited ROADMAP.md into roadmap/tasks.toml, replacing the manual migration procedure"
+
+[bundles.agent_routing]
+phase = 15
+order = 1
+description = "Per-task LLM model pinning (Task::model field, surfaced by rmap delegate)"
 
 [bundles.schema_parity]
 phase = 13
@@ -390,3 +400,21 @@ It does not need to be perfect — a best-effort parse that captures phases, tas
 """
 created_at = "2026-05-14"
 scored_at = "2026-05-14"
+
+[[task]]
+id = 19
+phase = 15
+bundle = "agent_routing"
+status = "done"
+title = "Task::model field — per-task LLM model pinning"
+scores = { d = 3, b = 5, u = 5 }
+model = "claude-opus-4-7"
+acceptance_criteria = ["Task::model Option<String> on schema.rs — free-text, no validation", "Three-place edit: schema.rs + diff::diff_fields! (+ TASK_VERBOSE_WHITELIST) + export::ExportedTask", "Create surface: NewTaskFields + StdinTask + add_task_str + canonical_task_key_index + interactive prompt_task_fields", "rmap delegate emits a conditional `- Model:` bullet in ## Context; omitted when unset", "rmap show prints a `model:` line; surfaces in data.json / show --json / list --json", "Not rendered into ROADMAP.md TASKS rows (mirrors assignee) — no render.rs change", "No schema_version bump (additive optional field)"]
+body = "Add an optional free-text `model` field to `schema::Task` recording which LLM model should do the task. Surface it in `rmap delegate`, `rmap show`, `data.json`, `rmap diff`, and the `rmap new` create surface. Not rendered into ROADMAP.md rows."
+out_of_scope = [
+  "Rendering model into ROADMAP.md TASKS/FOCUS/MERMAID blocks",
+  "Validating model against a closed model-ID set",
+  "A dedicated `rmap set-model` mutator (set via rmap new or direct edit)",
+]
+created_at = "2026-05-15"
+scored_at = "2026-05-15"

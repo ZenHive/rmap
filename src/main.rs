@@ -978,6 +978,7 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
             assignee: task.assignee.as_deref(),
             linear_id: task.linear_id.as_deref(),
             module: task.module.as_deref(),
+            model: task.model.as_deref(),
             body: task.body.as_deref(),
             created_at: Some(task.created_at.as_deref().unwrap_or(today.as_str())),
             scored_at: Some(task.scored_at.as_deref().unwrap_or(today.as_str())),
@@ -1033,6 +1034,7 @@ struct StdinTask {
     pub linear_id: Option<String>,
     pub assignee: Option<String>,
     pub module: Option<String>,
+    pub model: Option<String>,
     #[serde(default)]
     pub acceptance_criteria: Vec<String>,
     pub body: Option<String>,
@@ -1166,6 +1168,16 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         Some(module_input)
     };
 
+    let model_input: String = Input::with_theme(&theme)
+        .with_prompt("Model (empty to skip)")
+        .allow_empty(true)
+        .interact_text()?;
+    let model = if model_input.trim().is_empty() {
+        None
+    } else {
+        Some(model_input)
+    };
+
     Ok(StdinTask {
         id: None,
         phase: phase_number,
@@ -1177,6 +1189,7 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         linear_id,
         assignee,
         module,
+        model,
         acceptance_criteria,
         body: None,
         created_at: None,

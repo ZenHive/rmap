@@ -44,6 +44,7 @@ depends_on = [74]
 markers = ["parallel"]
 linear_id = "INE-300"
 assignee = "codex"
+model = "claude-opus-4-7"
 acceptance_criteria = [
   "parseOrder accepts spot and futures payloads",
   "Empty venues field maps to null",
@@ -131,6 +132,7 @@ fn formats_full_delegate_prompt_for_agent_target() {
         "{prompt}"
     );
     assert!(prompt.contains("- Project: ccxt_extract"), "{prompt}");
+    assert!(prompt.contains("- Model: claude-opus-4-7"), "{prompt}");
     assert!(prompt.contains("- Markers: parallel"), "{prompt}");
     assert!(prompt.contains("- Linear: INE-300"), "{prompt}");
     assert!(prompt.contains("### Dependencies"), "{prompt}");
@@ -180,6 +182,15 @@ fn omits_stored_assignee_when_target_matches() {
 
     assert!(prompt.contains("- Target: codex"), "{prompt}");
     assert!(!prompt.contains("Stored assignee:"), "{prompt}");
+}
+
+#[test]
+fn omits_model_bullet_when_unset() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");
+    let prompt = format_delegate_prompt(&tasks, "75", DelegateTarget::Claude).expect("task 75");
+
+    assert!(prompt.contains("## Context"), "{prompt}");
+    assert!(!prompt.contains("- Model:"), "{prompt}");
 }
 
 #[test]

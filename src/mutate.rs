@@ -277,14 +277,15 @@ fn canonical_task_key_index(key: &str) -> u32 {
         "assignee" => 10,
         "linear_id" => 11,
         "module" => 12,
-        "branch" => 13,
-        "blocked_reason" => 14,
-        "body" => 15,
-        "created_at" => 16,
-        "started_at" => 17,
-        "scored_at" => 18,
-        "done_at" => 19,
-        "shipped_in" => 20,
+        "model" => 13,
+        "branch" => 14,
+        "blocked_reason" => 15,
+        "body" => 16,
+        "created_at" => 17,
+        "started_at" => 18,
+        "scored_at" => 19,
+        "done_at" => 20,
+        "shipped_in" => 21,
         _ => u32::MAX,
     }
 }
@@ -414,6 +415,7 @@ pub struct NewTaskFields<'a> {
     pub assignee: Option<&'a str>,
     pub linear_id: Option<&'a str>,
     pub module: Option<&'a str>,
+    pub model: Option<&'a str>,
     pub body: Option<&'a str>,
     pub created_at: Option<&'a str>,
     pub scored_at: Option<&'a str>,
@@ -529,6 +531,9 @@ pub fn add_task_str(
     }
     if let Some(module) = fields.module {
         table["module"] = Item::Value(Value::from(module));
+    }
+    if let Some(model) = fields.model {
+        table["model"] = Item::Value(Value::from(model));
     }
     if let Some(body) = fields.body {
         table["body"] = Item::Value(Value::from(body));

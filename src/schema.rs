@@ -67,6 +67,7 @@ pub struct Task {
     pub assignee: Option<String>,
     pub module: Option<String>,
     pub branch: Option<String>,
+    pub model: Option<String>,
     #[serde(default)]
     pub acceptance_criteria: Vec<String>,
     #[serde(default)]
