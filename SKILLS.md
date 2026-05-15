@@ -274,6 +274,13 @@ rmap delegate 3 --to cursor
 # exit: 0
 ```
 
+`rmap import` emits a paste-ready Markdown prompt that instructs an agent to migrate one or more hand-edited `ROADMAP.md` files into `roadmap/tasks.toml`. Pure read — does not parse or write any files itself. The emitted prompt embeds the live JSON Schema so it never drifts when the schema changes.
+
+```bash
+rmap import
+# exit: 0
+```
+
 ## Rendering
 
 `rmap render` writes `ROADMAP.md` (project root) + `roadmap/data.json` from `roadmap/tasks.toml`. Idempotent — no-change re-runs are byte-equal.

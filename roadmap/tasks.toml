@@ -23,7 +23,7 @@ status = "done"
 [phases.14]
 name = "Migration tooling"
 order = 14
-status = "pending"
+status = "done"
 
 [phases.15]
 name = "Schema extensions"
@@ -33,7 +33,7 @@ status = "done"
 [bundles.import_command]
 phase = 14
 order = 1
-description = "rmap import: convert a hand-edited ROADMAP.md into roadmap/tasks.toml, replacing the manual migration procedure"
+description = "rmap import: emit a paste-ready ROADMAP.md→tasks.toml migration prompt (the delegate pattern, applied to migration)"
 
 [bundles.agent_routing]
 phase = 15
@@ -388,20 +388,24 @@ done_at = "2026-05-14"
 id = 18
 phase = 14
 bundle = "import_command"
-status = "pending"
-title = "rmap import — convert a hand-edited ROADMAP.md into tasks.toml"
-scores = { d = 6, b = 7, u = 8 }
-acceptance_criteria = ["`rmap import [--roadmap-path PATH]` reads a hand-edited ROADMAP.md and writes a best-effort roadmap/tasks.toml", "Parses phase headings, task titles, D/B/U score brackets, and status glyphs", "Unparseable sections reported as residue, not a hard failure", "Output passes `rmap validate`; user reviews before committing", "Consumer-side migration procedure in rmap.md updated to point at `rmap import` as the primary path"]
-model = "claude-opus-4-7"
+status = "done"
+title = "rmap import — emit a paste-ready ROADMAP.md→tasks.toml migration prompt"
+scores = { d = 3, b = 7, u = 8 }
+acceptance_criteria = ["`rmap import` prints a paste-ready prompt instructing an agent to convert one or more hand-edited ROADMAP.md files into roadmap/tasks.toml", "Prompt references the live schema (reuse schema_json / `rmap schema`) so it never drifts when schema.rs changes", "Prompt covers the marker-pair conversion and the validate → render → diff-check loop", "`--help` text makes clear the command emits a prompt — it does not itself parse or write tasks.toml", "Read-only — no file mutation, mirroring `rmap delegate`"]
+model = "claude-sonnet-4-6"
 body = """
-Add an `rmap import` command that converts a hand-edited `ROADMAP.md` into `roadmap/tasks.toml`, replacing the manual migration procedure currently documented in the consumer's `rmap.md` include.
+Add an `rmap import` command that emits a paste-ready migration prompt — it does NOT parse ROADMAP.md itself. The command is the `rmap delegate` pattern applied to migration: it hands an agent a structured prompt; the agent does the conversion.
 
-Surfaced by: migrating the claude-marketplace-elixir repo to rmap (2026-05-14). The migration procedure ("author tasks.toml from the markdown by hand → add marker pairs → validate → render → diff-check") works but is entirely manual — every consumer repo pays that cost. An `import` command would parse common ROADMAP.md shapes (phase headings, D/B/U brackets, status glyphs, task tables) into a best-effort `tasks.toml` the user then reviews and corrects.
+Why not a parser: a heuristic markdown parser would capture only the structured fields (phases, titles, score brackets, status glyphs) and punt on the prose bodies/acceptance_criteria — the hard 80%. An LLM does the whole job, adapts to any hand-edited ROADMAP.md shape, and migration is a one-time-per-repo cost run inside an agent session anyway.
 
-It does not need to be perfect — a best-effort parse that captures phases, task titles, scores, and statuses, then leaves the user to fill bodies/acceptance_criteria, would remove most of the manual toil. Treat unparseable sections as a reported residue rather than failing.
+Why a command and not include text: the migration knowledge (schema fields, marker-pair contract, validate/render/diff loop) has to live somewhere. Compiled into the binary and surfaced on demand via `rmap import` costs nothing per-session, stays discoverable through `rmap --help`, and can interpolate live `rmap schema` output so it never drifts. Putting it in the `rmap.md` include would tax every session of every consumer repo for a one-time job.
+
+Surfaced by: migrating the claude-marketplace-elixir repo to rmap (2026-05-14) — the manual migration procedure works but every consumer repo pays the toil. Reuse `delegate.rs` as the structural precedent.
 """
 created_at = "2026-05-14"
 scored_at = "2026-05-14"
+started_at = "2026-05-15"
+done_at = "2026-05-15"
 
 [[task]]
 id = 19

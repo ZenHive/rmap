@@ -4,6 +4,19 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ---
 
+## Phase 14 — Migration tooling
+
+### Phase 14 Task 18: `rmap import` — paste-ready ROADMAP.md→tasks.toml migration prompt (import_command bundle)
+
+**What was done:**
+- New `rmap import` command: emits a self-contained Markdown prompt an agent pastes into a session to migrate a hand-edited `ROADMAP.md` into `roadmap/tasks.toml`. Pure read — no file mutation; mirrors the `rmap delegate` pattern.
+- Prompt template lives in `templates/import_prompt.md` (same `include_str!` pattern as `templates/roadmap.html.j2`). Two runtime substitution tokens (`{{project}}`, `{{schema_json}}`) keep the project name and JSON Schema current without code changes.
+- Live JSON Schema embedded via `schema_json_str()` — the schema section of the prompt auto-updates whenever `schema.rs` changes; no hand-maintenance needed.
+- Prompt covers the full migration recipe: field-mapping guide (status glyphs, score brackets, prose fields), marker-pair contract (`TASKS:BEGIN`, `FOCUS:BEGIN`, `MERMAID:BEGIN`), and the `validate → render → validate --check-render` verification loop.
+- `~/.claude/includes/rmap.md` command table updated with `rmap import` row; SKILLS.md gained an `import` entry in the Delegation section.
+
+---
+
 ## Phase 15 — Schema extensions
 
 ### Phase 15 Task 19: `Task::model` field — per-task LLM model pinning (agent_routing bundle)

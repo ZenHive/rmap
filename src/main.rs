@@ -13,6 +13,7 @@ use rmap::export::{
     export_bundle_pick_json_str, export_filtered_json_str, export_json_str, export_task_json_str,
     export_tasks_array_json_str,
 };
+use rmap::import::format_import_prompt;
 use rmap::mutate::{
     CrossRepoSpec, MarkerOp, NewTaskFields, add_dependency_str, add_task_str, update_markers_str,
     update_status_many_str,
@@ -143,6 +144,15 @@ enum Commands {
         id: String,
         #[arg(long)]
         to: DelegateTarget,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+    },
+    /// Emit a paste-ready prompt for migrating a hand-edited ROADMAP.md into tasks.toml.
+    ///
+    /// Prints to stdout; does not read or write any files. The emitted prompt instructs an
+    /// agent to convert ROADMAP.md into roadmap/tasks.toml and add the marker pairs
+    /// rmap render manages. Pure read — mirrors `rmap delegate`.
+    Import {
         #[arg(long)]
         tasks_path: Option<PathBuf>,
     },
@@ -455,6 +465,15 @@ fn run() -> Result<ExitCode> {
             let prompt = format_delegate_prompt(&tasks, &id, to)
                 .ok_or_else(|| anyhow::anyhow!("task {id} not found"))?;
 
+            print!("{prompt}");
+        }
+        Commands::Import { tasks_path } => {
+            let project = resolve_paths(tasks_path, None, None)
+                .ok()
+                .and_then(|paths| validate_tasks_file(&paths.tasks_path).ok())
+                .map(|tasks| tasks.project)
+                .unwrap_or_else(|| "<your-project>".to_string());
+            let prompt = format_import_prompt(&project);
             print!("{prompt}");
         }
         Commands::Export {

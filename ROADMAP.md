@@ -38,6 +38,8 @@ gantt
     rmap next --count N returns top-N candidates :done, 2026-05-13, 2026-05-13
     rmap bundles selector listing :done, 2026-05-13, 2026-05-13
     rmap next-bundle— select one session-sized bundle (Option 1— bundle = session— no subsetting) :done, 2026-05-14, 2026-05-14
+    section Phase 14 — Migration tooling
+    rmap import — emit a paste-ready ROADMAP.md→tasks.toml migration prompt :done, 2026-05-15, 2026-05-15
 ```
 <!-- MERMAID:END -->
 
@@ -74,6 +76,14 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 
 <!-- TASKS:BEGIN phase=7 -->
 > 2 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-7-rmap-watch-optional).
+<!-- TASKS:END -->
+
+## Phase 14 — Migration tooling (done)
+
+🎁 `import_command` — `rmap import` paste-ready ROADMAP.md→tasks.toml migration prompt.
+
+<!-- TASKS:BEGIN phase=14 -->
+> 1 task. See [CHANGELOG.md](CHANGELOG.md#phase-14-migration-tooling).
 <!-- TASKS:END -->
 
 ## Phase 15 — Schema extensions (done)

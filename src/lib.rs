@@ -3,6 +3,7 @@ pub mod delegate;
 pub mod diff;
 pub mod doctor;
 pub mod export;
+pub mod import;
 pub mod mutate;
 pub mod next;
 pub mod next_bundle;

@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "rust-skills": {
+      "source": { "source": "github", "repo": "ZhangHanDong/rust-skills" }
+    }
+  },
+  "enabledPlugins": {
+    "rust-skills@rust-skills": true
+  }
+}
