@@ -20,6 +20,16 @@ name = "Skills-parity polish"
 order = 13
 status = "done"
 
+[phases.14]
+name = "Migration tooling"
+order = 14
+status = "pending"
+
+[bundles.import_command]
+phase = 14
+order = 1
+description = "rmap import: convert a hand-edited ROADMAP.md into roadmap/tasks.toml, replacing the manual migration procedure"
+
 [bundles.schema_parity]
 phase = 13
 order = 1
@@ -362,3 +372,21 @@ created_at = "2026-05-13"
 scored_at = "2026-05-13"
 started_at = "2026-05-14"
 done_at = "2026-05-14"
+
+[[task]]
+id = 18
+phase = 14
+bundle = "import_command"
+status = "pending"
+title = "rmap import — convert a hand-edited ROADMAP.md into tasks.toml"
+scores = { d = 6, b = 7, u = 8 }
+acceptance_criteria = ["`rmap import [--roadmap-path PATH]` reads a hand-edited ROADMAP.md and writes a best-effort roadmap/tasks.toml", "Parses phase headings, task titles, D/B/U score brackets, and status glyphs", "Unparseable sections reported as residue, not a hard failure", "Output passes `rmap validate`; user reviews before committing", "Consumer-side migration procedure in rmap.md updated to point at `rmap import` as the primary path"]
+body = """
+Add an `rmap import` command that converts a hand-edited `ROADMAP.md` into `roadmap/tasks.toml`, replacing the manual migration procedure currently documented in the consumer's `rmap.md` include.
+
+Surfaced by: migrating the claude-marketplace-elixir repo to rmap (2026-05-14). The migration procedure ("author tasks.toml from the markdown by hand → add marker pairs → validate → render → diff-check") works but is entirely manual — every consumer repo pays that cost. An `import` command would parse common ROADMAP.md shapes (phase headings, D/B/U brackets, status glyphs, task tables) into a best-effort `tasks.toml` the user then reviews and corrects.
+
+It does not need to be perfect — a best-effort parse that captures phases, task titles, scores, and statuses, then leaves the user to fill bodies/acceptance_criteria, would remove most of the manual toil. Treat unparseable sections as a reported residue rather than failing.
+"""
+created_at = "2026-05-14"
+scored_at = "2026-05-14"

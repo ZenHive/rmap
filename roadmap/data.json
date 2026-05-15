@@ -11,6 +11,11 @@
       "order": 13,
       "status": "done"
     },
+    "14": {
+      "name": "Migration tooling",
+      "order": 14,
+      "status": "pending"
+    },
     "6": {
       "name": "HTML render",
       "order": 6,
@@ -52,6 +57,11 @@
       "phase": 6,
       "order": 1,
       "description": "Single-project static HTML view at roadmap/dist/index.html"
+    },
+    "import_command": {
+      "phase": 14,
+      "order": 1,
+      "description": "rmap import: convert a hand-edited ROADMAP.md into roadmap/tasks.toml, replacing the manual migration procedure"
     },
     "schema_parity": {
       "phase": 13,
@@ -516,6 +526,32 @@
       "started_at": "2026-05-14",
       "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
+      "cross_repo": []
+    },
+    {
+      "id": 18,
+      "phase": 14,
+      "bundle": "import_command",
+      "status": "pending",
+      "title": "rmap import — convert a hand-edited ROADMAP.md into tasks.toml",
+      "scores": {
+        "d": 6,
+        "b": 7,
+        "u": 8
+      },
+      "eff": 1.25,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`rmap import [--roadmap-path PATH]` reads a hand-edited ROADMAP.md and writes a best-effort roadmap/tasks.toml",
+        "Parses phase headings, task titles, D/B/U score brackets, and status glyphs",
+        "Unparseable sections reported as residue, not a hard failure",
+        "Output passes `rmap validate`; user reviews before committing",
+        "Consumer-side migration procedure in rmap.md updated to point at `rmap import` as the primary path"
+      ],
+      "body": "Add an `rmap import` command that converts a hand-edited `ROADMAP.md` into `roadmap/tasks.toml`, replacing the manual migration procedure currently documented in the consumer's `rmap.md` include.\n\nSurfaced by: migrating the claude-marketplace-elixir repo to rmap (2026-05-14). The migration procedure (\"author tasks.toml from the markdown by hand → add marker pairs → validate → render → diff-check\") works but is entirely manual — every consumer repo pays that cost. An `import` command would parse common ROADMAP.md shapes (phase headings, D/B/U brackets, status glyphs, task tables) into a best-effort `tasks.toml` the user then reviews and corrects.\n\nIt does not need to be perfect — a best-effort parse that captures phases, task titles, scores, and statuses, then leaves the user to fill bodies/acceptance_criteria, would remove most of the manual toil. Treat unparseable sections as a reported residue rather than failing.\n",
+      "created_at": "2026-05-14",
+      "scored_at": "2026-05-14",
       "cross_repo": []
     }
   ]
