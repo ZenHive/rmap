@@ -464,7 +464,8 @@ scored_at = "2026-05-15"
 id = 21
 phase = 13
 bundle = "schema_parity"
-status = "pending"
+status = "done"
+shipped_in = "180329c"
 title = "`rmap new --from-stdin` rejects `out_of_scope` though `rmap schema` declares it"
 scores = { d = 2, b = 5, u = 6 }
 markers = ["bug"]
@@ -501,3 +502,4 @@ Surfaced from a ccxt_ocx session that wanted to capture out-of-scope notes on a 
 """
 created_at = "2026-05-16"
 scored_at = "2026-05-16"
+done_at = "2026-05-16"

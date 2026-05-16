@@ -634,7 +634,7 @@
       "id": 21,
       "phase": 13,
       "bundle": "schema_parity",
-      "status": "pending",
+      "status": "done",
       "title": "`rmap new --from-stdin` rejects `out_of_scope` though `rmap schema` declares it",
       "scores": {
         "d": 2,
@@ -653,8 +653,10 @@
         "`rmap delegate <id>` renders an `## Out of scope` section in the prompt body when populated, omits it when empty",
         "Round-trip test: a task authored with `out_of_scope` survives `rmap render` + re-read without losing the field"
       ],
+      "shipped_in": "180329c",
       "body": "`rmap schema` lists `out_of_scope` under `[[task]]` properties (`{ default: [], type: array, items: { type: string } }`), identical shape to `acceptance_criteria`. But the `--from-stdin` deserializer's `[[task]]` struct doesn't include the field — attempting to author a task with `out_of_scope` fails with:\n\n    unknown field `out_of_scope`, expected one of `id`, `phase`, `bundle`, `title`, `scores`,\n    `markers`, `depends_on`, `linear_id`, `assignee`, `module`, `model`,\n    `acceptance_criteria`, `body`, `created_at`, `scored_at`\n\nThe schema and the parser have drifted — schema says supported, parser says no. Either:\n\n(a) wire the field through (deserializer, `rmap show`, `rmap show --json`, `rmap delegate` template); preferred since `~/.claude/includes/task-writing.md` calls out `## Out of scope` as a recommended issue-body section that authors currently have to inline-prose into `body`. Promoting it to structured metadata makes `rmap delegate`'s prompt rendering consistent across the documented section list, and lets agents query the field directly.\n\n(b) drop it from the JSON schema. The schema currently misleads — agents reading `rmap schema` reasonably conclude the field is supported.\n\n(a) is the right call given the task-writing template already canonicalizes the section. The fix is mechanical: add the field to the `Task` deserialize struct, plumb through the rendering paths, mirror the `acceptance_criteria` test cases.\n\n**Reproduction:**\n\n    cd <any rmap-managed repo>\n    rmap new --from-stdin <<'EOT'\n    [[task]]\n    phase = 1\n    title = \"smoke\"\n    scores = { d = 1, b = 1, u = 1 }\n    out_of_scope = [\"x\"]\n    body = \"y\"\n    EOT\n    # Error: parse stdin TOML: ... unknown field `out_of_scope`\n\nSurfaced from a ccxt_ocx session that wanted to capture out-of-scope notes on a task refinement; folded into `body` prose as workaround.\n",
       "created_at": "2026-05-16",
+      "done_at": "2026-05-16",
       "scored_at": "2026-05-16",
       "cross_repo": []
     }
