@@ -86,6 +86,11 @@ pub fn format_task(task: &Task) -> String {
         );
     }
 
+    if !task.out_of_scope.is_empty() {
+        lines.push("out_of_scope:".to_string());
+        lines.extend(task.out_of_scope.iter().map(|item| format!("- {item}")));
+    }
+
     if let Some(shipped_in) = &task.shipped_in {
         lines.push(format!("shipped_in: {shipped_in}"));
     }

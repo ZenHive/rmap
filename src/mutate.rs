@@ -273,19 +273,20 @@ fn canonical_task_key_index(key: &str) -> u32 {
         "markers" => 6,
         "depends_on" => 7,
         "acceptance_criteria" => 8,
-        "cross_repo" => 9,
-        "assignee" => 10,
-        "linear_id" => 11,
-        "module" => 12,
-        "model" => 13,
-        "branch" => 14,
-        "blocked_reason" => 15,
-        "body" => 16,
-        "created_at" => 17,
-        "started_at" => 18,
-        "scored_at" => 19,
-        "done_at" => 20,
-        "shipped_in" => 21,
+        "out_of_scope" => 9,
+        "cross_repo" => 10,
+        "assignee" => 11,
+        "linear_id" => 12,
+        "module" => 13,
+        "model" => 14,
+        "branch" => 15,
+        "blocked_reason" => 16,
+        "body" => 17,
+        "created_at" => 18,
+        "started_at" => 19,
+        "scored_at" => 20,
+        "done_at" => 21,
+        "shipped_in" => 22,
         _ => u32::MAX,
     }
 }
@@ -412,6 +413,7 @@ pub struct NewTaskFields<'a> {
     pub markers: &'a [&'a str],
     pub depends_on: &'a [u32],
     pub acceptance_criteria: &'a [&'a str],
+    pub out_of_scope: &'a [&'a str],
     pub assignee: Option<&'a str>,
     pub linear_id: Option<&'a str>,
     pub module: Option<&'a str>,
@@ -521,6 +523,14 @@ pub fn add_task_str(
             array.push(*ac);
         }
         table["acceptance_criteria"] = Item::Value(Value::Array(array));
+    }
+
+    if !fields.out_of_scope.is_empty() {
+        let mut array = Array::new();
+        for item in fields.out_of_scope {
+            array.push(*item);
+        }
+        table["out_of_scope"] = Item::Value(Value::Array(array));
     }
 
     if let Some(assignee) = fields.assignee {

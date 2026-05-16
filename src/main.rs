@@ -975,6 +975,7 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
             .iter()
             .map(String::as_str)
             .collect();
+        let out_of_scope: Vec<&str> = task.out_of_scope.iter().map(String::as_str).collect();
 
         let explicit_id = match &task.id {
             Some(TaskId::Number(n)) => Some(*n),
@@ -994,6 +995,7 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
             markers: &markers,
             depends_on: &depends_on,
             acceptance_criteria: &acceptance_criteria,
+            out_of_scope: &out_of_scope,
             assignee: task.assignee.as_deref(),
             linear_id: task.linear_id.as_deref(),
             module: task.module.as_deref(),
@@ -1056,6 +1058,8 @@ struct StdinTask {
     pub model: Option<String>,
     #[serde(default)]
     pub acceptance_criteria: Vec<String>,
+    #[serde(default)]
+    pub out_of_scope: Vec<String>,
     pub body: Option<String>,
     pub created_at: Option<String>,
     pub scored_at: Option<String>,
@@ -1155,6 +1159,25 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         }
     }
 
+    let mut out_of_scope: Vec<String> = Vec::new();
+    loop {
+        let next: String = Input::with_theme(&theme)
+            .with_prompt("Out-of-scope item (empty to stop)")
+            .allow_empty(true)
+            .interact_text()?;
+        if next.trim().is_empty() {
+            break;
+        }
+        out_of_scope.push(next);
+        if !Confirm::with_theme(&theme)
+            .with_prompt("Add another?")
+            .default(false)
+            .interact()?
+        {
+            break;
+        }
+    }
+
     let assignee_choices = ["(skip)", "human", "claude", "codex", "cursor"];
     let assignee_index = Select::with_theme(&theme)
         .with_prompt("Assignee")
@@ -1210,6 +1233,7 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         module,
         model,
         acceptance_criteria,
+        out_of_scope,
         body: None,
         created_at: None,
         scored_at: None,

@@ -2221,6 +2221,204 @@ model = "claude-opus-4-7"
 }
 
 #[test]
+fn new_from_stdin_round_trips_out_of_scope_field() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Scoped task"
+scores = { d = 2, b = 6, u = 6 }
+acceptance_criteria = ["Does the thing"]
+out_of_scope = ["Does not touch the unrelated thing", "No DB migration"]
+body = "Some body prose."
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // 1. Round-trips into tasks.toml after acceptance_criteria (canonical order).
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let ac_idx = tasks
+        .find("acceptance_criteria = ")
+        .expect("acceptance_criteria present");
+    let oos_idx = tasks.find("out_of_scope = ").expect("out_of_scope present");
+    assert!(
+        ac_idx < oos_idx,
+        "out_of_scope should follow acceptance_criteria in canonical order; tasks:\n{tasks}"
+    );
+
+    // 2. Re-render + re-read: an explicit second render leaves the field intact
+    // (create_task already re-rendered once; this round-trips again to assert
+    // the field survives idempotent render passes).
+    let rerun = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .arg("--roadmap-path")
+        .arg(&roadmap_path)
+        .arg("--data-path")
+        .arg(&data_path)
+        .env("RMAP_TODAY", "2026-05-12")
+        .output()
+        .expect("run rmap render");
+    assert!(
+        rerun.status.success(),
+        "second render failed; stderr: {}",
+        String::from_utf8_lossy(&rerun.stderr)
+    );
+    let tasks_after = fs::read_to_string(&tasks_path).expect("read tasks after re-render");
+    assert!(
+        tasks_after.contains("out_of_scope = "),
+        "out_of_scope dropped on re-render; tasks_after: {tasks_after}"
+    );
+
+    // 3. `rmap show <id>` renders an `out_of_scope:` section.
+    let human = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show");
+    assert!(human.status.success());
+    let human_stdout = String::from_utf8_lossy(&human.stdout);
+    assert!(
+        human_stdout.contains("out_of_scope:"),
+        "human show missing out_of_scope section; stdout: {human_stdout}"
+    );
+    assert!(
+        human_stdout.contains("- Does not touch the unrelated thing"),
+        "human show missing oos bullet; stdout: {human_stdout}"
+    );
+
+    // 4. `rmap show <id> --json` emits `out_of_scope` as an array.
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show --json");
+    assert!(json.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    let oos = value["out_of_scope"]
+        .as_array()
+        .expect("out_of_scope is an array");
+    assert_eq!(oos.len(), 2);
+    assert_eq!(oos[0], "Does not touch the unrelated thing");
+    assert_eq!(oos[1], "No DB migration");
+
+    // 5. `rmap delegate <id>` renders an `## Out of scope` section.
+    let delegate = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("2")
+        .arg("--to")
+        .arg("claude")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap delegate");
+    assert!(
+        delegate.status.success(),
+        "delegate failed; stderr: {}",
+        String::from_utf8_lossy(&delegate.stderr)
+    );
+    let delegate_stdout = String::from_utf8_lossy(&delegate.stdout);
+    assert!(
+        delegate_stdout.contains("## Out of scope"),
+        "delegate missing `## Out of scope`; stdout: {delegate_stdout}"
+    );
+    assert!(
+        delegate_stdout.contains("- Does not touch the unrelated thing"),
+        "delegate missing oos bullet; stdout: {delegate_stdout}"
+    );
+}
+
+#[test]
+fn new_from_stdin_omits_out_of_scope_section_when_unset() {
+    // Mirror of `new_from_stdin_appends_task_and_rerenders` for the empty case:
+    // `out_of_scope` must not appear in tasks.toml, `rmap show` human output,
+    // delegate prompt, or `rmap show --json` (skip_serializing_if mirrors
+    // `acceptance_criteria`).
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "No-oos task"
+scores = { d = 2, b = 5, u = 5 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(output.status.success());
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read tasks");
+    assert!(
+        !tasks.contains("out_of_scope"),
+        "out_of_scope must not be emitted when unset; tasks: {tasks}"
+    );
+
+    let human = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show");
+    assert!(!String::from_utf8_lossy(&human.stdout).contains("out_of_scope:"));
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show --json");
+    let value: serde_json::Value = serde_json::from_slice(&json.stdout).expect("valid json");
+    assert!(
+        value.get("out_of_scope").is_none(),
+        "out_of_scope must be skip-serialized when empty; json: {value}"
+    );
+
+    let delegate = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("2")
+        .arg("--to")
+        .arg("claude")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap delegate");
+    assert!(!String::from_utf8_lossy(&delegate.stdout).contains("## Out of scope"));
+
+    // Silence unused-variable warnings for the helper return tuple.
+    let _ = roadmap_path;
+    let _ = data_path;
+}
+
+#[test]
 fn new_from_stdin_auto_allocates_id_when_omitted() {
     let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
 
