@@ -52,7 +52,7 @@ gantt
 Phase 13a (Eff-tier glyph + phase archive collapse) shipped 2026-05-13 — see [CHANGELOG.md](CHANGELOG.md#phase-13a-render-polish--eff-tier-glyph--phase-archive-collapse).
 
 <!-- TASKS:BEGIN phase=13 -->
-> 13 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-13-skills-parity-polish).
+> 15 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-13-skills-parity-polish).
 <!-- TASKS:END -->
 
 ## Phase 6 — HTML render (planned)

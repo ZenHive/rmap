@@ -601,6 +601,62 @@
       "created_at": "2026-05-15",
       "scored_at": "2026-05-15",
       "cross_repo": []
+    },
+    {
+      "id": 20,
+      "phase": 13,
+      "bundle": "schema_parity",
+      "status": "pending",
+      "title": "rmap status <id> done — auto-fill done_at (and started_at on in_progress)",
+      "scores": {
+        "d": 2,
+        "b": 4,
+        "u": 5
+      },
+      "eff": 2.25,
+      "markers": [
+        "bug"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "rmap status <id> done sets done_at = today() if absent",
+        "rmap status <id> in_progress sets started_at = today() if absent",
+        "Existing started_at / done_at values are preserved (idempotent for re-runs)",
+        "Tests cover both transitions and the no-overwrite invariant",
+        "Bulk variant (rmap status 1,2,3 done) auto-fills each task independently"
+      ],
+      "body": "`rmap status <id> done` flips the task's `status` field but does not set `done_at`.\nSame for `rmap status <id> in_progress` — it doesn't set `started_at`. Every `rmap\nstatus` transition leaves the file internally inconsistent (status changed, lifecycle\ntimestamps missing), and downstream tooling that relies on `done_at` for recency\nrendering (`render.rs` \"recently done\" tag) sees no timestamp.\n\nObserved in `onchain_tempo` PR #1 (task 6 → done): CodeRabbit flagged both\n`roadmap/tasks.toml` and `roadmap/data.json` for missing `done_at` after the status\nflip — universal gap across consumers, not project-specific.\n\n`src/mutate.rs::update_status_many_str` writes only `task[\"status\"] = new_status`\n(line 135). The canonical-order key index already reserves slots for `started_at`\n(18) and `done_at` (20), so writing them is just an additional `task[\"done_at\"] =\ntoday()` when transitioning into `done`, mirrored for `started_at` on\n`pending → in_progress`.\n\nWhen transitioning OUT of `done` (e.g. re-opening a task), keep the existing\n`done_at` intact unless the caller explicitly clears it — preserves audit trail.\n\nOut of scope: backfilling done_at on already-done tasks with no timestamp (separate\ndoctor-fix task); phase-level status rollups (separate concern).\n",
+      "created_at": "2026-05-15",
+      "scored_at": "2026-05-15",
+      "cross_repo": []
+    },
+    {
+      "id": 21,
+      "phase": 13,
+      "bundle": "schema_parity",
+      "status": "pending",
+      "title": "`rmap new --from-stdin` rejects `out_of_scope` though `rmap schema` declares it",
+      "scores": {
+        "d": 2,
+        "b": 5,
+        "u": 6
+      },
+      "eff": 2.75,
+      "markers": [
+        "bug"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`rmap new --from-stdin` accepts `out_of_scope = [\"...\"]` on a `[[task]]` block without erroring",
+        "`rmap show <id>` renders an `out_of_scope:` section listing the bullets, mirroring `acceptance_criteria` rendering",
+        "`rmap show <id> --json` emits `out_of_scope` as an array (empty `[]` when unset, mirroring `acceptance_criteria`)",
+        "`rmap delegate <id>` renders an `## Out of scope` section in the prompt body when populated, omits it when empty",
+        "Round-trip test: a task authored with `out_of_scope` survives `rmap render` + re-read without losing the field"
+      ],
+      "body": "`rmap schema` lists `out_of_scope` under `[[task]]` properties (`{ default: [], type: array, items: { type: string } }`), identical shape to `acceptance_criteria`. But the `--from-stdin` deserializer's `[[task]]` struct doesn't include the field — attempting to author a task with `out_of_scope` fails with:\n\n    unknown field `out_of_scope`, expected one of `id`, `phase`, `bundle`, `title`, `scores`,\n    `markers`, `depends_on`, `linear_id`, `assignee`, `module`, `model`,\n    `acceptance_criteria`, `body`, `created_at`, `scored_at`\n\nThe schema and the parser have drifted — schema says supported, parser says no. Either:\n\n(a) wire the field through (deserializer, `rmap show`, `rmap show --json`, `rmap delegate` template); preferred since `~/.claude/includes/task-writing.md` calls out `## Out of scope` as a recommended issue-body section that authors currently have to inline-prose into `body`. Promoting it to structured metadata makes `rmap delegate`'s prompt rendering consistent across the documented section list, and lets agents query the field directly.\n\n(b) drop it from the JSON schema. The schema currently misleads — agents reading `rmap schema` reasonably conclude the field is supported.\n\n(a) is the right call given the task-writing template already canonicalizes the section. The fix is mechanical: add the field to the `Task` deserialize struct, plumb through the rendering paths, mirror the `acceptance_criteria` test cases.\n\n**Reproduction:**\n\n    cd <any rmap-managed repo>\n    rmap new --from-stdin <<'EOT'\n    [[task]]\n    phase = 1\n    title = \"smoke\"\n    scores = { d = 1, b = 1, u = 1 }\n    out_of_scope = [\"x\"]\n    body = \"y\"\n    EOT\n    # Error: parse stdin TOML: ... unknown field `out_of_scope`\n\nSurfaced from a ccxt_ocx session that wanted to capture out-of-scope notes on a task refinement; folded into `body` prose as workaround.\n",
+      "created_at": "2026-05-16",
+      "scored_at": "2026-05-16",
+      "cross_repo": []
     }
   ]
 }
