@@ -32,7 +32,7 @@ MSRV: Rust 1.85 (edition 2024).
 ```bash
 mkdir -p roadmap
 cat > roadmap/tasks.toml <<'TOML'
-schema_version = 1
+schema_version = 2
 project = "my_app"
 default_branch = "main"
 
@@ -60,7 +60,7 @@ rmap validate              # schema + semantic checks
 rmap render                # rewrite ROADMAP.md + emit roadmap/data.json
 rmap next                  # highest-efficiency pending task with deps satisfied
 rmap status 1 in_progress  # transition
-rmap status 1 done         # transition
+rmap status 1 done --implemented "wired up postgres + ecto repo"
 ```
 
 ## Commands
@@ -91,7 +91,7 @@ All mutators follow a **validate-then-write** contract: mutate in memory, re-val
 `roadmap/tasks.toml` minimum:
 
 ```toml
-schema_version = 1
+schema_version = 2
 project = "my_app"
 default_branch = "main"
 

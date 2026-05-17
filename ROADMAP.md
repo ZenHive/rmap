@@ -92,5 +92,10 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 🎁 `agent_routing` — per-task LLM model pinning (`Task::model`, surfaced by `rmap delegate`).
 
 <!-- TASKS:BEGIN phase=15 -->
-> 3 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-15-schema-extensions).
+| Task | Status | Notes |
+|------|--------|-------|
+| Task 19 | ✅ | 🎁 **agent_routing** · Task::model field — per-task LLM model pinning [D:3/B:5/U:5 → Eff:1.67] 🚀 |
+| Task 22 | ✅ | 🎁 **schema_implemented** · `Task::implemented` field — record what was actually delivered (required when done) [D:4/B:6/U:7 → Eff:1.62] 🚀 |
+| Task 24 | ✅ | 🎁 **schema_milestones** · Milestones — first-class release lines [D:6/B:8/U:8 → Eff:1.33] 📋 |
+| Task 25 | ⬜ | 🎁 **schema_milestones** · 🐛 Backfill creation paths with branch / files_to_modify / cross_repo (converge StdinTask/NewTaskFields mirror) [D:4/B:6/U:6 → Eff:1.5] 🚀 |
 <!-- TASKS:END -->

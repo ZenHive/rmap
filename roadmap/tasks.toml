@@ -25,7 +25,7 @@ status = "done"
 [phases.15]
 name = "Schema extensions"
 order = 15
-status = "done"
+status = "in_progress"
 
 [bundles.import_command]
 phase = 14
@@ -698,3 +698,31 @@ created_at = "2026-05-17"
 started_at = "2026-05-17"
 scored_at = "2026-05-17"
 done_at = "2026-05-17"
+
+[[task]]
+id = 25
+phase = 15
+bundle = "schema_milestones"
+status = "pending"
+title = "Backfill creation paths with branch / files_to_modify / cross_repo (converge StdinTask/NewTaskFields mirror)"
+scores = { d = 4, b = 6, u = 6 }
+markers = ["bug"]
+acceptance_criteria = ["rmap new --from-stdin accepts branch / files_to_modify / cross_repo and persists them in tasks.toml", "Interactive rmap new flow either prompts for these or has a documented skip path", "Decision documented (in commit message and/or CLAUDE.md): either a converged single source of truth via macro/derive, OR an explicit invariant on schema::Task noting the three-place-edit requirement for StdinTask + NewTaskFields"]
+out_of_scope = ["Adding cross-repo dependency CRUD commands — only the creation-time field is in scope here", "Changing the schema for branch / files_to_modify / cross_repo — they already exist on schema::Task; this task only wires creation surfaces"]
+body = """
+schema::Task has branch, files_to_modify, cross_repo fields that StdinTask
+(src/main.rs StdinTask struct) and NewTaskFields (src/mutate.rs) cannot accept
+at creation. Backfill both surfaces.
+
+While there, evaluate whether StdinTask should be replaced with a derive-from-
+schema::Task pattern (or a small macro) to stop the three-place mirror from
+drifting every schema add. Today every new schema::Task field requires a
+manual edit to StdinTask + NewTaskFields + add_task_str's emit logic — the
+pattern drifted twice already (out_of_scope in Task 21, implemented in Task 22).
+
+Originally surfaced by audit-review on 2026-05-17 (audit(dcad8e5..794036e)),
+deferred from commit 180329c as out-of-scope for that commit's targeted
+out_of_scope drift fix.
+"""
+created_at = "2026-05-17"
+scored_at = "2026-05-17"

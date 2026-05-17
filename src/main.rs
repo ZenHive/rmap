@@ -162,9 +162,11 @@ enum Commands {
     },
     /// Emit a paste-ready prompt for migrating a hand-edited ROADMAP.md into tasks.toml.
     ///
-    /// Prints to stdout; does not read or write any files. The emitted prompt instructs an
-    /// agent to convert ROADMAP.md into roadmap/tasks.toml and add the marker pairs
-    /// rmap render manages. Pure read — mirrors `rmap delegate`.
+    /// Prints to stdout; never writes. Reads an existing `roadmap/tasks.toml` if present
+    /// (only to populate the `Project:` line in the prompt) — falls back to a placeholder
+    /// when none is found. The emitted prompt instructs an agent to convert ROADMAP.md
+    /// into roadmap/tasks.toml and add the marker pairs rmap render manages. Mirrors
+    /// `rmap delegate`'s read-only contract.
     Import {
         #[arg(long)]
         tasks_path: Option<PathBuf>,

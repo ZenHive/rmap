@@ -219,7 +219,7 @@ Estimated ~600-1000 LOC.
 
 ## Schema versioning
 
-`schema_version = 1` at the top of `tasks.toml` is load-bearing. `rmap` refuses to render tasks files whose schema version it doesn't understand. Bump on breaking changes; ship a `rmap migrate --from 1 --to 2` for upgrades.
+`schema_version = 2` at the top of `tasks.toml` is load-bearing. `rmap` refuses to render tasks files whose schema version it doesn't understand. Bump on breaking changes; per-project upgrades are LLM-driven (the agent edits `tasks.toml` directly, then runs `rmap validate`) — no `rmap migrate` subcommand exists or is planned (out-of-scope per the "Out of scope" list).
 
 ## Invariants & boundaries (load-bearing)
 
@@ -227,7 +227,7 @@ Read this section before changing anything. The schema example above IS the cont
 
 **Schema invariants — fail validation if violated:**
 
-- `schema_version = 1` required at file top. Refuse to parse unknown versions; emit `rmap migrate` hint.
+- `schema_version = 2` required at file top. Refuse to parse unknown versions with a clear error message; upgrades are LLM-driven, no `rmap migrate` subcommand.
 - Tasks are `[[task]]` (TOML array of tables), NOT `[task.74]` (table-per-id). Order is file order — preserves user authoring order, keeps diffs small.
 - `eff = (b+u)/(2d)` is **computed at render time**, never stored. Don't add an `eff` field to the schema.
 - `markers` must be a subset of `{"parallel", "cx", "csr"}`.

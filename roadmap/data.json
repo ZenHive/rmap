@@ -16,7 +16,7 @@
     "15": {
       "name": "Schema extensions",
       "order": 15,
-      "status": "done"
+      "status": "in_progress"
     },
     "6": {
       "name": "HTML render",
@@ -803,6 +803,36 @@
       "done_at": "2026-05-17",
       "scored_at": "2026-05-17",
       "implemented": "Shipped [milestones.<name>] as fourth top-level concept (parallel to phases/bundles/markers), with Task::milestone Option<String> pin. Full surface: rmap milestone <id> <name|none> mutator (validate-then-write, unknown name rejected before any file mutation); rmap milestones selector listing mirroring rmap bundles (five-branch glyph ladder + trailing [target=<version>] segment, active-first sort key for the 'what release am I cutting next?' daily query); --milestone filter on rmap list / rmap next composing with --bundle/--phase/--marker; render row gains conditional '🚀 **<key>** ·' segment between bundle and module (rows without milestone render byte-identically); rmap show prints 'milestone: <key> (target=<version>)' line; rmap delegate gains conditional '- Milestone:' bullet in ## Context. Validation: VALID_MILESTONE_STATUSES = pending|active|done (distinct from task status vocab); validate_milestone_references rejects unknown task→milestone refs before any write. Three-place edit + top-level sibling edit done (schema.rs, diff::diff_fields! + TASK_VERBOSE_WHITELIST + diff_metadata::map_diff + impl MapEntry, export::ExportedTask + ExportedTasks). canonical_task_key_index gained \"milestone\" => 3 between bundle and status. Interactive rmap new gains a Select prompt over tasks.milestones.keys() with Skip option; --from-stdin accepts milestone field on StdinTask. Tests: 17 new (validate 3, diff 3, cli 10, delegate 3) + new golden fixture tests/golden/milestone_inline/ + skills_fixture gained [milestones.demo] so new SKILLS.md blocks execute under skills_smoke. Docs: SKILLS.md Milestones section, ~/.claude/includes/rmap.md command table + first-class subsection, DESIGN.md schema example + CLI surface + invariant, CLAUDE.md three new load-bearing invariants. Two pushbacks accepted: (1) no schema_version bump — purely additive optional fields, mirrors Phase 15 Task 19 Task::model precedent; (2) CHANGELOG style uses ### Phase 15 Task 24 header (no [Unreleased] section exists in this repo).",
+      "cross_repo": []
+    },
+    {
+      "id": 25,
+      "phase": 15,
+      "bundle": "schema_milestones",
+      "status": "pending",
+      "title": "Backfill creation paths with branch / files_to_modify / cross_repo (converge StdinTask/NewTaskFields mirror)",
+      "scores": {
+        "d": 4,
+        "b": 6,
+        "u": 6
+      },
+      "eff": 1.5,
+      "markers": [
+        "bug"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "rmap new --from-stdin accepts branch / files_to_modify / cross_repo and persists them in tasks.toml",
+        "Interactive rmap new flow either prompts for these or has a documented skip path",
+        "Decision documented (in commit message and/or CLAUDE.md): either a converged single source of truth via macro/derive, OR an explicit invariant on schema::Task noting the three-place-edit requirement for StdinTask + NewTaskFields"
+      ],
+      "out_of_scope": [
+        "Adding cross-repo dependency CRUD commands — only the creation-time field is in scope here",
+        "Changing the schema for branch / files_to_modify / cross_repo — they already exist on schema::Task; this task only wires creation surfaces"
+      ],
+      "body": "schema::Task has branch, files_to_modify, cross_repo fields that StdinTask\n(src/main.rs StdinTask struct) and NewTaskFields (src/mutate.rs) cannot accept\nat creation. Backfill both surfaces.\n\nWhile there, evaluate whether StdinTask should be replaced with a derive-from-\nschema::Task pattern (or a small macro) to stop the three-place mirror from\ndrifting every schema add. Today every new schema::Task field requires a\nmanual edit to StdinTask + NewTaskFields + add_task_str's emit logic — the\npattern drifted twice already (out_of_scope in Task 21, implemented in Task 22).\n\nOriginally surfaced by audit-review on 2026-05-17 (audit(dcad8e5..794036e)),\ndeferred from commit 180329c as out-of-scope for that commit's targeted\nout_of_scope drift fix.\n",
+      "created_at": "2026-05-17",
+      "scored_at": "2026-05-17",
       "cross_repo": []
     }
   ]

@@ -431,7 +431,7 @@ fn validate_implemented(path: &str, input: &str, tasks: &Tasks) -> Result<(), Va
             continue;
         }
 
-        if task.implemented.is_some() {
+        if task.implemented.as_deref().is_some_and(|s| !s.is_empty()) {
             continue;
         }
 

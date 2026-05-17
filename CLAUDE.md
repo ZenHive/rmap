@@ -72,16 +72,17 @@ Modules — each file's doc comment is the authoritative reference for its inter
 Easy to violate without breaking tests immediately. The "why" lives in source doc comments and tests; this list is the index.
 
 **Render & markers**
-- **Marker boundaries are byte-preserved** (TASKS / FOCUS / MERMAID). Don't normalize input bytes outside matched pairs.
-- **FOCUS / MERMAID line shape and empty-state strings are agent-grep contract.** Changing wording is a `schema_version` bump.
+- **Marker boundaries are byte-preserved** (TASKS / FOCUS / MERMAID / VISION). Don't normalize input bytes outside matched pairs.
+- **FOCUS / MERMAID / VISION line shape and empty-state strings are agent-grep contract.** Changing wording is a `schema_version` bump.
 - **Archive collapse triggers on `phases.N.status = "done"`** and emits the one-line `See [CHANGELOG.md#…]` body. Line shape is locked by `validate --check-render`.
 
 **Schema & validation**
-- **`schema_version = 1` is required.** Bump on any breaking schema change.
+- **`schema_version = 2` is required.** Bump on any breaking schema change.
 - **`eff` is never persisted.** Computed at render/export time; `schema::Task` would reject it via `deny_unknown_fields`.
 - **D/B/U range is `1..=10`.** The error message string `must be in 1..=10` is part of the agent-grep contract.
 - **`linear_id` validation is conditional** on `[linear]` table presence (Linear is opt-in).
 - **`blocked_reason` is required iff `status = "blocked"`.** Mutator re-validates, so the transition can't write without one.
+- **`implemented` is required and non-empty iff `status = "done"`.** Mirrors the `blocked_reason` pattern. Error string `is done but missing implemented` is agent-grep contract.
 - **Timestamps validate by shape (`YYYY-MM-DD`), not semantics.** `9999-99-99` passes on purpose; values live next to user-edited TOML.
 - **Status / marker / cross-repo-relation enums live in `validate.rs` constants**; render-time match arms in `render.rs` don't share a source — keep both in sync.
 - **Milestone status enum (`pending | active | done`) lives in `validate.rs::VALID_MILESTONE_STATUSES`** — distinct vocabulary from task status. `rmap milestones` sort order is `(status_rank: active=0/pending=1/done=2 asc, milestone.order asc)`; "active first" is load-bearing for the daily release-cut query.

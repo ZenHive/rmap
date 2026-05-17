@@ -152,6 +152,9 @@ pub fn update_status_many_str(
     } else {
         None
     };
+    // Snapshot once per call so a bulk transition that straddles midnight
+    // stamps every matched task with the same date.
+    let today = timestamp_field.map(|_| crate::today_iso());
 
     for task in tasks.iter_mut() {
         let Some(id) = task.get("id").and_then(item_to_task_id) else {
@@ -166,7 +169,8 @@ pub fn update_status_many_str(
             if let Some(field) = timestamp_field
                 && !task.contains_key(field)
             {
-                task.insert(field, Item::Value(Value::from(crate::today_iso())));
+                let today = today.as_deref().expect("today set when timestamp_field is");
+                task.insert(field, Item::Value(Value::from(today)));
                 needs_sort = true;
             }
 
@@ -432,6 +436,11 @@ fn canonical_task_key_index(key: &str) -> u32 {
 /// when the dependency is already present (in-repo: matching task_id; cross-repo:
 /// matching `(repo, task_id, relation)` triple). Re-validates after edit so cycles
 /// and unknown task ids are rejected before the file is written.
+///
+/// In-repo target ids mirror the resolved target task's storage shape: a numeric-only
+/// string id like `"100"` is appended as a TOML string when the target itself is
+/// stored as a string, and as an integer when stored as an integer — required for
+/// the validator's identity comparison (see `target_id_shape`).
 pub fn add_dependency_str(
     path: impl Into<String>,
     input: &str,
