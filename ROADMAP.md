@@ -89,5 +89,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 🎁 `agent_routing` — per-task LLM model pinning (`Task::model`, surfaced by `rmap delegate`).
 
 <!-- TASKS:BEGIN phase=15 -->
-> 2 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-15-schema-extensions).
+> 3 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-15-schema-extensions).
 <!-- TASKS:END -->
