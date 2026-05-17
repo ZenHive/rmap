@@ -106,6 +106,15 @@ impl CrossRepoSpec {
 /// All-or-nothing: if any ID is missing, returns `UnknownTaskId` and the input
 /// string is not modified. Duplicates in `ids` are idempotent; an empty slice
 /// errors with `EmptyIds`. Preserves TOML comments and whitespace via `toml_edit`.
+///
+/// Transitioning into `done` auto-fills `done_at = today_iso()` when absent;
+/// transitioning into `in_progress` auto-fills `started_at = today_iso()` when
+/// absent. Existing timestamps are never overwritten — re-runs are idempotent,
+/// and re-opening a task (`done → pending → done`) preserves the original
+/// `done_at`. Other transitions (`pending`, `blocked`, `superseded`) do not
+/// touch lifecycle timestamps. When a timestamp is newly inserted, the task's
+/// keys are re-sorted into canonical order so the field lands near the other
+/// small scalars instead of being appended after multi-line entries.
 pub fn update_status_many_str(
     path: impl Into<String>,
     input: &str,
@@ -125,6 +134,11 @@ pub fn update_status_many_str(
 
     let target: HashSet<&str> = ids.iter().copied().collect();
     let mut matched: HashSet<&str> = HashSet::new();
+    let timestamp_field = match new_status {
+        "done" => Some("done_at"),
+        "in_progress" => Some("started_at"),
+        _ => None,
+    };
 
     for task in tasks.iter_mut() {
         let Some(id) = task.get("id").and_then(item_to_task_id) else {
@@ -133,6 +147,16 @@ pub fn update_status_many_str(
 
         if target.contains(id.as_str()) {
             task["status"] = Item::Value(Value::from(new_status));
+
+            if let Some(field) = timestamp_field
+                && !task.contains_key(field)
+            {
+                task.insert(field, Item::Value(Value::from(crate::today_iso())));
+                task.sort_values_by(|a, _, b, _| {
+                    canonical_task_key_index(a.get()).cmp(&canonical_task_key_index(b.get()))
+                });
+            }
+
             // Record which input ID this matched (preserving the original &str).
             if let Some(&orig) = ids.iter().find(|&&s| s == id.as_str()) {
                 matched.insert(orig);

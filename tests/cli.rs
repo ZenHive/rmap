@@ -544,6 +544,7 @@ fn status_command_updates_tasks_and_rerenders_outputs() {
         .arg(&roadmap_path)
         .arg("--data-path")
         .arg(&data_path)
+        .env("RMAP_TODAY", "2026-05-14")
         .output()
         .expect("run rmap status");
 
@@ -555,6 +556,10 @@ fn status_command_updates_tasks_and_rerenders_outputs() {
 
     let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
     assert!(tasks.contains("id = 75\nphase = 12\nbundle = \"orders\"\nstatus = \"done\""));
+    assert!(
+        tasks.contains("done_at = \"2026-05-14\""),
+        "expected auto-filled done_at, got:\n{tasks}"
+    );
 
     let roadmap = fs::read_to_string(&roadmap_path).expect("read updated roadmap");
     assert!(roadmap.contains("| Task 75 `[P]` | ✅ |"));
@@ -563,6 +568,214 @@ fn status_command_updates_tasks_and_rerenders_outputs() {
         serde_json::from_str(&fs::read_to_string(&data_path).expect("read data json"))
             .expect("valid data json");
     assert_eq!(data["task"][1]["status"], "done");
+    assert_eq!(data["task"][1]["done_at"], "2026-05-14");
+}
+
+#[test]
+fn status_in_progress_auto_fills_started_at() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let path = write_file(&dir.join("roadmap"), "tasks.toml", PHASE4_TASKS);
+    write_file(
+        &dir,
+        "ROADMAP.md",
+        ROADMAP.replace("phase=1", "phase=12").as_str(),
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("75")
+        .arg("in_progress")
+        .arg("--tasks-path")
+        .arg(&path)
+        .current_dir(&dir)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap status");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&path).expect("read updated tasks");
+    assert!(tasks.contains("status = \"in_progress\""));
+    assert!(
+        tasks.contains("started_at = \"2026-05-14\""),
+        "expected auto-filled started_at, got:\n{tasks}"
+    );
+    // No done_at written for an in_progress transition.
+    assert!(
+        !tasks.contains("done_at"),
+        "in_progress must not write done_at, got:\n{tasks}"
+    );
+}
+
+const STATUS_PRESERVE_TASKS: &str = r#"
+schema_version = 1
+project = "preserve"
+default_branch = "main"
+
+[phases.1]
+name = "Preserve phase"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Preservation fixture"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "done"
+title = "already done"
+scores = { d = 2, b = 4, u = 5 }
+started_at = "2026-05-01"
+done_at = "2026-05-02"
+"#;
+
+#[test]
+fn status_preserves_existing_done_at_on_reflip() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let path = write_file(&dir.join("roadmap"), "tasks.toml", STATUS_PRESERVE_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("done")
+        .arg("--tasks-path")
+        .arg(&path)
+        .current_dir(&dir)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap status");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&path).expect("read updated tasks");
+    assert!(
+        tasks.contains("done_at = \"2026-05-02\""),
+        "existing done_at must be preserved, got:\n{tasks}"
+    );
+    assert!(
+        !tasks.contains("2026-05-14"),
+        "today's date must not appear when timestamps were already present, got:\n{tasks}"
+    );
+    assert!(
+        tasks.contains("started_at = \"2026-05-01\""),
+        "existing started_at must be preserved, got:\n{tasks}"
+    );
+}
+
+#[test]
+fn status_pending_does_not_set_timestamps() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let path = write_file(&dir.join("roadmap"), "tasks.toml", STATUS_PRESERVE_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("pending")
+        .arg("--tasks-path")
+        .arg(&path)
+        .current_dir(&dir)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap status");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&path).expect("read updated tasks");
+    assert!(tasks.contains("status = \"pending\""));
+    // Existing timestamps preserved — re-opening a task keeps audit trail.
+    assert!(tasks.contains("done_at = \"2026-05-02\""));
+    assert!(tasks.contains("started_at = \"2026-05-01\""));
+    assert!(
+        !tasks.contains("2026-05-14"),
+        "pending transition must not write any new timestamp, got:\n{tasks}"
+    );
+}
+
+const STATUS_BULK_TASKS: &str = r#"
+schema_version = 1
+project = "bulk"
+default_branch = "main"
+
+[phases.1]
+name = "Bulk phase"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Bulk fixture"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "pending"
+title = "first"
+scores = { d = 2, b = 4, u = 5 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "pending"
+title = "second"
+scores = { d = 2, b = 4, u = 5 }
+"#;
+
+#[test]
+fn status_bulk_auto_fills_each_task_independently() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let path = write_file(&dir.join("roadmap"), "tasks.toml", STATUS_BULK_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1,2")
+        .arg("done")
+        .arg("--tasks-path")
+        .arg(&path)
+        .current_dir(&dir)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap status");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&path).expect("read updated tasks");
+    // Each task gets its own done_at line — count occurrences directly.
+    let count = tasks.matches("done_at = \"2026-05-14\"").count();
+    assert_eq!(
+        count, 2,
+        "expected done_at on both bulk-flipped tasks, got:\n{tasks}"
+    );
+    assert_eq!(tasks.matches("status = \"done\"").count(), 2);
 }
 
 #[test]

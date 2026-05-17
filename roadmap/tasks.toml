@@ -2,9 +2,6 @@ schema_version = 1
 project = "rmap"
 default_branch = "development"
 
-[focus]
-phase = 6
-
 [phases.6]
 name = "HTML render"
 order = 6
@@ -434,7 +431,7 @@ scored_at = "2026-05-15"
 id = 20
 phase = 13
 bundle = "schema_parity"
-status = "in_progress"
+status = "done"
 title = "rmap status <id> done — auto-fill done_at (and started_at on in_progress)"
 scores = { d = 2, b = 4, u = 5 }
 markers = ["bug"]
@@ -463,7 +460,9 @@ Out of scope: backfilling done_at on already-done tasks with no timestamp (separ
 doctor-fix task); phase-level status rollups (separate concern).
 """
 created_at = "2026-05-15"
+started_at = "2026-05-17"
 scored_at = "2026-05-15"
+done_at = "2026-05-17"
 
 [[task]]
 id = 21
@@ -514,40 +513,47 @@ id = 22
 phase = 15
 bundle = "schema_implemented"
 status = "pending"
-title = "Optional `Task::implemented` field — original `body` vs. what was actually delivered"
-scores = { d = 3, b = 5, u = 7 }
+title = "`Task::implemented` field — record what was actually delivered (required when done)"
+scores = { d = 4, b = 6, u = 7 }
 scored_at = "2026-05-18"
 created_at = "2026-05-18"
 acceptance_criteria = [
-  "`Task::implemented: Option<String>` added to schema.rs (additive, optional)",
+  "`Task::implemented: Option<String>` added to schema.rs (Rust type stays Option — pending/in_progress/blocked tasks have nothing to record)",
   "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
+  "`validate.rs` requires `implemented = Some` whenever `status = \"done\"` (mirrors the `blocked_reason` rule when blocked); error message includes the task id and follows the existing `task <id> <field> ...` agent-grep shape",
+  "`rmap status <id> done` surfaces the missing-`implemented` validation error at the mutator layer so the user sees it at the transition, not on a later `validate` run",
   "Surfaced by `rmap show`, `rmap show --json`, and `rmap delegate` (rendered after original body when present)",
   "`rmap delegate` includes a distinct '## What was actually implemented' section (only when the field is populated)",
-  "No schema_version bump required (additive field)",
-  "Round-trip and golden tests updated",
+  "Backfill or grandfather strategy decided during impl: either one-time backfill of existing done tasks (`implemented = \"<see body and shipped_in commit>\"` stub) OR a temporary `validate` softening that only enforces on tasks `done_at >= <cutoff>` — pick one and document the choice in CHANGELOG",
+  "Schema_version bump required (the new conditional-required rule is a breaking change for any tasks.toml with done tasks lacking `implemented`)",
+  "Round-trip and golden tests updated; `tests/cli.rs` covers the `rmap status <id> done` error path",
 ]
 body = """
 When a task undergoes significant design evolution during implementation (heavy plan-mode iteration, ratings feedback, discovery of better shapes, etc.), the original `body` in tasks.toml becomes historical intent rather than an accurate record of what shipped.
 
 Example: ccxt_ocx Task 4 (`CcxtOcx.Error`). The task was originally written with one set of tags, return shapes, and API surface. After cross-plan ratings and synthesis, the delivered module used a meaningfully different (better) design. The original body no longer described reality, but we had no clean place to record the final outcome while preserving the original spec.
 
-Add an optional `implemented: Option<String>` field (parallel to `body`).
+Add an `implemented` field (parallel to `body`) with conditional-required validation:
 
 - `body` = original task definition / intent (never mutated after creation)
-- `implemented` = what was actually built and why (filled in when the task is marked done, or during/after major pivots)
+- `implemented` = what was actually built and why — REQUIRED when `status = "done"`, optional/absent on pending/in_progress/blocked
+- The Rust type is `Option<String>` because pending tasks have nothing to record, but `validate.rs` enforces `Some` on done (same conditional-required pattern as `blocked_reason` when `status = "blocked"`)
+
+For trivial tasks where the delivery matched the body exactly, a short `implemented = "as specified in body"` (or a one-line `shipped in <commit>` echo) is fine — the field's value is in being durable, not in being long. The cost of writing one line is low; the auditability payoff (future agents reading old roadmaps, post-mortem analysis, project archaeology) is durable.
 
 This field should be:
+- Validated as conditionally required on done (the new contract)
 - Rendered by `rmap show` and `rmap delegate` (as a distinct section after the original body)
 - Included in `data.json` and JSON output
 - Omitted from ROADMAP.md task tables (like `model`, `assignee`, etc.)
 
 Proposed name: `implemented`. Alternatives to consider during implementation: `delivery`, `outcome`, `actual`.
 
-Motivation is strongest for foundation and high-iteration tasks, but generally useful for auditability and future agents reading old roadmaps.
+Backfill question (decide during impl): rmap's own tasks.toml already has ~6 done tasks lacking this field, plus any other rmap-using project. Two viable strategies — one-time stub backfill (`implemented = "<see body and shipped_in commit>"`), or temporary softening that only enforces on `done_at >= <cutoff>`. The schema_version bump is the migration boundary either way.
 """
 out_of_scope = [
   "Auto-populating the field from git history or PR descriptions",
-  "Forcing the field on all tasks (remains optional)",
+  "Requiring `implemented` on pending / in_progress / blocked tasks (Rust type stays Option<String>; only `done` triggers the validation)",
   "Rendering `implemented` into the main ROADMAP.md TASKS table or FOCUS blocks",
 ]
 

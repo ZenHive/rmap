@@ -2,9 +2,6 @@
   "schema_version": 1,
   "project": "rmap",
   "default_branch": "development",
-  "focus": {
-    "phase": 6
-  },
   "phases": {
     "13": {
       "name": "Skills-parity polish",
@@ -611,7 +608,7 @@
       "id": 20,
       "phase": 13,
       "bundle": "schema_parity",
-      "status": "in_progress",
+      "status": "done",
       "title": "rmap status <id> done — auto-fill done_at (and started_at on in_progress)",
       "scores": {
         "d": 2,
@@ -632,6 +629,8 @@
       ],
       "body": "`rmap status <id> done` flips the task's `status` field but does not set `done_at`.\nSame for `rmap status <id> in_progress` — it doesn't set `started_at`. Every `rmap\nstatus` transition leaves the file internally inconsistent (status changed, lifecycle\ntimestamps missing), and downstream tooling that relies on `done_at` for recency\nrendering (`render.rs` \"recently done\" tag) sees no timestamp.\n\nObserved in `onchain_tempo` PR #1 (task 6 → done): CodeRabbit flagged both\n`roadmap/tasks.toml` and `roadmap/data.json` for missing `done_at` after the status\nflip — universal gap across consumers, not project-specific.\n\n`src/mutate.rs::update_status_many_str` writes only `task[\"status\"] = new_status`\n(line 135). The canonical-order key index already reserves slots for `started_at`\n(18) and `done_at` (20), so writing them is just an additional `task[\"done_at\"] =\ntoday()` when transitioning into `done`, mirrored for `started_at` on\n`pending → in_progress`.\n\nWhen transitioning OUT of `done` (e.g. re-opening a task), keep the existing\n`done_at` intact unless the caller explicitly clears it — preserves audit trail.\n\nOut of scope: backfilling done_at on already-done tasks with no timestamp (separate\ndoctor-fix task); phase-level status rollups (separate concern).\n",
       "created_at": "2026-05-15",
+      "started_at": "2026-05-17",
+      "done_at": "2026-05-17",
       "scored_at": "2026-05-15",
       "cross_repo": []
     },
@@ -670,29 +669,32 @@
       "phase": 15,
       "bundle": "schema_implemented",
       "status": "pending",
-      "title": "Optional `Task::implemented` field — original `body` vs. what was actually delivered",
+      "title": "`Task::implemented` field — record what was actually delivered (required when done)",
       "scores": {
-        "d": 3,
-        "b": 5,
+        "d": 4,
+        "b": 6,
         "u": 7
       },
-      "eff": 2.0,
+      "eff": 1.63,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
-        "`Task::implemented: Option<String>` added to schema.rs (additive, optional)",
+        "`Task::implemented: Option<String>` added to schema.rs (Rust type stays Option — pending/in_progress/blocked tasks have nothing to record)",
         "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
+        "`validate.rs` requires `implemented = Some` whenever `status = \"done\"` (mirrors the `blocked_reason` rule when blocked); error message includes the task id and follows the existing `task <id> <field> ...` agent-grep shape",
+        "`rmap status <id> done` surfaces the missing-`implemented` validation error at the mutator layer so the user sees it at the transition, not on a later `validate` run",
         "Surfaced by `rmap show`, `rmap show --json`, and `rmap delegate` (rendered after original body when present)",
         "`rmap delegate` includes a distinct '## What was actually implemented' section (only when the field is populated)",
-        "No schema_version bump required (additive field)",
-        "Round-trip and golden tests updated"
+        "Backfill or grandfather strategy decided during impl: either one-time backfill of existing done tasks (`implemented = \"<see body and shipped_in commit>\"` stub) OR a temporary `validate` softening that only enforces on tasks `done_at >= <cutoff>` — pick one and document the choice in CHANGELOG",
+        "Schema_version bump required (the new conditional-required rule is a breaking change for any tasks.toml with done tasks lacking `implemented`)",
+        "Round-trip and golden tests updated; `tests/cli.rs` covers the `rmap status <id> done` error path"
       ],
       "out_of_scope": [
         "Auto-populating the field from git history or PR descriptions",
-        "Forcing the field on all tasks (remains optional)",
+        "Requiring `implemented` on pending / in_progress / blocked tasks (Rust type stays Option<String>; only `done` triggers the validation)",
         "Rendering `implemented` into the main ROADMAP.md TASKS table or FOCUS blocks"
       ],
-      "body": "When a task undergoes significant design evolution during implementation (heavy plan-mode iteration, ratings feedback, discovery of better shapes, etc.), the original `body` in tasks.toml becomes historical intent rather than an accurate record of what shipped.\n\nExample: ccxt_ocx Task 4 (`CcxtOcx.Error`). The task was originally written with one set of tags, return shapes, and API surface. After cross-plan ratings and synthesis, the delivered module used a meaningfully different (better) design. The original body no longer described reality, but we had no clean place to record the final outcome while preserving the original spec.\n\nAdd an optional `implemented: Option<String>` field (parallel to `body`).\n\n- `body` = original task definition / intent (never mutated after creation)\n- `implemented` = what was actually built and why (filled in when the task is marked done, or during/after major pivots)\n\nThis field should be:\n- Rendered by `rmap show` and `rmap delegate` (as a distinct section after the original body)\n- Included in `data.json` and JSON output\n- Omitted from ROADMAP.md task tables (like `model`, `assignee`, etc.)\n\nProposed name: `implemented`. Alternatives to consider during implementation: `delivery`, `outcome`, `actual`.\n\nMotivation is strongest for foundation and high-iteration tasks, but generally useful for auditability and future agents reading old roadmaps.\n",
+      "body": "When a task undergoes significant design evolution during implementation (heavy plan-mode iteration, ratings feedback, discovery of better shapes, etc.), the original `body` in tasks.toml becomes historical intent rather than an accurate record of what shipped.\n\nExample: ccxt_ocx Task 4 (`CcxtOcx.Error`). The task was originally written with one set of tags, return shapes, and API surface. After cross-plan ratings and synthesis, the delivered module used a meaningfully different (better) design. The original body no longer described reality, but we had no clean place to record the final outcome while preserving the original spec.\n\nAdd an `implemented` field (parallel to `body`) with conditional-required validation:\n\n- `body` = original task definition / intent (never mutated after creation)\n- `implemented` = what was actually built and why — REQUIRED when `status = \"done\"`, optional/absent on pending/in_progress/blocked\n- The Rust type is `Option<String>` because pending tasks have nothing to record, but `validate.rs` enforces `Some` on done (same conditional-required pattern as `blocked_reason` when `status = \"blocked\"`)\n\nFor trivial tasks where the delivery matched the body exactly, a short `implemented = \"as specified in body\"` (or a one-line `shipped in <commit>` echo) is fine — the field's value is in being durable, not in being long. The cost of writing one line is low; the auditability payoff (future agents reading old roadmaps, post-mortem analysis, project archaeology) is durable.\n\nThis field should be:\n- Validated as conditionally required on done (the new contract)\n- Rendered by `rmap show` and `rmap delegate` (as a distinct section after the original body)\n- Included in `data.json` and JSON output\n- Omitted from ROADMAP.md task tables (like `model`, `assignee`, etc.)\n\nProposed name: `implemented`. Alternatives to consider during implementation: `delivery`, `outcome`, `actual`.\n\nBackfill question (decide during impl): rmap's own tasks.toml already has ~6 done tasks lacking this field, plus any other rmap-using project. Two viable strategies — one-time stub backfill (`implemented = \"<see body and shipped_in commit>\"`), or temporary softening that only enforces on `done_at >= <cutoff>`. The schema_version bump is the migration boundary either way.\n",
       "created_at": "2026-05-18",
       "scored_at": "2026-05-18",
       "cross_repo": []

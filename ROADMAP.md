@@ -5,11 +5,7 @@
 ## Current Focus
 
 <!-- FOCUS:BEGIN -->
-**Focus phase:** 6 — HTML render (1 of 2 done · 0 in progress)
-
-**Last shipped:** Task 8 — rmap render --html single-project view on 2026-05-14
-
-**Up next:** Task 9 — rmap render --html --multi portfolio view [D:6/B:6/U:5 → Eff:0.92] ⚠️
+**Focus phase:** not set — add [focus] to tasks.toml
 <!-- FOCUS:END -->
 
 ## Gantt
@@ -38,6 +34,7 @@ gantt
     rmap next --count N returns top-N candidates :done, 2026-05-13, 2026-05-13
     rmap bundles selector listing :done, 2026-05-13, 2026-05-13
     rmap next-bundle— select one session-sized bundle (Option 1— bundle = session— no subsetting) :done, 2026-05-14, 2026-05-14
+    rmap status <id> done — auto-fill done_at (and started_at on in_progress) :done, 2026-05-17, 2026-05-17
     section Phase 14 — Migration tooling
     rmap import — emit a paste-ready ROADMAP.md→tasks.toml migration prompt :done, 2026-05-15, 2026-05-15
 ```

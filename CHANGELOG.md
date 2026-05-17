@@ -100,6 +100,19 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 13 — Skills-parity polish
 
+### Phase 13 Task 20: `rmap status` auto-fills lifecycle timestamps (schema_parity bundle)
+
+**What was done:**
+- `rmap status <id> done` now writes `done_at = today_iso()` when the field is absent; mirror for `rmap status <id> in_progress` / `started_at`. Closes the long-standing gap where a status flip left the file internally inconsistent (status changed, lifecycle timestamp missing). Observed downstream in `onchain_tempo` PR #1 — CodeRabbit flagged both `tasks.toml` and `data.json` for missing `done_at` after a status flip; gap is universal across consumers.
+- Existing timestamps are never overwritten — re-flipping a `done` task, or moving `done → pending → done`, preserves the original `done_at` (audit trail). Other transitions (`pending`, `blocked`, `superseded`) touch no timestamps.
+- Bulk form (`rmap status 1,2,3 done`) auto-fills each task independently inside the same atomic write — the existing per-task loop in `update_status_many_str` runs the new logic once per match.
+- When a new timestamp is inserted, the affected task's keys are re-sorted into canonical order via `task.sort_values_by(canonical_task_key_index)` so the new field lands between `body` and `shipped_in` rather than being appended after multi-line entries. Mirrors the existing `update_markers_str` pattern: sort only on new-insert, never on idempotent calls (author-placed ordering for tasks that already declared the field is preserved).
+- `today_iso()` is the single source of truth for "now" — same helper as score-decay rendering, `stale`, and `doctor`. `RMAP_TODAY` overrides for deterministic tests.
+- Two new CLAUDE.md "Load-bearing invariants" bullets: (1) generalized the `rmap mark` auto-sort rule to also cover `rmap status`; (2) new bullet locking the auto-fill rule (which fields, which transitions, never-overwrite, today-resolution) as the agent contract.
+- `created_at` and `scored_at` deliberately untouched — creation owns `created_at`; score edits own `scored_at`. Backfilling `done_at` on already-done legacy tasks is a separate doctor-fix task.
+- No `schema_version` bump — the lifecycle-timestamp fields already exist in the schema; this only changes when the existing mutator path writes them.
+- Tests: extended `status_command_updates_tasks_and_rerenders_outputs` to assert the auto-filled `done_at` lands in both `tasks.toml` and `data.json`. Four new tests: `status_in_progress_auto_fills_started_at`, `status_preserves_existing_done_at_on_reflip`, `status_pending_does_not_set_timestamps`, `status_bulk_auto_fills_each_task_independently`.
+
 ### Phase 13 Tasks 12 & 13: `rmap doctor` threshold CLI overrides (doctor_tuning bundle)
 
 **What was done:**
