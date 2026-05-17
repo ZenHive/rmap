@@ -35,6 +35,7 @@ gantt
     rmap bundles selector listing :done, 2026-05-13, 2026-05-13
     rmap next-bundle— select one session-sized bundle (Option 1— bundle = session— no subsetting) :done, 2026-05-14, 2026-05-14
     rmap status <id> done — auto-fill done_at (and started_at on in_progress) :done, 2026-05-17, 2026-05-17
+    `rmap depend <src> on <numeric-id>` fails with 'unknown task' when target id is numeric-only :done, 2026-05-17, 2026-05-17
     section Phase 14 — Migration tooling
     rmap import — emit a paste-ready ROADMAP.md→tasks.toml migration prompt :done, 2026-05-15, 2026-05-15
 ```

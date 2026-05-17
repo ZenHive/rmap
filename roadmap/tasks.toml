@@ -561,7 +561,7 @@ out_of_scope = [
 id = 23
 phase = 13
 bundle = "delegate_parity"
-status = "pending"
+status = "done"
 title = "`rmap depend <src> on <numeric-id>` fails with 'unknown task' when target id is numeric-only"
 scores = { d = 2, b = 5, u = 6 }
 markers = ["bug"]
@@ -590,4 +590,6 @@ Workaround: edit `depends_on = [...]` directly in `roadmap/tasks.toml`; `rmap va
 Originally hit while running `rmap depend 18 on 7` in the ccxt_ocx project (Task 18 → Task 7). Real-world scenarios with numeric-only ids include any project that started auto-numbering tasks (1, 2, 3, …) before introducing variant suffixes.
 """
 created_at = "2026-05-17"
+started_at = "2026-05-17"
 scored_at = "2026-05-17"
+done_at = "2026-05-17"

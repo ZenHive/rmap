@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::str::FromStr;
 
 use thiserror::Error;
-use toml_edit::{Array, DocumentMut, InlineTable, Item, Table, Value};
+use toml_edit::{Array, ArrayOfTables, DocumentMut, InlineTable, Item, Table, Value};
 
 use crate::validate::{ValidateError, validate_tasks_str};
 
@@ -192,6 +192,33 @@ fn item_to_task_id(item: &Item) -> Option<String> {
     })
 }
 
+/// How a task's `id` is stored in the document — integer or string. Needed by
+/// `add_dependency_str` so a numeric-only string id (`id = "1"`) gets a string
+/// dependency entry; pushing an integer `1` would not reconcile against
+/// `TaskId::Text("1")` at validation time.
+enum TaskIdShape {
+    Integer(i64),
+    Text,
+}
+
+fn target_id_shape(tasks: &ArrayOfTables, target: &str) -> Option<TaskIdShape> {
+    for task in tasks {
+        let Some(value) = task.get("id").and_then(Item::as_value) else {
+            continue;
+        };
+        if let Some(int) = value.as_integer()
+            && int.to_string() == target
+        {
+            return Some(TaskIdShape::Integer(int));
+        } else if let Some(text) = value.as_str()
+            && text == target
+        {
+            return Some(TaskIdShape::Text);
+        }
+    }
+    None
+}
+
 /// Atomically apply a series of `+marker` / `-marker` operations to a single task.
 /// Add is a no-op if the marker is already present; remove is a no-op if absent.
 /// Validation runs once at the end; if any op produces an invalid file the input
@@ -338,6 +365,11 @@ pub fn add_dependency_str(
         .as_array_of_tables_mut()
         .ok_or(MutateError::MissingTasks)?;
 
+    // Look up the in-repo target's id storage shape before mutating, so a
+    // numeric-string-keyed task (`id = "1"`) gets a matching string entry
+    // rather than the integer the validator can't reconcile.
+    let in_repo_target_shape = in_repo.map(|other| target_id_shape(tasks, other));
+
     let mut matched = false;
     for task in tasks.iter_mut() {
         let Some(id) = task.get("id").and_then(item_to_task_id) else {
@@ -363,10 +395,18 @@ pub fn add_dependency_str(
             });
 
             if !present {
-                if let Ok(numeric) = other.parse::<i64>() {
-                    array.push(numeric);
-                } else {
-                    array.push(other);
+                match in_repo_target_shape.as_ref().and_then(Option::as_ref) {
+                    Some(TaskIdShape::Integer(value)) => array.push(*value),
+                    Some(TaskIdShape::Text) => array.push(other),
+                    None => {
+                        // Target not found in this document — let the validator
+                        // produce the canonical "unknown task" error after write.
+                        if let Ok(numeric) = other.parse::<i64>() {
+                            array.push(numeric);
+                        } else {
+                            array.push(other);
+                        }
+                    }
                 }
             }
         }

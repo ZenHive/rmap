@@ -100,6 +100,15 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 13 — Skills-parity polish
 
+### Phase 13 Task 23 (bug): `rmap depend` accepts numeric-only string target ids (delegate_parity bundle)
+
+**What was done:**
+- `rmap depend <src> on <target>` no longer rejects a target whose id is stored as a numeric-only string (e.g. `id = "1"`). Previously the mutator parsed `target` with `i64::from_str` and pushed an integer into `depends_on`; the validator then couldn't reconcile `TaskId::Number(1)` against `TaskId::Text("1")` and returned `unknown task 1`. Hit in the wild while running `rmap depend 18 on 7` in the `ccxt_ocx` project.
+- Fix mirrors the target's actual storage shape: a new `target_id_shape(tasks, target)` scan in `add_dependency_str` finds the target task in the document and returns `TaskIdShape::Integer(i64)` or `TaskIdShape::Text`. The push then uses the matching value type. If the target isn't found, the existing `parse::<i64>()` fallback keeps the original behaviour so the validator still produces the canonical "unknown task" error post-write.
+- Source-id format was never the trigger — only the target's was. The bug was local to `mutate.rs`; `query.rs` / `validate.rs` already key correctly on `TaskId`.
+- Regression test `depend_command_handles_numeric_only_string_target_id` builds a fixture with `id = "1"` / `"2"` / `"2b"`, runs `rmap depend 2 on 1`, asserts the written `depends_on = ["1"]` (string form) and that `rmap validate` passes.
+- No `schema_version` bump — bug fix; the storage shape (`Number | Text`) and validator behaviour are unchanged.
+
 ### Phase 13 Task 20: `rmap status` auto-fills lifecycle timestamps (schema_parity bundle)
 
 **What was done:**

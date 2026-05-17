@@ -1991,6 +1991,101 @@ fn depend_command_adds_in_repo_dependency() {
     );
 }
 
+// Regression: `rmap depend <src> on <numeric-string-id>` used to write the
+// target as an integer, which the validator can't reconcile against the
+// string-keyed task and rejects with "unknown task". See Task 23.
+#[test]
+fn depend_command_handles_numeric_only_string_target_id() {
+    const STRING_ID_TASKS: &str = r#"
+schema_version = 1
+project = "string_id_test"
+default_branch = "main"
+
+[phases.1]
+name = "Alpha"
+order = 1
+status = "pending"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha bundle"
+
+[[task]]
+id = "1"
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Task One"
+scores = { d = 1, b = 5, u = 5 }
+
+[[task]]
+id = "2"
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Task Two"
+scores = { d = 1, b = 5, u = 5 }
+
+[[task]]
+id = "2b"
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Task Two B"
+scores = { d = 1, b = 5, u = 5 }
+"#;
+
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", STRING_ID_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("render");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("depend")
+        .arg("2")
+        .arg("on")
+        .arg("1")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap depend 2 on 1");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(
+        tasks.contains(r#"depends_on = ["1"]"#),
+        "expected depends_on = [\"1\"] (string form matching target's id shape):\n{tasks}"
+    );
+
+    let validate = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("validate")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap validate");
+    assert!(
+        validate.status.success(),
+        "validate must pass after edit, stderr: {}",
+        String::from_utf8_lossy(&validate.stderr)
+    );
+}
+
 #[test]
 fn depend_command_adds_cross_repo_dependency_with_default_relation() {
     let dir = temp_dir();

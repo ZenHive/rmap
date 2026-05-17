@@ -703,7 +703,7 @@
       "id": 23,
       "phase": 13,
       "bundle": "delegate_parity",
-      "status": "pending",
+      "status": "done",
       "title": "`rmap depend <src> on <numeric-id>` fails with 'unknown task' when target id is numeric-only",
       "scores": {
         "d": 2,
@@ -727,6 +727,8 @@
       ],
       "body": "`rmap depend` rejects in-repo dependency edges whose target task id is a numeric-only string (e.g. `\"7\"`, `\"1\"`), even though the target exists and `rmap show <id>` resolves the same id correctly.\n\nReproduction (minimal — `schema_version = 1` project with three tasks `\"1\"`, `\"2\"`, `\"2b\"`):\n\n```\n$ rmap depend 2 on 1\nError: …/tasks.toml:30: task 2 depends on unknown task 1\n\n$ rmap depend 2b on 1\nError: …/tasks.toml:38: task 2b depends on unknown task 1\n\n$ rmap depend 2 on 2b\n(succeeds — depends_on edge written)\n```\n\nThe source-id format doesn't matter; only the target's format does. Anything with a non-digit character in the target id resolves; pure-digit string ids do not. `rmap show 1 --json`, `rmap show 7 --json` resolve correctly — so the storage layer keys correctly on the string id. The bug is local to the `depend` command's target-id lookup, likely parsing the target argument as an integer (or coercing to one) before looking it up against a string-keyed map.\n\nWorkaround: edit `depends_on = [...]` directly in `roadmap/tasks.toml`; `rmap validate` accepts the resulting state.\n\nOriginally hit while running `rmap depend 18 on 7` in the ccxt_ocx project (Task 18 → Task 7). Real-world scenarios with numeric-only ids include any project that started auto-numbering tasks (1, 2, 3, …) before introducing variant suffixes.\n",
       "created_at": "2026-05-17",
+      "started_at": "2026-05-17",
+      "done_at": "2026-05-17",
       "scored_at": "2026-05-17",
       "cross_repo": []
     }
