@@ -52,7 +52,7 @@ gantt
 Phase 13a (Eff-tier glyph + phase archive collapse) shipped 2026-05-13 — see [CHANGELOG.md](CHANGELOG.md#phase-13a-render-polish--eff-tier-glyph--phase-archive-collapse).
 
 <!-- TASKS:BEGIN phase=13 -->
-> 15 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-13-skills-parity-polish).
+> 16 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-13-skills-parity-polish).
 <!-- TASKS:END -->
 
 ## Phase 6 — HTML render (planned)
@@ -91,5 +91,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 🎁 `agent_routing` — per-task LLM model pinning (`Task::model`, surfaced by `rmap delegate`).
 
 <!-- TASKS:BEGIN phase=15 -->
-> 1 task. See [CHANGELOG.md](CHANGELOG.md#phase-15-schema-extensions).
+> 2 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-15-schema-extensions).
 <!-- TASKS:END -->

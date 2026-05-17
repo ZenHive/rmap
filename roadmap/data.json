@@ -73,6 +73,11 @@
       "order": 1,
       "description": "rmap import: emit a paste-ready ROADMAP.md→tasks.toml migration prompt (the delegate pattern, applied to migration)"
     },
+    "schema_implemented": {
+      "phase": 15,
+      "order": 2,
+      "description": "Optional `implemented` field to record what was actually delivered vs the original task `body`"
+    },
     "schema_parity": {
       "phase": 13,
       "order": 1,
@@ -606,7 +611,7 @@
       "id": 20,
       "phase": 13,
       "bundle": "schema_parity",
-      "status": "pending",
+      "status": "in_progress",
       "title": "rmap status <id> done — auto-fill done_at (and started_at on in_progress)",
       "scores": {
         "d": 2,
@@ -658,6 +663,69 @@
       "created_at": "2026-05-16",
       "done_at": "2026-05-16",
       "scored_at": "2026-05-16",
+      "cross_repo": []
+    },
+    {
+      "id": 22,
+      "phase": 15,
+      "bundle": "schema_implemented",
+      "status": "pending",
+      "title": "Optional `Task::implemented` field — original `body` vs. what was actually delivered",
+      "scores": {
+        "d": 3,
+        "b": 5,
+        "u": 7
+      },
+      "eff": 2.0,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`Task::implemented: Option<String>` added to schema.rs (additive, optional)",
+        "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
+        "Surfaced by `rmap show`, `rmap show --json`, and `rmap delegate` (rendered after original body when present)",
+        "`rmap delegate` includes a distinct '## What was actually implemented' section (only when the field is populated)",
+        "No schema_version bump required (additive field)",
+        "Round-trip and golden tests updated"
+      ],
+      "out_of_scope": [
+        "Auto-populating the field from git history or PR descriptions",
+        "Forcing the field on all tasks (remains optional)",
+        "Rendering `implemented` into the main ROADMAP.md TASKS table or FOCUS blocks"
+      ],
+      "body": "When a task undergoes significant design evolution during implementation (heavy plan-mode iteration, ratings feedback, discovery of better shapes, etc.), the original `body` in tasks.toml becomes historical intent rather than an accurate record of what shipped.\n\nExample: ccxt_ocx Task 4 (`CcxtOcx.Error`). The task was originally written with one set of tags, return shapes, and API surface. After cross-plan ratings and synthesis, the delivered module used a meaningfully different (better) design. The original body no longer described reality, but we had no clean place to record the final outcome while preserving the original spec.\n\nAdd an optional `implemented: Option<String>` field (parallel to `body`).\n\n- `body` = original task definition / intent (never mutated after creation)\n- `implemented` = what was actually built and why (filled in when the task is marked done, or during/after major pivots)\n\nThis field should be:\n- Rendered by `rmap show` and `rmap delegate` (as a distinct section after the original body)\n- Included in `data.json` and JSON output\n- Omitted from ROADMAP.md task tables (like `model`, `assignee`, etc.)\n\nProposed name: `implemented`. Alternatives to consider during implementation: `delivery`, `outcome`, `actual`.\n\nMotivation is strongest for foundation and high-iteration tasks, but generally useful for auditability and future agents reading old roadmaps.\n",
+      "created_at": "2026-05-18",
+      "scored_at": "2026-05-18",
+      "cross_repo": []
+    },
+    {
+      "id": 23,
+      "phase": 13,
+      "bundle": "delegate_parity",
+      "status": "pending",
+      "title": "`rmap depend <src> on <numeric-id>` fails with 'unknown task' when target id is numeric-only",
+      "scores": {
+        "d": 2,
+        "b": 5,
+        "u": 6
+      },
+      "eff": 2.75,
+      "markers": [
+        "bug"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`rmap depend 2 on 1` succeeds on a fixture containing string-id tasks `\"1\"` and `\"2\"`",
+        "Edge is written to the source task's `depends_on` array as the string `\"1\"` (matches existing storage shape)",
+        "`rmap validate` passes after the edit",
+        "Regression test added covering pure-numeric-string target ids"
+      ],
+      "out_of_scope": [
+        "Cross-repo dependency parsing (`--cross-repo` flag) — separate code path, not exercised by this bug",
+        "Cycle detection / unknown-id-when-truly-unknown error messages — those should keep working"
+      ],
+      "body": "`rmap depend` rejects in-repo dependency edges whose target task id is a numeric-only string (e.g. `\"7\"`, `\"1\"`), even though the target exists and `rmap show <id>` resolves the same id correctly.\n\nReproduction (minimal — `schema_version = 1` project with three tasks `\"1\"`, `\"2\"`, `\"2b\"`):\n\n```\n$ rmap depend 2 on 1\nError: …/tasks.toml:30: task 2 depends on unknown task 1\n\n$ rmap depend 2b on 1\nError: …/tasks.toml:38: task 2b depends on unknown task 1\n\n$ rmap depend 2 on 2b\n(succeeds — depends_on edge written)\n```\n\nThe source-id format doesn't matter; only the target's format does. Anything with a non-digit character in the target id resolves; pure-digit string ids do not. `rmap show 1 --json`, `rmap show 7 --json` resolve correctly — so the storage layer keys correctly on the string id. The bug is local to the `depend` command's target-id lookup, likely parsing the target argument as an integer (or coercing to one) before looking it up against a string-keyed map.\n\nWorkaround: edit `depends_on = [...]` directly in `roadmap/tasks.toml`; `rmap validate` accepts the resulting state.\n\nOriginally hit while running `rmap depend 18 on 7` in the ccxt_ocx project (Task 18 → Task 7). Real-world scenarios with numeric-only ids include any project that started auto-numbering tasks (1, 2, 3, …) before introducing variant suffixes.\n",
+      "created_at": "2026-05-17",
+      "scored_at": "2026-05-17",
       "cross_repo": []
     }
   ]
