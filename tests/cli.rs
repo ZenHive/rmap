@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
 
 const VALID_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -41,7 +41,7 @@ stale
 "#;
 
 const PHASE4_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -65,6 +65,7 @@ id = 74
 phase = 12
 bundle = "simple"
 status = "done"
+implemented = "fixture"
 title = "parseTicker field map"
 scores = { d = 4, b = 8, u = 8 }
 
@@ -538,6 +539,8 @@ fn status_command_updates_tasks_and_rerenders_outputs() {
         .arg("status")
         .arg("75")
         .arg("done")
+        .arg("--implemented")
+        .arg("test-shipped")
         .arg("--tasks-path")
         .arg(&tasks_path)
         .arg("--roadmap-path")
@@ -556,6 +559,7 @@ fn status_command_updates_tasks_and_rerenders_outputs() {
 
     let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
     assert!(tasks.contains("id = 75\nphase = 12\nbundle = \"orders\"\nstatus = \"done\""));
+    assert!(tasks.contains("implemented = \"test-shipped\""));
     assert!(
         tasks.contains("done_at = \"2026-05-14\""),
         "expected auto-filled done_at, got:\n{tasks}"
@@ -613,7 +617,7 @@ fn status_in_progress_auto_fills_started_at() {
 }
 
 const STATUS_PRESERVE_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "preserve"
 default_branch = "main"
 
@@ -632,6 +636,7 @@ id = 1
 phase = 1
 bundle = "core"
 status = "done"
+implemented = "fixture"
 title = "already done"
 scores = { d = 2, b = 4, u = 5 }
 started_at = "2026-05-01"
@@ -713,7 +718,7 @@ fn status_pending_does_not_set_timestamps() {
 }
 
 const STATUS_BULK_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "bulk"
 default_branch = "main"
 
@@ -755,6 +760,8 @@ fn status_bulk_auto_fills_each_task_independently() {
         .arg("status")
         .arg("1,2")
         .arg("done")
+        .arg("--implemented")
+        .arg("bulk-shipped")
         .arg("--tasks-path")
         .arg(&path)
         .current_dir(&dir)
@@ -1170,7 +1177,7 @@ fn next_command_unknown_bundle_returns_null_json() {
 }
 
 const NEXT_COUNT_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "demo"
 default_branch = "main"
 
@@ -1421,7 +1428,7 @@ fn diff_command_reports_added_removed_and_changed_tasks_against_git_ref() {
     let current = PHASE4_TASKS
         .replace(
             "status = \"pending\"\ntitle = \"parseOrder field map\"",
-            "status = \"done\"\ntitle = \"parseOrder field map\"",
+            "status = \"done\"\nimplemented = \"diff-test-shipped\"\ntitle = \"parseOrder field map\"",
         )
         .replace("depends_on = [74]\n", "")
         .replace(
@@ -1435,6 +1442,7 @@ id = 74
 phase = 12
 bundle = "simple"
 status = "done"
+implemented = "fixture"
 title = "parseTicker field map"
 scores = { d = 4, b = 8, u = 8 }
 "#,
@@ -1504,7 +1512,8 @@ scores = { d = 6, b = 8, u = 8 }
     assert!(
         tasks.iter().any(|entry| entry["id"] == 75
             && entry["status"] == "changed"
-            && entry["changed_fields"] == serde_json::json!(["status", "depends_on"])),
+            && entry["changed_fields"]
+                == serde_json::json!(["status", "depends_on", "implemented"])),
         "{value}"
     );
     assert!(
@@ -1516,7 +1525,7 @@ scores = { d = 6, b = 8, u = 8 }
 }
 
 const MULTI_STATUS_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "multi_test"
 default_branch = "main"
 
@@ -1575,6 +1584,8 @@ fn status_command_multi_id_flips_all_tasks() {
         .arg("status")
         .arg("1,2,3")
         .arg("done")
+        .arg("--implemented")
+        .arg("bulk-multi-shipped")
         .arg("--tasks-path")
         .arg(&tasks_path)
         .current_dir(&dir)
@@ -1655,6 +1666,8 @@ fn status_command_single_id_still_works() {
         .arg("status")
         .arg("2")
         .arg("done")
+        .arg("--implemented")
+        .arg("single-shipped")
         .arg("--tasks-path")
         .arg(&tasks_path)
         .current_dir(&dir)
@@ -1997,7 +2010,7 @@ fn depend_command_adds_in_repo_dependency() {
 #[test]
 fn depend_command_handles_numeric_only_string_target_id() {
     const STRING_ID_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "string_id_test"
 default_branch = "main"
 
@@ -2369,7 +2382,7 @@ fn run_new_from_stdin(
 }
 
 const NEW_STDIN_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "new_stdin_test"
 default_branch = "main"
 
@@ -2822,6 +2835,7 @@ phase = 1
 bundle = "foundation"
 title = "Tries to create a done task"
 status = "done"
+implemented = "fixture"
 scores = { d = 2, b = 5, u = 5 }
 "#;
 
@@ -2981,7 +2995,7 @@ scores = { d = 2, b = 6, u = 6 }
 }
 
 const NEXT_BUNDLE_FOCUS_VS_OTHER: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "demo"
 default_branch = "main"
 
@@ -3058,7 +3072,7 @@ fn next_bundle_focus_phase_wins_over_higher_sum_eff_other_phase() {
 }
 
 const NEXT_BUNDLE_TIE_BY_ORDER: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "demo"
 default_branch = "main"
 
@@ -3115,7 +3129,7 @@ fn next_bundle_tie_broken_by_bundle_order() {
 }
 
 const NEXT_BUNDLE_ALL_BLOCKED: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "demo"
 default_branch = "main"
 
@@ -3173,7 +3187,7 @@ fn next_bundle_all_blocked_bundle_is_skipped() {
 }
 
 const NEXT_BUNDLE_UNMET_DEP: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "demo"
 default_branch = "main"
 
@@ -3231,7 +3245,7 @@ fn next_bundle_unmet_external_dep_skips_bundle() {
 }
 
 const NEXT_BUNDLE_FORCE_PICK: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "demo"
 default_branch = "main"
 
@@ -3310,7 +3324,7 @@ fn next_bundle_json_envelope_shape_is_stable() {
     let value: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stdout is valid json");
 
-    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["schema_version"], 2);
     assert_eq!(value["focus_phase"], 1);
     assert_eq!(value["bundle"]["name"], "focus_b");
     assert_eq!(value["bundle"]["phase"], 1);
@@ -3328,7 +3342,7 @@ fn next_bundle_json_envelope_shape_is_stable() {
 }
 
 const NEXT_BUNDLE_TOPO_CHAIN: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "demo"
 default_branch = "main"
 
@@ -3409,7 +3423,7 @@ fn next_bundle_phase_override_changes_effective_focus() {
 }
 
 const NEXT_BUNDLE_NO_ACTIONABLE: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "demo"
 default_branch = "main"
 
@@ -3428,6 +3442,7 @@ id = 1
 phase = 1
 bundle = "idle"
 status = "done"
+implemented = "fixture"
 title = "done one"
 scores = { d = 3, b = 3, u = 3 }
 started_at = "2026-05-01"
@@ -3552,7 +3567,7 @@ fn git(dir: &std::path::Path, args: &[&str]) {
 // ---------------------------------------------------------------------------
 
 const STALE_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "stale_test"
 default_branch = "main"
 
@@ -3589,6 +3604,7 @@ id = 3
 phase = 1
 bundle = "core"
 status = "done"
+implemented = "fixture"
 title = "Done task with old date"
 scores = { d = 2, b = 4, u = 4 }
 started_at = "2026-01-01"
@@ -3603,7 +3619,7 @@ scores = { d = 2, b = 4, u = 4 }
 "#;
 
 const FRESH_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "fresh_test"
 default_branch = "main"
 
@@ -3774,7 +3790,7 @@ fn stale_command_rejects_malformed_duration() {
 /// Two bundles in the same phase so neither covers the full phase (avoids the
 /// degenerate-bundle doctor lint).
 const DOCTOR_CLEAN_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "doctor_test"
 default_branch = "main"
 
@@ -3807,6 +3823,7 @@ id = 11
 phase = 1
 bundle = "secondary"
 status = "done"
+implemented = "fixture"
 title = "Clean task B"
 scores = { d = 1, b = 3, u = 3 }
 scored_at = "2026-04-20"
@@ -3817,7 +3834,7 @@ scored_at = "2026-04-20"
 /// phase, and scores are all D<5 and B<8 so the missing-AC lint doesn't fire either —
 /// keeps this fixture targeting just stale + score-decay.
 const DOCTOR_DIRTY_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "doctor_dirty"
 default_branch = "main"
 
@@ -4063,7 +4080,7 @@ fn doctor_command_clean_fixture_json_ok() {
 /// Task 31 is high-B (b=8) and in_progress without AC → missing-AC. Task 32 is
 /// done so it's skipped by the AC lint even though it would otherwise trigger.
 const DOCTOR_LINT_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "doctor_lints"
 default_branch = "main"
 
@@ -4101,6 +4118,7 @@ id = 32
 phase = 1
 bundle = "everything"
 status = "done"
+implemented = "fixture"
 title = "Substantive but done — should be skipped"
 scores = { d = 6, b = 9, u = 7 }
 scored_at = "2026-04-20"
@@ -4234,7 +4252,7 @@ fn doctor_command_lint_findings_in_json() {
 /// one phase so no degenerate-bundle finding; scores are D<5/B<8 so missing-AC
 /// stays quiet.
 const DOCTOR_THRESHOLD_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "doctor_threshold"
 default_branch = "main"
 
@@ -4278,7 +4296,7 @@ scored_at = "2026-04-01"
 /// it doubles as an over-flagging control. Both pending with recent `scored_at`
 /// (no decay) and no `started_at` (not stale). Two bundles → no degenerate.
 const DOCTOR_AC_THRESHOLD_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "doctor_ac_threshold"
 default_branch = "main"
 
@@ -4457,7 +4475,7 @@ fn doctor_command_thresholds_in_json() {
 // ---------------------------------------------------------------------------
 
 const BUNDLES_MULTI_PHASE_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "bundles_demo"
 default_branch = "main"
 
@@ -4494,6 +4512,7 @@ id = 1
 phase = 1
 bundle = "alpha"
 status = "done"
+implemented = "fixture"
 title = "alpha setup"
 scores = { d = 2, b = 4, u = 4 }
 
@@ -4534,13 +4553,13 @@ scores = { d = 3, b = 6, u = 6 }
 "#;
 
 const BUNDLES_EMPTY_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "empty"
 default_branch = "main"
 "#;
 
 const BUNDLES_ALL_DONE_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "all_done"
 default_branch = "main"
 
@@ -4559,13 +4578,14 @@ id = 1
 phase = 1
 bundle = "finished"
 status = "done"
+implemented = "fixture"
 title = "complete"
 scores = { d = 2, b = 4, u = 4 }
 done_at = "2026-05-01"
 "#;
 
 const BUNDLES_ALL_BLOCKED_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "all_blocked"
 default_branch = "main"
 
@@ -4590,7 +4610,7 @@ blocked_reason = "waiting on vendor approval"
 "#;
 
 const BUNDLES_IN_FLIGHT_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "in_flight"
 default_branch = "main"
 
@@ -4671,7 +4691,7 @@ fn bundles_command_emits_json_envelope() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let value: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
 
-    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["schema_version"], 2);
     assert_eq!(value["focus_phase"], 1);
     let bundles = value["bundles"].as_array().expect("bundles is array");
     assert_eq!(bundles.len(), 3, "expected 3 bundles:\n{stdout}");

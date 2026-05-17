@@ -1,4 +1,4 @@
-schema_version = 1
+schema_version = 2
 project = "onchain"
 default_branch = "main"
 
@@ -17,6 +17,7 @@ id = 101
 phase = 7
 bundle = "module_split"
 status = "done"
+implemented = "fixture"
 title = "extract token-name lookup"
 module = "Onchain.ERC20"
 scores = { d = 3, b = 6, u = 6 }

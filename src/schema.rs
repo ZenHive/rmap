@@ -81,6 +81,7 @@ pub struct Task {
     pub done_at: Option<String>,
     pub scored_at: Option<String>,
     pub blocked_reason: Option<String>,
+    pub implemented: Option<String>,
     #[serde(default)]
     pub cross_repo: Vec<CrossRepo>,
 }

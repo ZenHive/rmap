@@ -2,7 +2,7 @@ use rmap::export::export_json_str;
 use rmap::validate::validate_tasks_str;
 
 const TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -25,6 +25,7 @@ id = 74
 phase = 12
 bundle = "ticker_normalization"
 status = "done"
+implemented = "fixture"
 title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }
 markers = ["parallel"]
@@ -52,7 +53,7 @@ fn exports_validated_tasks_with_computed_efficiency() {
     let json = export_json_str(&tasks).expect("export json");
     let value: serde_json::Value = serde_json::from_str(&json).expect("valid json");
 
-    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["schema_version"], 2);
     assert_eq!(value["project"], "ccxt_extract");
     assert_eq!(value["default_branch"], "development");
     assert_eq!(value["linear"]["team_key"], "INE");

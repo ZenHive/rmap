@@ -76,6 +76,7 @@ mod tests {
             done_at: None,
             scored_at: None,
             blocked_reason: None,
+            implemented: None,
             cross_repo: vec![],
         }
     }

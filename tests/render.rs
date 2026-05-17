@@ -5,7 +5,7 @@ use rmap::render::render_roadmap_str_with_today;
 use rmap::validate::validate_tasks_str;
 
 const TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -24,6 +24,7 @@ id = 74
 phase = 12
 bundle = "ticker_normalization"
 status = "done"
+implemented = "fixture"
 title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }
 markers = ["parallel"]

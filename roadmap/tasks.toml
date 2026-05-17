@@ -1,4 +1,4 @@
-schema_version = 1
+schema_version = 2
 project = "rmap"
 default_branch = "development"
 
@@ -97,6 +97,7 @@ id = 1
 phase = 13
 bundle = "schema_parity"
 status = "done"
+implemented = "Tasks::vision field + optional VISION marker pair shipped as specified — additive, no schema_version bump."
 title = "Tasks::vision field + VISION marker pair"
 scores = { d = 3, b = 6, u = 5 }
 scored_at = "2026-05-13"
@@ -114,6 +115,7 @@ id = 2
 phase = 13
 bundle = "schema_parity"
 status = "done"
+implemented = "Task::branch: Option<String> shipped; rendered in TASKS table for in-progress tasks, surfaced in JSON exports."
 title = "Task::branch field on in-progress rows"
 scores = { d = 2, b = 5, u = 4 }
 scored_at = "2026-05-13"
@@ -130,6 +132,7 @@ id = 3
 phase = 13
 bundle = "schema_parity"
 status = "done"
+implemented = "bug/security/docs added to VALID_MARKERS as the canonical excluded-category vocabulary; ROADMAP rendering elides them per existing rules."
 title = "Excluded-category markers (bug/security/docs)"
 scores = { d = 3, b = 6, u = 5 }
 scored_at = "2026-05-13"
@@ -146,6 +149,7 @@ id = 4
 phase = 13
 bundle = "schema_parity"
 status = "done"
+implemented = "validate_scores enforces 1..=10 on D/B/U with the agent-grep contract substring `must be in 1..=10`; runs in both validate_tasks_str and collect_findings pipelines."
 title = "D/B/U 1..=10 range validation"
 scores = { d = 2, b = 5, u = 5 }
 scored_at = "2026-05-13"
@@ -161,6 +165,7 @@ id = 5
 phase = 13
 bundle = "delegate_parity"
 status = "done"
+implemented = "files_to_modify: Vec<String> added with three-place edit; rendered as a plain-bullet ## Files to modify section in rmap delegate between AC and out_of_scope."
 title = "Task::files_to_modify field"
 scores = { d = 3, b = 5, u = 5 }
 scored_at = "2026-05-13"
@@ -177,6 +182,7 @@ id = 6
 phase = 13
 bundle = "delegate_parity"
 status = "done"
+implemented = "out_of_scope: Vec<String> added with three-place edit; rendered as a plain-bullet ## Out of scope section in rmap delegate between AC and Environment notes."
 title = "Task::out_of_scope field"
 scores = { d = 2, b = 5, u = 5 }
 scored_at = "2026-05-13"
@@ -198,6 +204,7 @@ id = 7
 phase = 13
 bundle = "delegate_parity"
 status = "done"
+implemented = "rmap delegate canonical seven-section order (Context → Task → AC → Out of scope → Files to modify → Scoring → Environment notes) locked by emits_canonical_section_order_with_distinguishing_line test."
 title = "delegate.rs section restructure (task-writing.md template)"
 scores = { d = 3, b = 6, u = 5 }
 scored_at = "2026-05-13"
@@ -216,6 +223,7 @@ id = 8
 phase = 6
 bundle = "html_single"
 status = "done"
+implemented = "rmap render --html flag added: writes self-contained static HTML to roadmap/dist/index.html via a single minijinja template, with embedded data island + filterable per-phase task cards + SVG DAG."
 title = "rmap render --html single-project view"
 scores = { d = 6, b = 7, u = 6 }
 scored_at = "2026-05-13"
@@ -255,6 +263,7 @@ id = 10
 phase = 7
 bundle = "watch_core"
 status = "done"
+implemented = "rmap watch subcommand added: synchronous notify-driven FS-watch loop with directory-level registration + filename filter; idempotent renders via write_if_changed."
 title = "rmap watch FS watcher"
 scores = { d = 4, b = 5, u = 4 }
 scored_at = "2026-05-13"
@@ -271,6 +280,7 @@ id = 11
 phase = 7
 bundle = "watch_stream"
 status = "done"
+implemented = "rmap watch --json flag added: emits compact JSON event lines (rendered/error) to stdout with WATCH_SCHEMA_VERSION=1; no-op renders stay silent; agent contract locked in CLAUDE.md."
 title = "rmap watch --json event stream"
 scores = { d = 3, b = 4, u = 4 }
 scored_at = "2026-05-13"
@@ -287,6 +297,7 @@ id = 12
 phase = 13
 bundle = "doctor_tuning"
 status = "done"
+implemented = "rmap doctor --threshold-days <N> flag added: overrides the 30-day cutoff for both stale-in-progress and score-decay checks."
 title = "rmap doctor --threshold-days override"
 scores = { d = 2, b = 3, u = 3 }
 scored_at = "2026-05-13"
@@ -302,6 +313,7 @@ id = 13
 phase = 13
 bundle = "doctor_tuning"
 status = "done"
+implemented = "rmap doctor --ac-threshold <N> flag added: overrides both AC_DIFFICULTY_THRESHOLD and AC_BENEFIT_THRESHOLD; effective thresholds echoed in --json envelope."
 title = "rmap doctor --ac-threshold override"
 scores = { d = 2, b = 3, u = 3 }
 scored_at = "2026-05-13"
@@ -317,6 +329,7 @@ id = 14
 phase = 13
 bundle = "batch_selection"
 status = "done"
+implemented = "rmap list/next --bundle <name> flag added; TaskFilter gained a bundle field; matches_bundle predicate is pub(crate)-shared between list_tasks and next_task."
 title = "rmap list/next --bundle <name> filter"
 scores = { d = 2, b = 7, u = 7 }
 scored_at = "2026-05-13"
@@ -337,6 +350,7 @@ id = 15
 phase = 13
 bundle = "batch_selection"
 status = "done"
+implemented = "rmap next --count N (NonZeroUsize, default 1) added; focus-phase candidates fill first; --count 1 returns bare object, --count >1 returns JSON array (split contract locked in CLAUDE.md)."
 title = "rmap next --count N returns top-N candidates"
 scores = { d = 3, b = 5, u = 4 }
 scored_at = "2026-05-13"
@@ -357,6 +371,7 @@ id = 16
 phase = 13
 bundle = "batch_selection"
 status = "done"
+implemented = "rmap bundles subcommand added: per-bundle status counts + next dep-satisfied pending task; five-branch glyph ladder; --phase/--has-next/--in-focus/--json flags."
 title = "rmap bundles selector listing"
 scores = { d = 3, b = 7, u = 5 }
 scored_at = "2026-05-13"
@@ -382,6 +397,7 @@ id = 17
 phase = 13
 bundle = "bundle_selector"
 status = "done"
+implemented = "rmap next-bundle subcommand added: picks one bundle worth of dep-satisfied pending tasks ranked by (in_focus_phase desc, sum_eff desc, bundle.order asc); --bundle force-pick; topological Kahn emission."
 title = "rmap next-bundle: select one session-sized bundle (Option 1: bundle = session, no subsetting)"
 scores = { d = 3, b = 8, u = 6 }
 acceptance_criteria = ["New `rmap next-bundle` subcommand. Flags: `--phase <N>` (override focus), `--bundle <name>` (force-pick), `--json`, `--tasks-path`. Emits a bundle picked per the ranking rule plus every currently-actionable pending task in that bundle in dep-topological order.", "Ranking rule: focus-phase bundles win over non-focus; within a phase, rank by sum-of-Eff over the bundle's dep-satisfied pending tasks (descending); ties broken by `bundles.<name>.order` ascending; bundles with zero actionable pending tasks (all-done, all-blocked, or all deps unmet) are skipped.", "No auto-subsetting (Option 1). Output is *all* dep-satisfied pending tasks in the chosen bundle — never a D-budget slice. Bundle sizing is the author's responsibility; oversized bundles get split in `tasks.toml`, not windowed here.", "Human output: header line `bundle <name>  phase <N> — <phase_name>  [<bundle_done>/<bundle_total>]  — <description>` followed by one row per task using the same row shape as `rmap list` (id, status glyph, title, `[D/B/U → Eff:x.y] <tier_glyph>`). Empty pick prints a single line `none — no actionable bundle in <phase or 'any phase'>` to stderr (exit 0).", "JSON envelope: `{ schema_version, focus_phase, bundle: { name, phase, description } | null, tasks: [ExportedTask, ...] }`. Empty pick → `bundle: null`, `tasks: []`. Tasks reuse `ExportedTask` (so `eff` is included). Renaming or removing any envelope key is a `schema_version` bump.", "Dep-topological ordering inside the chosen bundle: tasks emitted such that for every emitted task its `depends_on` entries either point outside the bundle (already done by invariant — dep-satisfied) or appear earlier in the output. Cycles inside a bundle are already rejected by `validate`, so the topological sort never fails.", "Selector logic factored as `next_bundle::pick(tasks, filter, today) -> Option<BundlePick>` in a new `src/next_bundle.rs`. Reuses `next::next_tasks` / `query::matches_bundle` / `scoring::efficiency` / `bundles::list_bundles`-derived per-bundle state — no duplicated dep-satisfaction logic. Pure function; no I/O.", "Tests: at least (a) focus-phase wins over a higher-sum-Eff bundle in another phase, (b) ties broken by `bundle.order`, (c) bundle with all-blocked tasks is skipped, (d) bundle whose only pending task has unmet deps is skipped, (e) `--bundle <name>` force-picks even when its sum-Eff is lower, (f) JSON shape stable (snapshot or field-presence asserts), (g) topological order assertion when bundle has internal `depends_on` chain. Smoke test in `tests/skills_smoke.rs` picks up the new `SKILLS.md` example automatically.", "Doc updates: SKILLS.md gets a new example block (`rmap next-bundle`, `rmap next-bundle --json`, `rmap next-bundle --bundle <name>`). CLAUDE.md gains a Load-bearing-invariants bullet for the JSON envelope, the ranking-rule contract, the empty-pick line spelling, and the no-subsetting rule. Architecture section gets a `next_bundle.rs` entry. Files touched: src/next_bundle.rs, src/main.rs, src/export.rs, tests/cli.rs, SKILLS.md, CLAUDE.md.", "Out of scope: `--delegate <target>` for bundles (deferred to a follow-up task — needs its own design pass on how to concatenate multiple task prompts), D-budget subsetting (Option 2 — explicitly rejected), cross-bundle planning, and any change to existing `rmap next` semantics."]
@@ -396,6 +412,7 @@ id = 18
 phase = 14
 bundle = "import_command"
 status = "done"
+implemented = "rmap import subcommand added: emits a paste-ready Markdown prompt with live JSON Schema for migrating a hand-edited ROADMAP.md into tasks.toml; pure read-only, mirrors rmap delegate."
 title = "rmap import — emit a paste-ready ROADMAP.md→tasks.toml migration prompt"
 scores = { d = 3, b = 7, u = 8 }
 acceptance_criteria = ["`rmap import` prints a paste-ready prompt instructing an agent to convert one or more hand-edited ROADMAP.md files into roadmap/tasks.toml", "Prompt references the live schema (reuse schema_json / `rmap schema`) so it never drifts when schema.rs changes", "Prompt covers the marker-pair conversion and the validate → render → diff-check loop", "`--help` text makes clear the command emits a prompt — it does not itself parse or write tasks.toml", "Read-only — no file mutation, mirroring `rmap delegate`"]
@@ -419,6 +436,7 @@ id = 19
 phase = 15
 bundle = "agent_routing"
 status = "done"
+implemented = "Task::model: Option<String> added as free-text per-task LLM pin; surfaced as conditional `- Model:` bullet in rmap delegate Context; settable on creation; not rendered into ROADMAP.md."
 title = "Task::model field — per-task LLM model pinning"
 scores = { d = 3, b = 5, u = 5 }
 model = "claude-opus-4-7"
@@ -437,6 +455,7 @@ id = 20
 phase = 13
 bundle = "schema_parity"
 status = "done"
+implemented = "update_status_many_str now auto-fills done_at / started_at on the respective transitions when absent; existing values never overwritten; canonical_task_key_index sort triggers only on new-insert."
 title = "rmap status <id> done — auto-fill done_at (and started_at on in_progress)"
 scores = { d = 2, b = 4, u = 5 }
 markers = ["bug"]
@@ -474,6 +493,7 @@ id = 21
 phase = 13
 bundle = "schema_parity"
 status = "done"
+implemented = "StdinTask gained out_of_scope: Vec<String>; rmap new --from-stdin now accepts the field instead of rejecting it as `unknown field`."
 shipped_in = "180329c"
 title = "`rmap new --from-stdin` rejects `out_of_scope` though `rmap schema` declares it"
 scores = { d = 2, b = 5, u = 6 }
@@ -517,11 +537,9 @@ done_at = "2026-05-16"
 id = 22
 phase = 15
 bundle = "schema_implemented"
-status = "pending"
+status = "done"
 title = "`Task::implemented` field — record what was actually delivered (required when done)"
 scores = { d = 4, b = 6, u = 7 }
-scored_at = "2026-05-18"
-created_at = "2026-05-18"
 acceptance_criteria = [
   "`Task::implemented: Option<String>` added to schema.rs (Rust type stays Option — pending/in_progress/blocked tasks have nothing to record)",
   "Three-place edit: schema.rs + diff::diff_fields! + export::ExportedTask",
@@ -532,6 +550,11 @@ acceptance_criteria = [
   "Backfill or grandfather strategy decided during impl: either one-time backfill of existing done tasks (`implemented = \"<see body and shipped_in commit>\"` stub) OR a temporary `validate` softening that only enforces on tasks `done_at >= <cutoff>` — pick one and document the choice in CHANGELOG",
   "Schema_version bump required (the new conditional-required rule is a breaking change for any tasks.toml with done tasks lacking `implemented`)",
   "Round-trip and golden tests updated; `tests/cli.rs` covers the `rmap status <id> done` error path",
+]
+out_of_scope = [
+  "Auto-populating the field from git history or PR descriptions",
+  "Requiring `implemented` on pending / in_progress / blocked tasks (Rust type stays Option<String>; only `done` triggers the validation)",
+  "Rendering `implemented` into the main ROADMAP.md TASKS table or FOCUS blocks",
 ]
 body = """
 When a task undergoes significant design evolution during implementation (heavy plan-mode iteration, ratings feedback, discovery of better shapes, etc.), the original `body` in tasks.toml becomes historical intent rather than an accurate record of what shipped.
@@ -556,17 +579,18 @@ Proposed name: `implemented`. Alternatives to consider during implementation: `d
 
 Backfill question (decide during impl): rmap's own tasks.toml already has ~6 done tasks lacking this field, plus any other rmap-using project. Two viable strategies — one-time stub backfill (`implemented = "<see body and shipped_in commit>"`), or temporary softening that only enforces on `done_at >= <cutoff>`. The schema_version bump is the migration boundary either way.
 """
-out_of_scope = [
-  "Auto-populating the field from git history or PR descriptions",
-  "Requiring `implemented` on pending / in_progress / blocked tasks (Rust type stays Option<String>; only `done` triggers the validation)",
-  "Rendering `implemented` into the main ROADMAP.md TASKS table or FOCUS blocks",
-]
+implemented = "Added Task::implemented: Option<String> field, conditionally required when status=done (mirrors blocked_reason pattern). Three-place edit + schema_version bump 1→2. Consumer-first extensions over and above the AC: --implemented flag on rmap status (single-step UX), interactive TTY prompt, visual body/implemented distinction in rmap show, project-CLAUDE.md consuming-agent-POV rule. One-time backfill of all done tasks in rmap's roadmap + 22 golden fixtures + 10 inline test constants. Delegate gains conditional '## What was actually implemented' 8th section."
+created_at = "2026-05-18"
+started_at = "2026-05-17"
+scored_at = "2026-05-18"
+done_at = "2026-05-17"
 
 [[task]]
 id = 23
 phase = 13
 bundle = "delegate_parity"
 status = "done"
+implemented = "add_dependency_str now mirrors the target task's id storage shape via target_id_shape (Integer | Text), so `rmap depend <src> on <numeric-only-string-id>` reconciles correctly at validation time."
 title = "`rmap depend <src> on <numeric-id>` fails with 'unknown task' when target id is numeric-only"
 scores = { d = 2, b = 5, u = 6 }
 markers = ["bug"]

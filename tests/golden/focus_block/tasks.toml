@@ -1,4 +1,4 @@
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -35,6 +35,7 @@ id = 74
 phase = 12
 bundle = "ticker_normalization"
 status = "done"
+implemented = "fixture"
 title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }
 scored_at = "2026-05-10"
@@ -47,6 +48,7 @@ id = 75
 phase = 12
 bundle = "order_normalization"
 status = "done"
+implemented = "fixture"
 title = "parseOrder field map"
 scores = { d = 6, b = 8, u = 8 }
 scored_at = "2026-05-10"

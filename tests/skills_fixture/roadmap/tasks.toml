@@ -1,4 +1,4 @@
-schema_version = 1
+schema_version = 2
 project = "skills_demo"
 default_branch = "main"
 
@@ -20,6 +20,7 @@ id = 1
 phase = 1
 bundle = "alpha"
 status = "done"
+implemented = "fixture"
 title = "set up project"
 scores = { d = 2, b = 4, u = 4 }
 scored_at = "2026-05-10"

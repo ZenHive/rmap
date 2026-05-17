@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::schema::{Task, TaskId, Tasks};
 
-const SUPPORTED_SCHEMA_VERSION: u32 = 1;
+const SUPPORTED_SCHEMA_VERSION: u32 = 2;
 const VALID_STATUSES: &[&str] = &["pending", "in_progress", "blocked", "done", "superseded"];
 pub const VALID_MARKERS: &[&str] = &["parallel", "cx", "csr", "bug", "security", "docs"];
 const VALID_ASSIGNEES: &[&str] = &["human", "claude", "codex", "cursor"];
@@ -73,6 +73,9 @@ pub fn collect_findings(tasks: &Tasks, path: &str, input: &str) -> Vec<ValidateE
     if let Err(e) = validate_blocked_reasons(path, input, tasks) {
         findings.push(e);
     }
+    if let Err(e) = validate_implemented(path, input, tasks) {
+        findings.push(e);
+    }
     if let Err(e) = validate_dependencies(path, input, tasks) {
         findings.push(e);
     }
@@ -104,6 +107,7 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_linear_ids(&path, input, &tasks)?;
     validate_timestamps(&path, input, &tasks)?;
     validate_blocked_reasons(&path, input, &tasks)?;
+    validate_implemented(&path, input, &tasks)?;
     validate_dependencies(&path, input, &tasks)?;
     validate_dependency_cycles(&path, input, &tasks)?;
     validate_cross_repo_relations(&path, input, &tasks)?;
@@ -122,8 +126,8 @@ fn validate_schema_version(path: &str, input: &str, tasks: &Tasks) -> Result<(),
         path,
         line_containing(input, "schema_version").unwrap_or(FIRST_LINE_NUMBER),
         format!(
-            "unsupported schema_version {}; run rmap migrate before rendering",
-            tasks.schema_version
+            "unsupported schema_version {} (expected {}); see CHANGELOG.md for v{} migration",
+            tasks.schema_version, SUPPORTED_SCHEMA_VERSION, SUPPORTED_SCHEMA_VERSION
         ),
     ))
 }
@@ -406,6 +410,26 @@ fn validate_blocked_reasons(path: &str, input: &str, tasks: &Tasks) -> Result<()
             path,
             line_containing(input, "status = \"blocked\"").unwrap_or(FIRST_LINE_NUMBER),
             format!("task {} is blocked but missing blocked_reason", task.id),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_implemented(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        if task.status != "done" {
+            continue;
+        }
+
+        if task.implemented.is_some() {
+            continue;
+        }
+
+        return Err(semantic_error(
+            path,
+            line_containing(input, "status = \"done\"").unwrap_or(FIRST_LINE_NUMBER),
+            format!("task {} is done but missing implemented", task.id),
         ));
     }
 

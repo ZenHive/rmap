@@ -2,7 +2,7 @@ use rmap::mutate::{MarkerOp, update_markers_str, update_status_str};
 use rmap::validate::validate_tasks_str;
 
 const TASKS: &str = r#"# Roadmap source.
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -36,11 +36,12 @@ scores = { d = 4, b = 8, u = 8 }
 
 #[test]
 fn update_status_changes_only_target_status_and_preserves_comments() {
-    let updated =
-        update_status_str("roadmap/tasks.toml", TASKS, "74", "done").expect("update status");
+    let updated = update_status_str("roadmap/tasks.toml", TASKS, "74", "done", Some("shipped"))
+        .expect("update status");
 
     assert!(updated.contains("# Roadmap source."));
     assert!(updated.contains("id = 74\nphase = 12\nbundle = \"simple\"\nstatus = \"done\""));
+    assert!(updated.contains("implemented = \"shipped\""));
     assert!(
         updated.contains("id = \"78b\"\nphase = 12\nbundle = \"simple\"\nstatus = \"pending\"")
     );
@@ -49,7 +50,7 @@ fn update_status_changes_only_target_status_and_preserves_comments() {
 
 #[test]
 fn update_status_supports_string_task_ids() {
-    let updated = update_status_str("roadmap/tasks.toml", TASKS, "78b", "in_progress")
+    let updated = update_status_str("roadmap/tasks.toml", TASKS, "78b", "in_progress", None)
         .expect("update status");
 
     assert!(
@@ -59,7 +60,7 @@ fn update_status_supports_string_task_ids() {
 
 #[test]
 fn update_status_rejects_unknown_task_id() {
-    let err = update_status_str("roadmap/tasks.toml", TASKS, "999", "done")
+    let err = update_status_str("roadmap/tasks.toml", TASKS, "999", "done", Some("x"))
         .expect_err("unknown id is rejected");
 
     assert!(err.to_string().contains("unknown task id 999"), "{err}");
@@ -67,7 +68,7 @@ fn update_status_rejects_unknown_task_id() {
 
 #[test]
 fn update_status_rejects_invalid_status() {
-    let err = update_status_str("roadmap/tasks.toml", TASKS, "74", "shipped")
+    let err = update_status_str("roadmap/tasks.toml", TASKS, "74", "shipped", None)
         .expect_err("invalid status is rejected");
 
     assert!(
@@ -76,7 +77,7 @@ fn update_status_rejects_invalid_status() {
     );
 }
 
-const TASKS_WITH_TRAILING_FIELDS: &str = r#"schema_version = 1
+const TASKS_WITH_TRAILING_FIELDS: &str = r#"schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -138,7 +139,7 @@ fn update_markers_new_field_lands_in_canonical_position() {
     validate_tasks_str("roadmap/tasks.toml", &updated).expect("validates");
 }
 
-const TASKS_WITH_EXISTING_MARKERS: &str = r#"schema_version = 1
+const TASKS_WITH_EXISTING_MARKERS: &str = r#"schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 

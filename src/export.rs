@@ -61,6 +61,8 @@ struct ExportedTask<'a> {
     scored_at: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     blocked_reason: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    implemented: Option<&'a String>,
     cross_repo: &'a [CrossRepo],
 }
 
@@ -181,6 +183,7 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
         done_at: task.done_at.as_ref(),
         scored_at: task.scored_at.as_ref(),
         blocked_reason: task.blocked_reason.as_ref(),
+        implemented: task.implemented.as_ref(),
         cross_repo: &task.cross_repo,
     }
 }

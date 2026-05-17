@@ -38,6 +38,8 @@ gantt
     `rmap depend <src> on <numeric-id>` fails with 'unknown task' when target id is numeric-only :done, 2026-05-17, 2026-05-17
     section Phase 14 — Migration tooling
     rmap import — emit a paste-ready ROADMAP.md→tasks.toml migration prompt :done, 2026-05-15, 2026-05-15
+    section Phase 15 — Schema extensions
+    `Task——implemented` field — record what was actually delivered (required when done) :done, 2026-05-17, 2026-05-17
 ```
 <!-- MERMAID:END -->
 

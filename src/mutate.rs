@@ -115,11 +115,19 @@ impl CrossRepoSpec {
 /// touch lifecycle timestamps. When a timestamp is newly inserted, the task's
 /// keys are re-sorted into canonical order so the field lands near the other
 /// small scalars instead of being appended after multi-line entries.
+///
+/// `implemented`: when transitioning to `done` and a value is provided, write
+/// it to every matched task's `implemented` field (overwriting any existing
+/// value — the transition-time content is the most current). Ignored on
+/// non-`done` transitions. When `None`, no write; the conditional-required
+/// `validate_implemented` check will reject the transition unless the task
+/// already carries an `implemented` field.
 pub fn update_status_many_str(
     path: impl Into<String>,
     input: &str,
     ids: &[&str],
     new_status: &str,
+    implemented: Option<&str>,
 ) -> Result<String, MutateError> {
     if ids.is_empty() {
         return Err(MutateError::EmptyIds);
@@ -139,6 +147,11 @@ pub fn update_status_many_str(
         "in_progress" => Some("started_at"),
         _ => None,
     };
+    let implemented_to_write = if new_status == "done" {
+        implemented
+    } else {
+        None
+    };
 
     for task in tasks.iter_mut() {
         let Some(id) = task.get("id").and_then(item_to_task_id) else {
@@ -148,10 +161,24 @@ pub fn update_status_many_str(
         if target.contains(id.as_str()) {
             task["status"] = Item::Value(Value::from(new_status));
 
+            let mut needs_sort = false;
+
             if let Some(field) = timestamp_field
                 && !task.contains_key(field)
             {
                 task.insert(field, Item::Value(Value::from(crate::today_iso())));
+                needs_sort = true;
+            }
+
+            if let Some(value) = implemented_to_write {
+                let was_present = task.contains_key("implemented");
+                task.insert("implemented", Item::Value(Value::from(value)));
+                if !was_present {
+                    needs_sort = true;
+                }
+            }
+
+            if needs_sort {
                 task.sort_values_by(|a, _, b, _| {
                     canonical_task_key_index(a.get()).cmp(&canonical_task_key_index(b.get()))
                 });
@@ -179,8 +206,9 @@ pub fn update_status_str(
     input: &str,
     task_id: &str,
     new_status: &str,
+    implemented: Option<&str>,
 ) -> Result<String, MutateError> {
-    update_status_many_str(path, input, &[task_id], new_status)
+    update_status_many_str(path, input, &[task_id], new_status, implemented)
 }
 
 fn item_to_task_id(item: &Item) -> Option<String> {
@@ -333,11 +361,12 @@ fn canonical_task_key_index(key: &str) -> u32 {
         "branch" => 15,
         "blocked_reason" => 16,
         "body" => 17,
-        "created_at" => 18,
-        "started_at" => 19,
-        "scored_at" => 20,
-        "done_at" => 21,
-        "shipped_in" => 22,
+        "implemented" => 18,
+        "created_at" => 19,
+        "started_at" => 20,
+        "scored_at" => 21,
+        "done_at" => 22,
+        "shipped_in" => 23,
         _ => u32::MAX,
     }
 }
@@ -631,7 +660,7 @@ mod tests {
     use super::*;
 
     const SIMPLE_TOML: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "test"
 default_branch = "main"
 
@@ -656,7 +685,7 @@ scores = { d = 1, b = 5, u = 5 }
 
     #[test]
     fn update_status_many_str_empty_ids_returns_empty_ids_error() {
-        let result = update_status_many_str("test.toml", SIMPLE_TOML, &[], "done");
+        let result = update_status_many_str("test.toml", SIMPLE_TOML, &[], "done", None);
         assert!(
             matches!(result, Err(MutateError::EmptyIds)),
             "expected EmptyIds, got: {result:?}"

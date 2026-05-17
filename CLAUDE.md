@@ -38,6 +38,8 @@ Edition is `2024` (Cargo.toml). MSRV: whatever ships with Rust 1.85+.
 
 **Keep `~/.claude/includes/rmap.md` in sync.** It's the consumer-facing decision-layer doc (which command, when) imported by every rmap-using project's CLAUDE.md, including this one. Update it in the same commit when the command surface or a user-visible schema affordance changes. `rmap.md` deliberately does NOT enumerate fields — `rmap schema` / `rmap --help` is authoritative.
 
+**Evaluate roadmap & task design from the consuming-agent POV.** rmap IS a tool for Claude. When picking up rmap tasks or reviewing the roadmap, evaluate the design from the perspective of the agent (Claude) that will actually consume the tool day-to-day — not just the perspective of the AC author. If the AC overspecifies in ways that hurt daily ergonomics, push back and propose the consumer-first alternative in the plan. Examples: a transition that requires manual TOML edit between two commands is friction Claude will route around; a field that's not surfaced in `rmap show` is invisible to the consumer; a section ordering optimized for one rare-path command (delegate) at the cost of the daily-path command (show) is the wrong tradeoff. (`feedback_decide_as_consumer.md` captures the same posture as personal memory; this rule lifts it to the project so it's authoritative for all rmap work.)
+
 ## Architecture
 
 Pipeline: `tasks.toml` → `schema::Tasks` → `render_roadmap_str` (markdown), `export_json_str` (data.json), or `render_html_str` (static HTML, opt-in via `--html`) → write back. Mutations route through `toml_edit` to preserve user formatting and comments.

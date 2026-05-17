@@ -234,7 +234,7 @@ mod tests {
     }
 
     const FOCUS_VS_OTHER_PHASE: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "p"
 default_branch = "main"
 
@@ -291,7 +291,7 @@ scores = { d = 2, b = 10, u = 10 }
     #[test]
     fn topo_order_respects_internal_chain() {
         let toml = r#"
-schema_version = 1
+schema_version = 2
 project = "p"
 default_branch = "main"
 
@@ -335,7 +335,7 @@ depends_on = [1]
     #[test]
     fn all_blocked_bundle_skipped() {
         let toml = r#"
-schema_version = 1
+schema_version = 2
 project = "p"
 default_branch = "main"
 
@@ -380,7 +380,7 @@ scores = { d = 3, b = 3, u = 3 }
     #[test]
     fn unmet_external_dep_skips_bundle() {
         let toml = r#"
-schema_version = 1
+schema_version = 2
 project = "p"
 default_branch = "main"
 
@@ -425,7 +425,7 @@ depends_on = [1]
     #[test]
     fn force_pick_overrides_ranking() {
         let toml = r#"
-schema_version = 1
+schema_version = 2
 project = "p"
 default_branch = "main"
 
@@ -474,7 +474,7 @@ scores = { d = 5, b = 5, u = 5 }
     #[test]
     fn ties_broken_by_bundle_order() {
         let toml = r#"
-schema_version = 1
+schema_version = 2
 project = "p"
 default_branch = "main"
 

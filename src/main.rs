@@ -88,6 +88,12 @@ enum Commands {
     Status {
         id: String,
         new_status: String,
+        /// Set or overwrite `implemented` in the same transition. Required when
+        /// transitioning to `done` unless the task already carries the field;
+        /// on a TTY without this flag, `rmap` prompts interactively. Ignored
+        /// (with a one-line stderr note) on non-`done` transitions.
+        #[arg(long)]
+        implemented: Option<String>,
         #[arg(long)]
         tasks_path: Option<PathBuf>,
         #[arg(long)]
@@ -352,12 +358,13 @@ fn run() -> Result<ExitCode> {
         Commands::Status {
             id,
             new_status,
+            implemented,
             tasks_path,
             roadmap_path,
             data_path,
         } => {
             let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
-            update_status(paths, &id, &new_status)?;
+            update_status(paths, &id, &new_status, implemented.as_deref())?;
         }
         Commands::Next {
             marker,
@@ -891,7 +898,12 @@ fn add_dependency(
     Ok(())
 }
 
-fn update_status(paths: ResolvedPaths, task_id: &str, new_status: &str) -> Result<()> {
+fn update_status(
+    paths: ResolvedPaths,
+    task_id: &str,
+    new_status: &str,
+    implemented: Option<&str>,
+) -> Result<()> {
     let ids: Vec<&str> = task_id
         .split(',')
         .map(str::trim)
@@ -902,14 +914,28 @@ fn update_status(paths: ResolvedPaths, task_id: &str, new_status: &str) -> Resul
         anyhow::bail!("no task ids provided (got {:?})", task_id);
     }
 
+    if implemented.is_some() && new_status != "done" {
+        eprintln!(
+            "warning: --implemented ignored for status `{new_status}` (only applies to `done`)"
+        );
+    }
+
     let input = std::fs::read_to_string(&paths.tasks_path)
         .with_context(|| format!("read {}", paths.tasks_path.display()))?;
+
+    let prompted: Option<String> = if new_status == "done" && implemented.is_none() {
+        prompt_for_implemented(&input, &ids)?
+    } else {
+        None
+    };
+    let effective_implemented = implemented.or(prompted.as_deref());
 
     let updated = update_status_many_str(
         paths.tasks_path.display().to_string(),
         &input,
         &ids,
         new_status,
+        effective_implemented,
     )?;
 
     let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &updated)?;
@@ -1238,6 +1264,52 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         created_at: None,
         scored_at: None,
     })
+}
+
+/// When transitioning to `done` without `--implemented`, surface an interactive
+/// prompt on a TTY for any matched task that is missing the field. Returns the
+/// entered string (applied to every matched task by `update_status_many_str`),
+/// or `None` when all matched tasks already carry `implemented` (no prompt
+/// needed) or when stdin is not a TTY (let `validate_implemented` surface the
+/// error so scripts/agents get a clean message instead of a hang).
+fn prompt_for_implemented(input: &str, ids: &[&str]) -> Result<Option<String>> {
+    let parsed: rmap::schema::Tasks = match toml::from_str(input) {
+        Ok(t) => t,
+        Err(_) => return Ok(None),
+    };
+
+    let any_missing = parsed
+        .task
+        .iter()
+        .filter(|t| ids.iter().any(|id| *id == t.id.to_string()))
+        .any(|t| t.implemented.is_none());
+
+    if !any_missing {
+        return Ok(None);
+    }
+
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        return Ok(None);
+    }
+
+    use dialoguer::{Input, theme::ColorfulTheme};
+    let theme = ColorfulTheme::default();
+    let prompt_label = if ids.len() == 1 {
+        format!("implemented (what shipped for task {})", ids[0])
+    } else {
+        format!("implemented (applied to all {} tasks)", ids.len())
+    };
+    let value: String = Input::with_theme(&theme)
+        .with_prompt(prompt_label)
+        .validate_with(|s: &String| -> std::result::Result<(), &str> {
+            if s.trim().is_empty() {
+                Err("implemented cannot be empty when transitioning to done")
+            } else {
+                Ok(())
+            }
+        })
+        .interact_text()?;
+    Ok(Some(value))
 }
 
 fn prompt_score(theme: &dialoguer::theme::ColorfulTheme, label: &str) -> Result<u32> {

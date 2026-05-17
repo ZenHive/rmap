@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "project": "rmap",
   "default_branch": "development",
   "phases": {
@@ -120,6 +120,7 @@
       "started_at": "2026-05-13",
       "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
+      "implemented": "Tasks::vision field + optional VISION marker pair shipped as specified — additive, no schema_version bump.",
       "cross_repo": []
     },
     {
@@ -144,6 +145,7 @@
       "started_at": "2026-05-13",
       "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
+      "implemented": "Task::branch: Option<String> shipped; rendered in TASKS table for in-progress tasks, surfaced in JSON exports.",
       "cross_repo": []
     },
     {
@@ -168,6 +170,7 @@
       "started_at": "2026-05-13",
       "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
+      "implemented": "bug/security/docs added to VALID_MARKERS as the canonical excluded-category vocabulary; ROADMAP rendering elides them per existing rules.",
       "cross_repo": []
     },
     {
@@ -191,6 +194,7 @@
       "started_at": "2026-05-13",
       "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
+      "implemented": "validate_scores enforces 1..=10 on D/B/U with the agent-grep contract substring `must be in 1..=10`; runs in both validate_tasks_str and collect_findings pipelines.",
       "cross_repo": []
     },
     {
@@ -215,6 +219,7 @@
       "started_at": "2026-05-13",
       "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
+      "implemented": "files_to_modify: Vec<String> added with three-place edit; rendered as a plain-bullet ## Files to modify section in rmap delegate between AC and out_of_scope.",
       "cross_repo": []
     },
     {
@@ -244,6 +249,7 @@
       "started_at": "2026-05-13",
       "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
+      "implemented": "out_of_scope: Vec<String> added with three-place edit; rendered as a plain-bullet ## Out of scope section in rmap delegate between AC and Environment notes.",
       "cross_repo": []
     },
     {
@@ -272,6 +278,7 @@
       "started_at": "2026-05-13",
       "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
+      "implemented": "rmap delegate canonical seven-section order (Context → Task → AC → Out of scope → Files to modify → Scoring → Environment notes) locked by emits_canonical_section_order_with_distinguishing_line test.",
       "cross_repo": []
     },
     {
@@ -300,6 +307,7 @@
       "started_at": "2026-05-14",
       "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
+      "implemented": "rmap render --html flag added: writes self-contained static HTML to roadmap/dist/index.html via a single minijinja template, with embedded data island + filterable per-phase task cards + SVG DAG.",
       "cross_repo": []
     },
     {
@@ -350,6 +358,7 @@
       "started_at": "2026-05-14",
       "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
+      "implemented": "rmap watch subcommand added: synchronous notify-driven FS-watch loop with directory-level registration + filename filter; idempotent renders via write_if_changed.",
       "cross_repo": []
     },
     {
@@ -375,6 +384,7 @@
       "started_at": "2026-05-14",
       "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
+      "implemented": "rmap watch --json flag added: emits compact JSON event lines (rendered/error) to stdout with WATCH_SCHEMA_VERSION=1; no-op renders stay silent; agent contract locked in CLAUDE.md.",
       "cross_repo": []
     },
     {
@@ -398,6 +408,7 @@
       "started_at": "2026-05-14",
       "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
+      "implemented": "rmap doctor --threshold-days <N> flag added: overrides the 30-day cutoff for both stale-in-progress and score-decay checks.",
       "cross_repo": []
     },
     {
@@ -421,6 +432,7 @@
       "started_at": "2026-05-14",
       "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
+      "implemented": "rmap doctor --ac-threshold <N> flag added: overrides both AC_DIFFICULTY_THRESHOLD and AC_BENEFIT_THRESHOLD; effective thresholds echoed in --json envelope.",
       "cross_repo": []
     },
     {
@@ -449,6 +461,7 @@
       "started_at": "2026-05-13",
       "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
+      "implemented": "rmap list/next --bundle <name> flag added; TaskFilter gained a bundle field; matches_bundle predicate is pub(crate)-shared between list_tasks and next_task.",
       "cross_repo": []
     },
     {
@@ -478,6 +491,7 @@
       "started_at": "2026-05-13",
       "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
+      "implemented": "rmap next --count N (NonZeroUsize, default 1) added; focus-phase candidates fill first; --count 1 returns bare object, --count >1 returns JSON array (split contract locked in CLAUDE.md).",
       "cross_repo": []
     },
     {
@@ -511,6 +525,7 @@
       "started_at": "2026-05-13",
       "done_at": "2026-05-13",
       "scored_at": "2026-05-13",
+      "implemented": "rmap bundles subcommand added: per-bundle status counts + next dep-satisfied pending task; five-branch glyph ladder; --phase/--has-next/--in-focus/--json flags.",
       "cross_repo": []
     },
     {
@@ -544,6 +559,7 @@
       "started_at": "2026-05-14",
       "done_at": "2026-05-14",
       "scored_at": "2026-05-13",
+      "implemented": "rmap next-bundle subcommand added: picks one bundle worth of dep-satisfied pending tasks ranked by (in_focus_phase desc, sum_eff desc, bundle.order asc); --bundle force-pick; topological Kahn emission.",
       "cross_repo": []
     },
     {
@@ -573,6 +589,7 @@
       "started_at": "2026-05-15",
       "done_at": "2026-05-15",
       "scored_at": "2026-05-14",
+      "implemented": "rmap import subcommand added: emits a paste-ready Markdown prompt with live JSON Schema for migrating a hand-edited ROADMAP.md into tasks.toml; pure read-only, mirrors rmap delegate.",
       "cross_repo": []
     },
     {
@@ -607,6 +624,7 @@
       "body": "Add an optional free-text `model` field to `schema::Task` recording which LLM model should do the task. Surface it in `rmap delegate`, `rmap show`, `data.json`, `rmap diff`, and the `rmap new` create surface. Not rendered into ROADMAP.md rows.",
       "created_at": "2026-05-15",
       "scored_at": "2026-05-15",
+      "implemented": "Task::model: Option<String> added as free-text per-task LLM pin; surfaced as conditional `- Model:` bullet in rmap delegate Context; settable on creation; not rendered into ROADMAP.md.",
       "cross_repo": []
     },
     {
@@ -637,6 +655,7 @@
       "started_at": "2026-05-17",
       "done_at": "2026-05-17",
       "scored_at": "2026-05-15",
+      "implemented": "update_status_many_str now auto-fills done_at / started_at on the respective transitions when absent; existing values never overwritten; canonical_task_key_index sort triggers only on new-insert.",
       "cross_repo": []
     },
     {
@@ -667,13 +686,14 @@
       "created_at": "2026-05-16",
       "done_at": "2026-05-16",
       "scored_at": "2026-05-16",
+      "implemented": "StdinTask gained out_of_scope: Vec<String>; rmap new --from-stdin now accepts the field instead of rejecting it as `unknown field`.",
       "cross_repo": []
     },
     {
       "id": 22,
       "phase": 15,
       "bundle": "schema_implemented",
-      "status": "pending",
+      "status": "done",
       "title": "`Task::implemented` field — record what was actually delivered (required when done)",
       "scores": {
         "d": 4,
@@ -701,7 +721,10 @@
       ],
       "body": "When a task undergoes significant design evolution during implementation (heavy plan-mode iteration, ratings feedback, discovery of better shapes, etc.), the original `body` in tasks.toml becomes historical intent rather than an accurate record of what shipped.\n\nExample: ccxt_ocx Task 4 (`CcxtOcx.Error`). The task was originally written with one set of tags, return shapes, and API surface. After cross-plan ratings and synthesis, the delivered module used a meaningfully different (better) design. The original body no longer described reality, but we had no clean place to record the final outcome while preserving the original spec.\n\nAdd an `implemented` field (parallel to `body`) with conditional-required validation:\n\n- `body` = original task definition / intent (never mutated after creation)\n- `implemented` = what was actually built and why — REQUIRED when `status = \"done\"`, optional/absent on pending/in_progress/blocked\n- The Rust type is `Option<String>` because pending tasks have nothing to record, but `validate.rs` enforces `Some` on done (same conditional-required pattern as `blocked_reason` when `status = \"blocked\"`)\n\nFor trivial tasks where the delivery matched the body exactly, a short `implemented = \"as specified in body\"` (or a one-line `shipped in <commit>` echo) is fine — the field's value is in being durable, not in being long. The cost of writing one line is low; the auditability payoff (future agents reading old roadmaps, post-mortem analysis, project archaeology) is durable.\n\nThis field should be:\n- Validated as conditionally required on done (the new contract)\n- Rendered by `rmap show` and `rmap delegate` (as a distinct section after the original body)\n- Included in `data.json` and JSON output\n- Omitted from ROADMAP.md task tables (like `model`, `assignee`, etc.)\n\nProposed name: `implemented`. Alternatives to consider during implementation: `delivery`, `outcome`, `actual`.\n\nBackfill question (decide during impl): rmap's own tasks.toml already has ~6 done tasks lacking this field, plus any other rmap-using project. Two viable strategies — one-time stub backfill (`implemented = \"<see body and shipped_in commit>\"`), or temporary softening that only enforces on `done_at >= <cutoff>`. The schema_version bump is the migration boundary either way.\n",
       "created_at": "2026-05-18",
+      "started_at": "2026-05-17",
+      "done_at": "2026-05-17",
       "scored_at": "2026-05-18",
+      "implemented": "Added Task::implemented: Option<String> field, conditionally required when status=done (mirrors blocked_reason pattern). Three-place edit + schema_version bump 1→2. Consumer-first extensions over and above the AC: --implemented flag on rmap status (single-step UX), interactive TTY prompt, visual body/implemented distinction in rmap show, project-CLAUDE.md consuming-agent-POV rule. One-time backfill of all done tasks in rmap's roadmap + 22 golden fixtures + 10 inline test constants. Delegate gains conditional '## What was actually implemented' 8th section.",
       "cross_repo": []
     },
     {
@@ -735,6 +758,7 @@
       "started_at": "2026-05-17",
       "done_at": "2026-05-17",
       "scored_at": "2026-05-17",
+      "implemented": "add_dependency_str now mirrors the target task's id storage shape via target_id_shape (Integer | Text), so `rmap depend <src> on <numeric-only-string-id>` reconciles correctly at validation time.",
       "cross_repo": []
     },
     {

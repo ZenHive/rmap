@@ -10,7 +10,7 @@ fn marker_filter(marker: Option<&str>) -> TaskFilter {
 }
 
 const TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -34,6 +34,7 @@ id = 74
 phase = 12
 bundle = "simple"
 status = "done"
+implemented = "fixture"
 title = "parseTicker field map"
 scores = { d = 4, b = 8, u = 8 }
 
@@ -105,7 +106,7 @@ fn no_matching_next_task_returns_none() {
 #[test]
 fn focus_phase_wins_over_higher_eff_in_other_phases() {
     let input = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -159,7 +160,7 @@ scores = { d = 6, b = 8, u = 8 }
 #[test]
 fn focus_phase_falls_back_when_no_candidate_in_focus() {
     let input = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -199,6 +200,7 @@ id = 60
 phase = 13
 bundle = "thirteen"
 status = "done"
+implemented = "fixture"
 title = "Done in focus phase"
 scores = { d = 6, b = 8, u = 8 }
 "#;
@@ -224,7 +226,7 @@ fn next_tasks_count_one_returns_singleton_matching_next_task() {
 #[test]
 fn next_tasks_count_three_returns_eff_ranked_array() {
     let input = r#"
-schema_version = 1
+schema_version = 2
 project = "demo"
 default_branch = "main"
 
@@ -286,7 +288,7 @@ fn next_tasks_count_exceeds_eligible_returns_min() {
 #[test]
 fn next_tasks_focus_phase_fills_before_other_phases() {
     let input = r#"
-schema_version = 1
+schema_version = 2
 project = "demo"
 default_branch = "main"
 

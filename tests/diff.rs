@@ -2,7 +2,7 @@ use rmap::diff::{DiffStatus, diff_metadata, diff_tasks, diff_toml};
 use rmap::validate::validate_tasks_str;
 
 const BASE_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -34,7 +34,7 @@ scores = { d = 5, b = 9, u = 9 }
 "#;
 
 const CURRENT_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -53,6 +53,7 @@ id = 75
 phase = 12
 bundle = "simple"
 status = "done"
+implemented = "fixture"
 title = "parseOrder field map"
 scores = { d = 5, b = 9, u = 9 }
 
@@ -78,13 +79,13 @@ fn classifies_added_removed_and_changed_tasks() {
     assert_eq!(diff[0].changed_fields, Vec::<String>::new());
     assert_eq!(diff[1].id.to_string(), "75");
     assert_eq!(diff[1].status, DiffStatus::Changed);
-    assert_eq!(diff[1].changed_fields, ["status"]);
+    assert_eq!(diff[1].changed_fields, ["status", "implemented"]);
     assert_eq!(diff[2].id.to_string(), "78b");
     assert_eq!(diff[2].status, DiffStatus::Added);
 }
 
 const METADATA_BASE: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "main"
 
@@ -105,7 +106,7 @@ description = "Order normalization tasks"
 "#;
 
 const METADATA_CURRENT: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -159,7 +160,7 @@ fn unchanged_metadata_produces_no_entries() {
 }
 
 const LINEAR_BASE: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -169,7 +170,7 @@ workspace_url = "https://linear.app/efries"
 "#;
 
 const LINEAR_TEAM_CHANGED: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -181,7 +182,7 @@ workspace_url = "https://linear.app/efries"
 #[test]
 fn focus_add_remove_and_change_show_up_in_metadata_diff() {
     let no_focus = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -240,7 +241,7 @@ fn linear_subfield_changes_report_with_field_granularity() {
 }
 
 const VERBOSE_BASE: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -265,7 +266,7 @@ body = "old body"
 "#;
 
 const VERBOSE_CURRENT: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -284,6 +285,7 @@ id = 75
 phase = 12
 bundle = "simple"
 status = "done"
+implemented = "fixture"
 title = "parseOrder field map"
 scores = { d = 5, b = 9, u = 9 }
 out_of_scope = ["Do not refactor parseTicker"]
@@ -308,7 +310,8 @@ fn verbose_emits_before_after_for_whitelisted_changed_fields() {
             "scores",
             "out_of_scope",
             "files_to_modify",
-            "body"
+            "body",
+            "implemented"
         ]
     );
 
@@ -319,8 +322,8 @@ fn verbose_emits_before_after_for_whitelisted_changed_fields() {
     let fields: Vec<&str> = values.iter().map(|v| v.field.as_str()).collect();
     // Whitelist excludes `body`, `out_of_scope`, and `files_to_modify`;
     // declaration order from `diff_fields!` is preserved for the remaining
-    // whitelisted entries.
-    assert_eq!(fields, ["status", "scores"]);
+    // whitelisted entries (status, scores, implemented).
+    assert_eq!(fields, ["status", "scores", "implemented"]);
 
     assert_eq!(values[0].before, serde_json::json!("in_progress"));
     assert_eq!(values[0].after, serde_json::json!("done"));
@@ -329,6 +332,8 @@ fn verbose_emits_before_after_for_whitelisted_changed_fields() {
         serde_json::json!({"d": 5, "b": 8, "u": 8})
     );
     assert_eq!(values[1].after, serde_json::json!({"d": 5, "b": 9, "u": 9}));
+    assert_eq!(values[2].before, serde_json::Value::Null);
+    assert_eq!(values[2].after, serde_json::json!("fixture"));
 }
 
 #[test]

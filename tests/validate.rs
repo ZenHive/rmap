@@ -1,7 +1,7 @@
 use rmap::validate::validate_tasks_str;
 
 const VALID_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -24,6 +24,7 @@ id = 74
 phase = 12
 bundle = "ticker_normalization"
 status = "done"
+implemented = "fixture"
 title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }
 markers = ["parallel"]
@@ -47,7 +48,7 @@ linear_id = "INE-300"
 fn valid_tasks_toml_deserializes_and_validates() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", VALID_TASKS).expect("valid tasks");
 
-    assert_eq!(tasks.schema_version, 1);
+    assert_eq!(tasks.schema_version, 2);
     assert_eq!(tasks.project, "ccxt_extract");
     assert_eq!(tasks.task.len(), 2);
     assert_eq!(tasks.task[0].id, 74);
@@ -61,14 +62,15 @@ fn valid_tasks_toml_deserializes_and_validates() {
 
 #[test]
 fn rejects_unknown_schema_version_with_migration_hint() {
-    let input = VALID_TASKS.replace("schema_version = 1", "schema_version = 2");
+    let input = VALID_TASKS.replace("schema_version = 2", "schema_version = 99");
 
-    let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("schema 2 is rejected");
+    let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("schema 99 is rejected");
 
     let message = err.to_string();
     assert!(message.contains("roadmap/tasks.toml:2"));
-    assert!(message.contains("unsupported schema_version 2"));
-    assert!(message.contains("rmap migrate"));
+    assert!(message.contains("unsupported schema_version 99"));
+    assert!(message.contains("expected 2"));
+    assert!(message.contains("CHANGELOG.md"));
 }
 
 #[test]
@@ -78,7 +80,7 @@ fn rejects_invalid_status() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("status is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:37"));
+    assert!(message.contains("roadmap/tasks.toml:38"));
     assert!(message.contains("invalid status \"shipped\""));
 }
 
@@ -89,7 +91,7 @@ fn rejects_invalid_marker() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("marker is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:27"));
+    assert!(message.contains("roadmap/tasks.toml:28"));
     assert!(message.contains("invalid marker \"fast\""));
 }
 
@@ -103,7 +105,7 @@ fn rejects_score_below_minimum() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("d = 0 is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:26"), "got: {message}");
+    assert!(message.contains("roadmap/tasks.toml:27"), "got: {message}");
     assert!(
         message.contains("task 74 scores.d = 0 must be in 1..=10"),
         "got: {message}"
@@ -120,7 +122,7 @@ fn rejects_score_above_maximum() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("b = 11 is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:39"), "got: {message}");
+    assert!(message.contains("roadmap/tasks.toml:40"), "got: {message}");
     assert!(
         message.contains("task 75 scores.b = 11 must be in 1..=10"),
         "got: {message}"
@@ -159,7 +161,7 @@ fn rejects_linear_id_that_does_not_match_team_key() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("linear id is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:41"));
+    assert!(message.contains("roadmap/tasks.toml:42"));
     assert!(message.contains("linear_id \"OPS-300\" must match INE-<integer>"));
 }
 
@@ -188,7 +190,7 @@ fn rejects_orphan_dependencies() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("dependency is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:40"));
+    assert!(message.contains("roadmap/tasks.toml:41"));
     assert!(message.contains("task 75 depends on unknown task 999"));
 }
 
@@ -237,7 +239,7 @@ fn rejects_task_that_references_unknown_bundle() {
 #[test]
 fn rejects_dependency_cycle_between_tasks() {
     let input = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -281,7 +283,7 @@ depends_on = [1]
 #[test]
 fn rejects_self_dependency_cycle() {
     let input = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -369,6 +371,28 @@ fn accepts_blocked_status_with_reason() {
         tasks.task[1].blocked_reason.as_deref(),
         Some("waiting on legal")
     );
+}
+
+#[test]
+fn rejects_done_status_without_implemented() {
+    // Strip the backfilled `implemented` line from task 74 to recreate the
+    // pre-schema-v2 shape, then assert validation rejects the missing field.
+    let input = VALID_TASKS.replace("implemented = \"fixture\"\n", "");
+
+    let err =
+        validate_tasks_str("roadmap/tasks.toml", &input).expect_err("done without implemented");
+
+    let message = err.to_string();
+    assert!(message.contains("done but missing implemented"));
+}
+
+#[test]
+fn accepts_done_status_with_implemented() {
+    let tasks =
+        validate_tasks_str("roadmap/tasks.toml", VALID_TASKS).expect("done with implemented");
+
+    assert_eq!(tasks.task[0].status, "done");
+    assert_eq!(tasks.task[0].implemented.as_deref(), Some("fixture"));
 }
 
 #[test]

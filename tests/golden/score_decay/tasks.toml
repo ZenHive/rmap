@@ -1,4 +1,4 @@
-schema_version = 1
+schema_version = 2
 project = "score_decay_test"
 default_branch = "main"
 

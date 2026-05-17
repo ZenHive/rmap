@@ -3,7 +3,7 @@ use std::str::FromStr;
 use toml_edit::DocumentMut;
 
 const TASKS_WITH_COMMENTS: &str = r#"# Roadmap source data.
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -26,6 +26,7 @@ id = 74
 phase = 12
 bundle = "ticker_normalization"
 status = "done"
+implemented = "fixture"
 title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }
 markers = ["parallel"]

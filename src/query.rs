@@ -99,9 +99,29 @@ pub fn format_task(task: &Task) -> String {
         lines.push(format!("cross_repo: {}", task.cross_repo.len()));
     }
 
+    // When both body and implemented are present, disambiguate the headers so
+    // a reader can tell "original intent" from "what shipped" at a glance.
+    // Bare `body:` / `implemented:` headers when only one is present preserve
+    // the established shape for pending / in_progress / blocked tasks.
+    let body_header = if task.body.is_some() && task.implemented.is_some() {
+        "body (original intent):"
+    } else {
+        "body:"
+    };
+    let implemented_header = if task.body.is_some() && task.implemented.is_some() {
+        "implemented (what shipped):"
+    } else {
+        "implemented:"
+    };
+
     if let Some(body) = &task.body {
-        lines.push("body:".to_string());
+        lines.push(body_header.to_string());
         lines.push(body.trim().to_string());
+    }
+
+    if let Some(implemented) = &task.implemented {
+        lines.push(implemented_header.to_string());
+        lines.push(implemented.trim().to_string());
     }
 
     lines.join("\n")

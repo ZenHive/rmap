@@ -51,6 +51,7 @@ fn format_prompt(tasks: &Tasks, task: &Task, target: DelegateTarget) -> String {
 
     append_context(&mut prompt, tasks, task, target);
     append_task_body(&mut prompt, task);
+    append_implemented(&mut prompt, task);
     append_acceptance_criteria(&mut prompt, task);
     append_out_of_scope(&mut prompt, task);
     append_files_to_modify(&mut prompt, task);
@@ -150,6 +151,19 @@ fn append_task_body(prompt: &mut String, task: &Task) {
     line!(prompt);
     line!(prompt, "## Task");
     line!(prompt, "{body}");
+}
+
+fn append_implemented(prompt: &mut String, task: &Task) {
+    let Some(implemented) = task.implemented.as_ref().map(|s| s.trim()) else {
+        return;
+    };
+    if implemented.is_empty() {
+        return;
+    }
+
+    line!(prompt);
+    line!(prompt, "## What was actually implemented");
+    line!(prompt, "{implemented}");
 }
 
 fn append_acceptance_criteria(prompt: &mut String, task: &Task) {

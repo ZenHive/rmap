@@ -1,4 +1,4 @@
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -32,6 +32,7 @@ id = 70
 phase = 11
 bundle = "polish"
 status = "done"
+implemented = "fixture"
 title = "mark mutator"
 scores = { d = 2, b = 4, u = 4 }
 scored_at = "2026-05-08"
@@ -43,6 +44,7 @@ id = 74
 phase = 12
 bundle = "ticker_normalization"
 status = "done"
+implemented = "fixture"
 title = "parseTicker field map"
 scores = { d = 5, b = 8, u = 8 }
 scored_at = "2026-05-08"

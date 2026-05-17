@@ -2,7 +2,7 @@ use rmap::delegate::{DelegateTarget, format_delegate_prompt};
 use rmap::validate::validate_tasks_str;
 
 const TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -30,6 +30,7 @@ id = 74
 phase = 12
 bundle = "simple"
 status = "done"
+implemented = "fixture"
 title = "parseTicker field map"
 scores = { d = 4, b = 8, u = 8 }
 
@@ -66,7 +67,7 @@ Normalize order payloads across exchanges.
 "#;
 
 const MINIMAL_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
@@ -90,7 +91,7 @@ scores = { d = 5, b = 9, u = 9 }
 "#;
 
 const MODULE_FALLBACK_TASKS: &str = r#"
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "development"
 
