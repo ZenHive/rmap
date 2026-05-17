@@ -35,10 +35,17 @@ phase = 12
 order = 1
 description = "Unified ticker fields across all exchanges"
 
+[milestones.v0_1]                             # release lines cross phases by design
+name = "v0.1 — first usable cut"
+order = 1
+status = "active"                             # pending | active | done — distinct from task status
+target_version = "0.1.0"                      # optional, free-text
+
 [[task]]
 id = 74
 phase = 12
 bundle = "ticker_normalization"
+milestone = "v0_1"                            # optional — pins to a release line; absent = unpinned
 status = "done"                               # pending | in_progress | blocked | done | superseded
 title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }              # eff = (b+u)/(2d) computed by rmap, never stored
@@ -99,7 +106,8 @@ rmap doctor [--json]                 # health summary: validate findings, stale,
 # query / introspection — agent read-API
 rmap next [--marker parallel] [--json]   # next highest-Eff unblocked pending
 rmap show <id> [--json]              # full task detail; --json for piping
-rmap list [--status S --marker M --phase N --json]   # generalized query
+rmap list [--status S --marker M --phase N --bundle B --milestone V --json]   # generalized query
+rmap milestones [--has-next] [--status STATE] [--json]   # release-line discovery + next-task glyphs
 rmap schema                          # emit JSON Schema for editor completion + agent self-description
 rmap diff [--against <ref>] [--json] [--verbose]  # what changed in tasks.toml vs base ref (default: default_branch)
 rmap stale --over <duration> [--json]   # in_progress tasks idle > duration
@@ -107,6 +115,7 @@ rmap stale --over <duration> [--json]   # in_progress tasks idle > duration
 # mutation — all routed through toml_edit
 rmap status <id[,id,id]> <new>       # flip status (bulk form atomic), re-render
 rmap mark <id> +cx -parallel         # add/remove markers without TOML editing
+rmap milestone <id> <name|none>      # pin a task to a release line (or unpin via "none")
 rmap depend <id> on <id> [--cross-repo <repo>:<task_id>[:<relation>]]   # add deps via mutation
 rmap new                             # interactive task creation (dialoguer)
 rmap new --from-stdin                # non-interactive — agent piping
@@ -223,6 +232,7 @@ Read this section before changing anything. The schema example above IS the cont
 - `eff = (b+u)/(2d)` is **computed at render time**, never stored. Don't add an `eff` field to the schema.
 - `markers` must be a subset of `{"parallel", "cx", "csr"}`.
 - `status` must be one of `{"pending", "in_progress", "blocked", "done", "superseded"}`. When `status = "blocked"`, `blocked_reason` is required.
+- `[milestones.<name>].status` must be one of `{"pending", "active", "done"}` — distinct vocabulary from task status. `task.milestone`, when present, must reference a declared `[milestones.<name>]` key. Milestones are flat-namespace (no nesting) and a task pins to at most one.
 - `linear_id` (when present) must match `<team_key>-<integer>` per `[linear].team_key`. Skip the format check entirely if the `[linear]` table is absent — Linear is opt-in.
 - `assignee` (when present) must be one of `{"human", "claude", "codex", "cursor"}`.
 - Timestamps (`created_at`, `started_at`, `done_at`, `scored_at`) are ISO-8601 dates (`YYYY-MM-DD`). All optional — presence is what unlocks decay / stale / recently-shipped features.

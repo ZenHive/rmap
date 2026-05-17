@@ -81,6 +81,16 @@ fn append_context(prompt: &mut String, tasks: &Tasks, task: &Task, target: Deleg
     line!(prompt, "- Status: {}", task.status);
     line!(prompt, "- Phase: {}", task.phase);
     line!(prompt, "- Bundle: {}", task.bundle);
+    if let Some(milestone_key) = &task.milestone {
+        match tasks
+            .milestones
+            .get(milestone_key)
+            .and_then(|m| m.target_version.as_deref())
+        {
+            Some(version) => line!(prompt, "- Milestone: {milestone_key} (target={version})"),
+            None => line!(prompt, "- Milestone: {milestone_key}"),
+        }
+    }
     if !task.markers.is_empty() {
         line!(prompt, "- Markers: {}", task.markers.join(", "));
     }

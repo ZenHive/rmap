@@ -1,12 +1,12 @@
 use std::cmp::Ordering;
 
-use crate::query::{TaskFilter, matches_bundle, matches_marker};
+use crate::query::{TaskFilter, matches_bundle, matches_marker, matches_milestone};
 use crate::schema::{Task, Tasks};
 use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 
 /// Top `count` `pending` tasks whose `depends_on` are all `done`, Eff-ranked.
 ///
-/// Honors `filter.marker` and `filter.bundle` only. `filter.status` is ignored
+/// Honors `filter.marker`, `filter.bundle`, and `filter.milestone`. `filter.status` is ignored
 /// (next is implicitly `"pending"`-only) and `filter.phase` is ignored (focus
 /// preference is sourced from `[focus].phase`, not the user). When `[focus]`
 /// is set, focus-phase candidates win over higher-Eff candidates in other
@@ -28,6 +28,7 @@ pub fn next_tasks<'a>(tasks: &'a Tasks, filter: &TaskFilter, count: usize) -> Ve
         .iter()
         .filter(|task| task.status == "pending")
         .filter(|task| matches_bundle(task, filter.bundle.as_deref()))
+        .filter(|task| matches_milestone(task, filter.milestone.as_deref()))
         .filter(|task| matches_marker(task, filter.marker.as_deref()))
         .filter(|task| is_unblocked(task, tasks));
 

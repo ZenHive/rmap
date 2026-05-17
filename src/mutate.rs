@@ -336,6 +336,61 @@ pub fn update_markers_str(
     Ok(output)
 }
 
+/// Pin or unpin a task's `milestone` field. `Some(name)` sets it; `None`
+/// removes it (idempotent if already absent). The validator rejects unknown
+/// milestone references, so a misspelled name leaves the file byte-equal.
+/// Newly-inserted `milestone` fields auto-sort to their canonical slot
+/// (between `bundle` and `status`); idempotent overwrites do not.
+pub fn update_milestone_str(
+    path: impl Into<String>,
+    input: &str,
+    task_id: &str,
+    milestone: Option<&str>,
+) -> Result<String, MutateError> {
+    let path = path.into();
+    let mut document =
+        DocumentMut::from_str(input).map_err(|err| MutateError::Toml(err.to_string()))?;
+    let tasks = document["task"]
+        .as_array_of_tables_mut()
+        .ok_or(MutateError::MissingTasks)?;
+
+    let mut matched = false;
+    for task in tasks.iter_mut() {
+        let Some(id) = task.get("id").and_then(item_to_task_id) else {
+            continue;
+        };
+        if id.as_str() != task_id {
+            continue;
+        }
+        matched = true;
+
+        match milestone {
+            Some(name) => {
+                let was_present = task.contains_key("milestone");
+                task.insert("milestone", Item::Value(Value::from(name)));
+                if !was_present {
+                    task.sort_values_by(|a, _, b, _| {
+                        canonical_task_key_index(a.get()).cmp(&canonical_task_key_index(b.get()))
+                    });
+                }
+            }
+            None => {
+                task.remove("milestone");
+            }
+        }
+
+        break;
+    }
+
+    if !matched {
+        return Err(MutateError::UnknownTaskId(task_id.to_string()));
+    }
+
+    let output = document.to_string();
+    validate_tasks_str(path, &output)?;
+    Ok(output)
+}
+
 /// Canonical position for keys inside a `[[task]]` table, used to re-place a
 /// freshly-inserted field (e.g. `markers` from `rmap mark <id> +x`) near the
 /// other small scalars. Returns `u32::MAX` for unknown keys so they sort to
@@ -346,27 +401,28 @@ fn canonical_task_key_index(key: &str) -> u32 {
         "id" => 0,
         "phase" => 1,
         "bundle" => 2,
-        "status" => 3,
-        "title" => 4,
-        "scores" => 5,
-        "markers" => 6,
-        "depends_on" => 7,
-        "acceptance_criteria" => 8,
-        "out_of_scope" => 9,
-        "cross_repo" => 10,
-        "assignee" => 11,
-        "linear_id" => 12,
-        "module" => 13,
-        "model" => 14,
-        "branch" => 15,
-        "blocked_reason" => 16,
-        "body" => 17,
-        "implemented" => 18,
-        "created_at" => 19,
-        "started_at" => 20,
-        "scored_at" => 21,
-        "done_at" => 22,
-        "shipped_in" => 23,
+        "milestone" => 3,
+        "status" => 4,
+        "title" => 5,
+        "scores" => 6,
+        "markers" => 7,
+        "depends_on" => 8,
+        "acceptance_criteria" => 9,
+        "out_of_scope" => 10,
+        "cross_repo" => 11,
+        "assignee" => 12,
+        "linear_id" => 13,
+        "module" => 14,
+        "model" => 15,
+        "branch" => 16,
+        "blocked_reason" => 17,
+        "body" => 18,
+        "implemented" => 19,
+        "created_at" => 20,
+        "started_at" => 21,
+        "scored_at" => 22,
+        "done_at" => 23,
+        "shipped_in" => 24,
         _ => u32::MAX,
     }
 }
@@ -499,6 +555,7 @@ pub struct NewTaskFields<'a> {
     pub id: Option<u32>,
     pub phase: u32,
     pub bundle: &'a str,
+    pub milestone: Option<&'a str>,
     pub title: &'a str,
     pub scores: (u32, u32, u32),
     /// Defaults to `"pending"` when empty.
@@ -580,6 +637,9 @@ pub fn add_task_str(
     table["id"] = Item::Value(Value::from(allocated_id as i64));
     table["phase"] = Item::Value(Value::from(fields.phase as i64));
     table["bundle"] = Item::Value(Value::from(fields.bundle));
+    if let Some(milestone) = fields.milestone {
+        table["milestone"] = Item::Value(Value::from(milestone));
+    }
     let status_value = if fields.status.is_empty() {
         "pending"
     } else {

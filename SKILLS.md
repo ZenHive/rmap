@@ -116,6 +116,48 @@ rmap next-bundle --bundle alpha
 # exit: 0
 ```
 
+## Milestones — release-line pinning
+
+`[milestones.<name>]` is a fourth, flat-namespace top-level concept (alongside phases / bundles / markers). Milestones answer "which release ships this?" — they cross phases by design. A task pins to at most one milestone via `milestone = "<name>"`; absent = unpinned (the default).
+
+Milestone status vocabulary is distinct from task status: `pending | active | done`. The `active` milestone surfaces first in `rmap milestones` and is the load-bearing affordance for the "what release am I cutting next?" daily query.
+
+`rmap milestones` lists every declared `[milestones.*]` with done/total counts and the next-task glyph (same five-branch ladder as `rmap bundles`). Sort order: active first, then pending, then done; ties broken by `milestone.order`.
+
+```bash
+rmap milestones
+# exit: 0
+```
+
+```bash
+rmap milestones --json
+# exit: 0
+```
+
+`rmap milestone <id> <name>` pins a task to a milestone; `rmap milestone <id> none` unpins. The mutator validates the target milestone exists before writing (unknown name → exit 1, file byte-equal).
+
+```bash
+rmap milestone 3 demo
+# exit: 0
+```
+
+```bash
+rmap milestone 3 none
+# exit: 0
+```
+
+`--milestone <name>` filters `rmap list` and `rmap next` to one release line. Composes with `--bundle`, `--phase`, `--marker`.
+
+```bash
+rmap list --milestone demo
+# exit: 0
+```
+
+```bash
+rmap next --milestone demo
+# exit: 0
+```
+
 ## Mutating state
 
 All mutators route through `toml_edit` to preserve comments + formatting, then re-validate before writing. Invalid mutations leave the file byte-equal to its pre-call state.

@@ -1,7 +1,9 @@
 use serde::Serialize;
 
 use crate::next_bundle::BundlePick;
-use crate::schema::{Bundle, CrossRepo, Focus, Linear, Phase, Scores, Task, TaskId, Tasks};
+use crate::schema::{
+    Bundle, CrossRepo, Focus, Linear, Milestone, Phase, Scores, Task, TaskId, Tasks,
+};
 use crate::scoring::rounded_efficiency;
 
 #[derive(Serialize)]
@@ -17,6 +19,7 @@ struct ExportedTasks<'a> {
     linear: Option<&'a Linear>,
     phases: &'a std::collections::BTreeMap<String, Phase>,
     bundles: &'a std::collections::BTreeMap<String, Bundle>,
+    milestones: &'a std::collections::BTreeMap<String, Milestone>,
     task: Vec<ExportedTask<'a>>,
 }
 
@@ -25,6 +28,8 @@ struct ExportedTask<'a> {
     id: &'a TaskId,
     phase: u32,
     bundle: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    milestone: Option<&'a String>,
     status: &'a str,
     title: &'a str,
     scores: &'a Scores,
@@ -153,6 +158,7 @@ fn exported_tasks_with<'a>(
         linear: tasks.linear.as_ref(),
         phases: &tasks.phases,
         bundles: &tasks.bundles,
+        milestones: &tasks.milestones,
         task: task.into_iter().map(exported_task).collect(),
     }
 }
@@ -162,6 +168,7 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
         id: &task.id,
         phase: task.phase,
         bundle: &task.bundle,
+        milestone: task.milestone.as_ref(),
         status: &task.status,
         title: &task.title,
         scores: &task.scores,

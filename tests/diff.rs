@@ -402,3 +402,108 @@ fn verbose_added_and_removed_task_entries_carry_no_values() {
         }
     }
 }
+
+const MILESTONE_BASE: &str = r#"
+schema_version = 2
+project = "rmap"
+default_branch = "development"
+
+[phases.15]
+name = "Schema extensions"
+order = 15
+status = "in_progress"
+
+[bundles.simple]
+phase = 15
+order = 1
+description = "simple"
+
+[[task]]
+id = 1
+phase = 15
+bundle = "simple"
+status = "pending"
+title = "Task one"
+scores = { d = 4, b = 8, u = 8 }
+"#;
+
+const MILESTONE_CURRENT: &str = r#"
+schema_version = 2
+project = "rmap"
+default_branch = "development"
+
+[phases.15]
+name = "Schema extensions"
+order = 15
+status = "in_progress"
+
+[bundles.simple]
+phase = 15
+order = 1
+description = "simple"
+
+[milestones.v0_1]
+name = "v0.1 — first cut"
+order = 1
+status = "active"
+target_version = "0.1.0"
+
+[[task]]
+id = 1
+phase = 15
+bundle = "simple"
+milestone = "v0_1"
+status = "pending"
+title = "Task one"
+scores = { d = 4, b = 8, u = 8 }
+"#;
+
+#[test]
+fn diff_surfaces_milestone_pinned_on_task() {
+    let base = validate_tasks_str("base", MILESTONE_BASE).expect("valid base");
+    let current = validate_tasks_str("current", MILESTONE_CURRENT).expect("valid current");
+
+    let diff = diff_tasks(&base, &current, true);
+    assert_eq!(diff.len(), 1, "task 1 changed");
+    assert!(diff[0].changed_fields.contains(&"milestone".to_string()));
+    let values = diff[0].values.as_ref().expect("verbose populates values");
+    let milestone = values
+        .iter()
+        .find(|v| v.field == "milestone")
+        .expect("milestone surfaces in verbose values");
+    assert_eq!(milestone.before, serde_json::Value::Null);
+    assert_eq!(milestone.after, serde_json::json!("v0_1"));
+}
+
+#[test]
+fn diff_surfaces_added_milestone_entry() {
+    let base = validate_tasks_str("base", MILESTONE_BASE).expect("valid base");
+    let current = validate_tasks_str("current", MILESTONE_CURRENT).expect("valid current");
+
+    let diff = diff_metadata(&base, &current, false);
+    let entry = diff
+        .iter()
+        .find(|entry| entry.key == "milestones.v0_1")
+        .expect("milestones.v0_1 surfaces");
+    assert_eq!(entry.status, DiffStatus::Added);
+}
+
+#[test]
+fn diff_surfaces_removed_milestone_entry() {
+    let base = validate_tasks_str("base", MILESTONE_CURRENT).expect("valid base");
+    let current_input = MILESTONE_CURRENT
+        .replace("milestone = \"v0_1\"\n", "")
+        .replace(
+            "[milestones.v0_1]\nname = \"v0.1 — first cut\"\norder = 1\nstatus = \"active\"\ntarget_version = \"0.1.0\"\n\n",
+            "",
+        );
+    let current = validate_tasks_str("current", &current_input).expect("valid current");
+
+    let diff = diff_toml(&base, &current, false);
+    let entry = diff
+        .metadata
+        .iter()
+        .find(|entry| entry.key == "milestones.v0_1")
+        .expect("milestones.v0_1 removed");
+    assert_eq!(entry.status, DiffStatus::Removed);
+}

@@ -356,6 +356,13 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
     for task in tasks.task.iter().filter(|task| task.phase == phase) {
         let eff = efficiency(task);
         let decay = score_decay_suffix(task, today);
+        let milestone_segment = task
+            .milestone
+            .as_deref()
+            .map(str::trim)
+            .filter(|m| !m.is_empty())
+            .map(|m| format!("🚀 **{m}** · "))
+            .unwrap_or_default();
         let module_segment = task
             .module
             .as_deref()
@@ -377,11 +384,12 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
         };
         writeln!(
             table,
-            "| Task {}{} | {} | 🎁 **{}** · {}{}{} [D:{}/B:{}/U:{} → Eff:{}{}] {} |",
+            "| Task {}{} | {} | 🎁 **{}** · {}{}{}{} [D:{}/B:{}/U:{} → Eff:{}{}] {} |",
             task.id,
             marker_suffix(task),
             status_cell,
             task.bundle,
+            milestone_segment,
             module_segment,
             category_segment,
             task.title,

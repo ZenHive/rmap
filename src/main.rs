@@ -14,9 +14,12 @@ use rmap::export::{
     export_tasks_array_json_str,
 };
 use rmap::import::format_import_prompt;
+use rmap::milestones::{
+    MilestoneFilter, format_milestones_human, list_milestones, milestones_json,
+};
 use rmap::mutate::{
     CrossRepoSpec, MarkerOp, NewTaskFields, add_dependency_str, add_task_str, update_markers_str,
-    update_status_many_str,
+    update_milestone_str, update_status_many_str,
 };
 use rmap::next::{format_next_task, next_tasks};
 use rmap::next_bundle::{BundlePick, NextBundleFilter, pick as pick_next_bundle};
@@ -106,6 +109,8 @@ enum Commands {
         marker: Option<String>,
         #[arg(long)]
         bundle: Option<String>,
+        #[arg(long)]
+        milestone: Option<String>,
         #[arg(long, default_value = "1")]
         count: NonZeroUsize,
         #[arg(long)]
@@ -129,6 +134,8 @@ enum Commands {
         phase: Option<u32>,
         #[arg(long)]
         bundle: Option<String>,
+        #[arg(long)]
+        milestone: Option<String>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -202,6 +209,21 @@ enum Commands {
         #[arg(long)]
         data_path: Option<PathBuf>,
     },
+    /// Pin or unpin a task's milestone: `rmap milestone 7 v0_1` or `rmap milestone 7 none`.
+    ///
+    /// `<name>` must match an existing `[milestones.<name>]` key, or the literal
+    /// `none` to clear the field. Validates the target before writing; unknown
+    /// milestones leave the file byte-equal.
+    Milestone {
+        id: String,
+        name: String,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+        #[arg(long)]
+        roadmap_path: Option<PathBuf>,
+        #[arg(long)]
+        data_path: Option<PathBuf>,
+    },
     /// Add a dependency to a task.
     ///
     /// In-repo: `rmap depend 75 on 74`. Cross-repo: `rmap depend 75 --cross-repo
@@ -261,6 +283,24 @@ enum Commands {
         /// Only bundles in `[focus].phase`.
         #[arg(long)]
         in_focus: bool,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+    },
+    /// List declared milestones with per-milestone counts and next-task hints.
+    ///
+    /// Read-only discovery aid for `rmap milestone <id> <name>`,
+    /// `rmap list --milestone <name>`, and `rmap next --milestone <name>`.
+    /// Active milestones sort first — the answer to "which release am I
+    /// cutting next?" Mirrors `rmap bundles`.
+    Milestones {
+        /// Only milestones whose next_task is non-null.
+        #[arg(long)]
+        has_next: bool,
+        /// Filter by milestone status: `pending`, `active`, `done`.
+        #[arg(long)]
+        status: Option<String>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -369,6 +409,7 @@ fn run() -> Result<ExitCode> {
         Commands::Next {
             marker,
             bundle,
+            milestone,
             count,
             json,
             tasks_path,
@@ -380,6 +421,7 @@ fn run() -> Result<ExitCode> {
                 marker,
                 phase: None,
                 bundle,
+                milestone,
             };
 
             let count = count.get();
@@ -420,6 +462,7 @@ fn run() -> Result<ExitCode> {
             marker,
             phase,
             bundle,
+            milestone,
             json,
             tasks_path,
         } => {
@@ -430,6 +473,7 @@ fn run() -> Result<ExitCode> {
                 marker,
                 phase,
                 bundle,
+                milestone,
             };
             let listed = list_tasks(&tasks, &filter);
 
@@ -500,6 +544,16 @@ fn run() -> Result<ExitCode> {
             let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
             update_markers(paths, &id, &ops)?;
         }
+        Commands::Milestone {
+            id,
+            name,
+            tasks_path,
+            roadmap_path,
+            data_path,
+        } => {
+            let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
+            update_milestone(paths, &id, &name)?;
+        }
         Commands::Depend {
             id,
             on,
@@ -548,6 +602,24 @@ fn run() -> Result<ExitCode> {
                 println!("{}", serde_json::to_string_pretty(&envelope)?);
             } else {
                 print!("{}", format_bundles_human(&tasks, &summaries));
+            }
+        }
+        Commands::Milestones {
+            has_next,
+            status,
+            json,
+            tasks_path,
+        } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+            let filter = MilestoneFilter { has_next, status };
+            let summaries = list_milestones(&tasks, &filter);
+
+            if json {
+                let envelope = milestones_json(&tasks, summaries);
+                println!("{}", serde_json::to_string_pretty(&envelope)?);
+            } else {
+                print!("{}", format_milestones_human(&tasks, &summaries));
             }
         }
         Commands::NextBundle {
@@ -856,6 +928,30 @@ fn update_markers(paths: ResolvedPaths, task_id: &str, op_tokens: &[String]) -> 
     Ok(())
 }
 
+fn update_milestone(paths: ResolvedPaths, task_id: &str, name: &str) -> Result<()> {
+    let input = std::fs::read_to_string(&paths.tasks_path)
+        .with_context(|| format!("read {}", paths.tasks_path.display()))?;
+
+    let milestone: Option<&str> = if name == "none" { None } else { Some(name) };
+
+    let updated = update_milestone_str(
+        paths.tasks_path.display().to_string(),
+        &input,
+        task_id,
+        milestone,
+    )?;
+
+    let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &updated)?;
+    let (rendered_roadmap, rendered_data) = render_outputs(&paths, &tasks)?;
+
+    std::fs::write(&paths.tasks_path, updated)
+        .with_context(|| format!("write {}", paths.tasks_path.display()))?;
+    write_outputs(&paths, rendered_roadmap, rendered_data)?;
+    println!("updated");
+
+    Ok(())
+}
+
 fn add_dependency(
     paths: ResolvedPaths,
     task_id: &str,
@@ -1015,6 +1111,7 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
             id: explicit_id,
             phase: task.phase,
             bundle: task.bundle.as_str(),
+            milestone: task.milestone.as_deref(),
             title: task.title.as_str(),
             scores: (task.scores.d, task.scores.b, task.scores.u),
             status: "pending",
@@ -1072,6 +1169,7 @@ struct StdinTask {
     pub id: Option<TaskId>,
     pub phase: u32,
     pub bundle: String,
+    pub milestone: Option<String>,
     pub title: String,
     pub scores: Scores,
     #[serde(default)]
@@ -1140,6 +1238,8 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         .default(0)
         .interact()?;
     let bundle = bundle_keys[bundle_index].clone();
+
+    let milestone = prompt_milestone(&theme, existing)?;
 
     let title: String = Input::with_theme(&theme)
         .with_prompt("Title")
@@ -1250,6 +1350,7 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         id: None,
         phase: phase_number,
         bundle,
+        milestone,
         title,
         scores: Scores { d, b, u },
         markers,
@@ -1263,6 +1364,43 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         body: None,
         created_at: None,
         scored_at: None,
+    })
+}
+
+/// Interactive milestone selector for `rmap new`. Lists declared milestones
+/// sorted by `order` with a leading "Skip" entry. Returns `None` when "Skip"
+/// is chosen, or when no `[milestones.*]` are declared (auto-skip — no prompt
+/// shown).
+fn prompt_milestone(
+    theme: &dialoguer::theme::ColorfulTheme,
+    existing: &rmap::schema::Tasks,
+) -> Result<Option<String>> {
+    use dialoguer::Select;
+
+    let mut entries: Vec<(&String, &rmap::schema::Milestone)> =
+        existing.milestones.iter().collect();
+    if entries.is_empty() {
+        return Ok(None);
+    }
+    entries.sort_by_key(|(_, m)| m.order);
+
+    let mut items: Vec<String> = vec!["(skip)".to_string()];
+    items.extend(
+        entries
+            .iter()
+            .map(|(key, m)| format!("{key} — {} [{}]", m.name, m.status)),
+    );
+
+    let index = Select::with_theme(theme)
+        .with_prompt("Milestone")
+        .items(&items)
+        .default(0)
+        .interact()?;
+
+    Ok(if index == 0 {
+        None
+    } else {
+        Some(entries[index - 1].0.clone())
     })
 }
 

@@ -8,6 +8,7 @@ use crate::schema::{Task, TaskId, Tasks};
 
 const SUPPORTED_SCHEMA_VERSION: u32 = 2;
 const VALID_STATUSES: &[&str] = &["pending", "in_progress", "blocked", "done", "superseded"];
+const VALID_MILESTONE_STATUSES: &[&str] = &["pending", "active", "done"];
 pub const VALID_MARKERS: &[&str] = &["parallel", "cx", "csr", "bug", "security", "docs"];
 const VALID_ASSIGNEES: &[&str] = &["human", "claude", "codex", "cursor"];
 const VALID_CROSS_REPO_RELATIONS: &[&str] = &["blocks", "blocked_by", "related"];
@@ -88,6 +89,12 @@ pub fn collect_findings(tasks: &Tasks, path: &str, input: &str) -> Vec<ValidateE
     if let Err(e) = validate_phase_and_bundle_references(path, input, tasks) {
         findings.push(e);
     }
+    if let Err(e) = validate_milestone_statuses(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_milestone_references(path, input, tasks) {
+        findings.push(e);
+    }
     if let Err(e) = validate_focus_phase(path, input, tasks) {
         findings.push(e);
     }
@@ -112,6 +119,8 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_dependency_cycles(&path, input, &tasks)?;
     validate_cross_repo_relations(&path, input, &tasks)?;
     validate_phase_and_bundle_references(&path, input, &tasks)?;
+    validate_milestone_statuses(&path, input, &tasks)?;
+    validate_milestone_references(&path, input, &tasks)?;
     validate_focus_phase(&path, input, &tasks)?;
 
     Ok(tasks)
@@ -506,6 +515,48 @@ fn validate_phase_and_bundle_references(
         }
     }
 
+    Ok(())
+}
+
+fn validate_milestone_statuses(
+    path: &str,
+    input: &str,
+    tasks: &Tasks,
+) -> Result<(), ValidateError> {
+    for (key, milestone) in &tasks.milestones {
+        if VALID_MILESTONE_STATUSES.contains(&milestone.status.as_str()) {
+            continue;
+        }
+        return Err(semantic_error(
+            path,
+            line_containing(input, &format!("[milestones.{key}]")).unwrap_or(FIRST_LINE_NUMBER),
+            format!(
+                "milestone \"{key}\" has invalid status \"{}\" (expected one of pending, active, done)",
+                milestone.status
+            ),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_milestone_references(
+    path: &str,
+    input: &str,
+    tasks: &Tasks,
+) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        let Some(name) = &task.milestone else {
+            continue;
+        };
+        if tasks.milestones.contains_key(name) {
+            continue;
+        }
+        return Err(semantic_error(
+            path,
+            line_containing(input, &format!("milestone = \"{name}\"")).unwrap_or(FIRST_LINE_NUMBER),
+            format!("task {} references unknown milestone \"{name}\"", task.id),
+        ));
+    }
     Ok(())
 }
 

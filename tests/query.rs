@@ -73,6 +73,7 @@ fn lists_tasks_matching_all_filters_in_toml_order() {
         marker: Some("parallel".to_string()),
         phase: Some(12),
         bundle: None,
+        milestone: None,
     };
 
     let listed = list_tasks(&tasks, &filter);

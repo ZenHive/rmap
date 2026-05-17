@@ -56,6 +56,7 @@ mod tests {
             id: TaskId::Number(id),
             phase: 1,
             bundle: "test".to_string(),
+            milestone: None,
             status: status.to_string(),
             title: format!("Task {id}"),
             scores: Scores { d: 2, b: 4, u: 4 },
@@ -91,6 +92,7 @@ mod tests {
             linear: None,
             phases: BTreeMap::new(),
             bundles: BTreeMap::new(),
+            milestones: BTreeMap::new(),
             task,
         }
     }

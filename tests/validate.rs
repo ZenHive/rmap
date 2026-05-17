@@ -426,3 +426,65 @@ phase = 12
 
     assert_eq!(tasks.focus.expect("focus").phase, 12);
 }
+
+#[test]
+fn rejects_task_referencing_unknown_milestone() {
+    let input = VALID_TASKS.replace(
+        "linear_id = \"INE-300\"",
+        "linear_id = \"INE-300\"\nmilestone = \"v_nope\"",
+    );
+
+    let err =
+        validate_tasks_str("roadmap/tasks.toml", &input).expect_err("unknown milestone rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("references unknown milestone"));
+    assert!(message.contains("v_nope"));
+}
+
+#[test]
+fn accepts_task_with_declared_milestone() {
+    let input = VALID_TASKS.replace(
+        "linear_id = \"INE-300\"",
+        "linear_id = \"INE-300\"\nmilestone = \"v0_1\"",
+    );
+    let input = input.replace(
+        "[bundles.ticker_normalization]",
+        r#"[milestones.v0_1]
+name = "v0.1 — first cut"
+order = 1
+status = "active"
+target_version = "0.1.0"
+
+[bundles.ticker_normalization]"#,
+    );
+
+    let tasks =
+        validate_tasks_str("roadmap/tasks.toml", &input).expect("milestone reference resolves");
+
+    assert_eq!(tasks.task[1].milestone.as_deref(), Some("v0_1"));
+    assert_eq!(
+        tasks.milestones.get("v0_1").expect("v0_1 declared").order,
+        1
+    );
+}
+
+#[test]
+fn rejects_milestone_with_invalid_status() {
+    let input = VALID_TASKS.replace(
+        "[bundles.ticker_normalization]",
+        r#"[milestones.v0_1]
+name = "v0.1"
+order = 1
+status = "shipped"
+
+[bundles.ticker_normalization]"#,
+    );
+
+    let err = validate_tasks_str("roadmap/tasks.toml", &input)
+        .expect_err("invalid milestone status rejected");
+
+    let message = err.to_string();
+    assert!(message.contains("milestone \"v0_1\""));
+    assert!(message.contains("invalid status \"shipped\""));
+}

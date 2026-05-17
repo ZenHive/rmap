@@ -7,6 +7,7 @@ pub struct TaskFilter {
     pub marker: Option<String>,
     pub phase: Option<u32>,
     pub bundle: Option<String>,
+    pub milestone: Option<String>,
 }
 
 pub fn find_task<'a>(tasks: &'a Tasks, id: &str) -> Option<&'a Task> {
@@ -21,6 +22,7 @@ pub fn list_tasks<'a>(tasks: &'a Tasks, filter: &TaskFilter) -> Vec<&'a Task> {
         .filter(|task| matches_marker(task, filter.marker.as_deref()))
         .filter(|task| matches_phase(task, filter.phase))
         .filter(|task| matches_bundle(task, filter.bundle.as_deref()))
+        .filter(|task| matches_milestone(task, filter.milestone.as_deref()))
         .collect()
 }
 
@@ -32,6 +34,10 @@ pub(crate) fn matches_bundle(task: &Task, bundle: Option<&str>) -> bool {
     bundle.is_none_or(|bundle| task.bundle == bundle)
 }
 
+pub(crate) fn matches_milestone(task: &Task, milestone: Option<&str>) -> bool {
+    milestone.is_none_or(|name| task.milestone.as_deref() == Some(name))
+}
+
 pub fn format_task(task: &Task) -> String {
     let eff = efficiency(task);
     let mut lines = vec![
@@ -40,15 +46,20 @@ pub fn format_task(task: &Task) -> String {
         format!("status: {}", task.status),
         format!("phase: {}", task.phase),
         format!("bundle: {}", task.bundle),
-        format!(
-            "scores: D:{}/B:{}/U:{} -> Eff:{} {}",
-            task.scores.d,
-            task.scores.b,
-            task.scores.u,
-            format_efficiency(eff),
-            tier_glyph(eff)
-        ),
     ];
+
+    if let Some(milestone) = &task.milestone {
+        lines.push(format!("milestone: {milestone}"));
+    }
+
+    lines.push(format!(
+        "scores: D:{}/B:{}/U:{} -> Eff:{} {}",
+        task.scores.d,
+        task.scores.b,
+        task.scores.u,
+        format_efficiency(eff),
+        tier_glyph(eff)
+    ));
 
     if !task.markers.is_empty() {
         lines.push(format!("markers: {}", task.markers.join(", ")));

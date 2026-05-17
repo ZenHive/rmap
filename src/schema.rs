@@ -18,6 +18,8 @@ pub struct Tasks {
     #[serde(default)]
     pub bundles: BTreeMap<String, Bundle>,
     #[serde(default)]
+    pub milestones: BTreeMap<String, Milestone>,
+    #[serde(default)]
     pub task: Vec<Task>,
 }
 
@@ -52,10 +54,23 @@ pub struct Bundle {
 
 #[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
+pub struct Milestone {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub order: u32,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_version: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Task {
     pub id: TaskId,
     pub phase: u32,
     pub bundle: String,
+    pub milestone: Option<String>,
     pub status: String,
     pub title: String,
     pub scores: Scores,

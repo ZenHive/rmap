@@ -312,3 +312,93 @@ fn claude_target_emits_local_environment_footer() {
     assert!(!prompt.contains("Network access varies"), "{prompt}");
     assert!(!prompt.contains("Run the full project harness"), "{prompt}");
 }
+
+const MILESTONE_TASKS: &str = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.7]
+name = "Release lines"
+order = 7
+status = "in_progress"
+
+[bundles.macros]
+phase = 7
+order = 1
+description = "Generated data plane"
+
+[milestones.v0_1]
+name = "v0.1 — first usable"
+order = 1
+status = "active"
+target_version = "0.1.0"
+
+[milestones.v1_0]
+name = "v1.0 — production"
+order = 2
+status = "pending"
+
+[[task]]
+id = 1
+phase = 7
+bundle = "macros"
+milestone = "v0_1"
+status = "pending"
+title = "macro: parseTicker"
+scores = { d = 3, b = 6, u = 6 }
+
+[[task]]
+id = 2
+phase = 7
+bundle = "macros"
+milestone = "v1_0"
+status = "pending"
+title = "macro: parseOrder"
+scores = { d = 3, b = 6, u = 6 }
+
+[[task]]
+id = 3
+phase = 7
+bundle = "macros"
+status = "pending"
+title = "macro: shared (no milestone)"
+scores = { d = 3, b = 6, u = 6 }
+"#;
+
+#[test]
+fn delegate_emits_milestone_bullet_with_target_version() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", MILESTONE_TASKS).expect("valid tasks");
+    let prompt = format_delegate_prompt(&tasks, "1", DelegateTarget::Claude).expect("task 1");
+
+    assert!(
+        prompt.contains("- Milestone: v0_1 (target=0.1.0)"),
+        "expected milestone bullet with target version; got:\n{prompt}"
+    );
+}
+
+#[test]
+fn delegate_emits_milestone_bullet_without_target_version() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", MILESTONE_TASKS).expect("valid tasks");
+    let prompt = format_delegate_prompt(&tasks, "2", DelegateTarget::Claude).expect("task 2");
+
+    assert!(
+        prompt.contains("- Milestone: v1_0"),
+        "expected bare milestone bullet; got:\n{prompt}"
+    );
+    assert!(
+        !prompt.contains("- Milestone: v1_0 (target="),
+        "no target qualifier when unset; got:\n{prompt}"
+    );
+}
+
+#[test]
+fn delegate_omits_milestone_bullet_when_unset() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", MILESTONE_TASKS).expect("valid tasks");
+    let prompt = format_delegate_prompt(&tasks, "3", DelegateTarget::Claude).expect("task 3");
+
+    assert!(
+        !prompt.contains("- Milestone:"),
+        "no bullet when milestone unset; got:\n{prompt}"
+    );
+}

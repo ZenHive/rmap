@@ -4,6 +4,7 @@ pub mod diff;
 pub mod doctor;
 pub mod export;
 pub mod import;
+pub mod milestones;
 pub mod mutate;
 pub mod next;
 pub mod next_bundle;

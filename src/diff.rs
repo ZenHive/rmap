@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::schema::{Bundle, Linear, Phase, Task, TaskId, Tasks};
+use crate::schema::{Bundle, Linear, Milestone, Phase, Task, TaskId, Tasks};
 
 #[derive(Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -55,6 +55,7 @@ impl TomlDiff {
 const TASK_VERBOSE_WHITELIST: &[&str] = &[
     "phase",
     "bundle",
+    "milestone",
     "status",
     "title",
     "scores",
@@ -198,6 +199,11 @@ pub fn diff_metadata(base: &Tasks, current: &Tasks, verbose: bool) -> Vec<Metada
 
     diff.extend(map_diff("phases", &base.phases, &current.phases));
     diff.extend(map_diff("bundles", &base.bundles, &current.bundles));
+    diff.extend(map_diff(
+        "milestones",
+        &base.milestones,
+        &current.milestones,
+    ));
 
     diff
 }
@@ -318,6 +324,7 @@ fn diff_linear(base: &Linear, current: &Linear, verbose: bool) -> Vec<MetadataDi
 trait MapEntry: PartialEq {}
 impl MapEntry for Phase {}
 impl MapEntry for Bundle {}
+impl MapEntry for Milestone {}
 
 fn map_diff<V: MapEntry>(
     namespace: &str,
@@ -391,6 +398,7 @@ fn task_changes(
     diff_fields!(
         phase,
         bundle,
+        milestone,
         status,
         title,
         scores,

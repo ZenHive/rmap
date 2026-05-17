@@ -1,0 +1,56 @@
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.7]
+name = "Release lines"
+order = 7
+status = "in_progress"
+
+[bundles.macros]
+phase = 7
+order = 1
+description = "Generated data plane"
+
+[milestones.v0_1]
+name = "v0.1 — first usable"
+order = 1
+status = "active"
+target_version = "0.1.0"
+
+[milestones.v1_0]
+name = "v1.0 — production trade plane"
+order = 2
+status = "pending"
+
+[[task]]
+id = 101
+phase = 7
+bundle = "macros"
+milestone = "v0_1"
+status = "done"
+implemented = "fixture"
+title = "macro: parseTicker"
+scores = { d = 3, b = 6, u = 6 }
+scored_at = "2026-05-10"
+done_at = "2026-05-08"
+
+[[task]]
+id = 102
+phase = 7
+bundle = "macros"
+milestone = "v1_0"
+status = "in_progress"
+title = "macro: parseOrder"
+scores = { d = 4, b = 6, u = 6 }
+scored_at = "2026-05-10"
+started_at = "2026-05-09"
+
+[[task]]
+id = 103
+phase = 7
+bundle = "macros"
+status = "pending"
+title = "macro: shared helpers (no milestone yet)"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"

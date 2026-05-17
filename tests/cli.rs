@@ -4881,3 +4881,505 @@ fn bundles_command_pending_with_unmet_deps_renders_pause_glyph() {
     );
     assert_eq!(stalled["status_counts"]["pending"], 1);
 }
+
+const MILESTONE_TASKS: &str = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase 1"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[bundles.beta]
+phase = 1
+order = 2
+description = "Beta"
+
+[milestones.v0_1]
+name = "v0.1 — first cut"
+order = 1
+status = "active"
+target_version = "0.1.0"
+
+[milestones.v1_0]
+name = "v1.0 — production"
+order = 2
+status = "pending"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+milestone = "v0_1"
+status = "pending"
+title = "Task one"
+scores = { d = 2, b = 8, u = 8 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "beta"
+milestone = "v1_0"
+status = "pending"
+title = "Task two"
+scores = { d = 2, b = 8, u = 8 }
+
+[[task]]
+id = 3
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Task three (no milestone)"
+scores = { d = 2, b = 6, u = 6 }
+"#;
+
+#[test]
+fn list_command_filters_by_milestone() {
+    let path = write_temp_tasks("milestone_list.toml", MILESTONE_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("list")
+        .arg("--milestone")
+        .arg("v0_1")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap list --milestone v0_1");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Task 1"), "{stdout}");
+    assert!(!stdout.contains("Task 2"), "{stdout}");
+    assert!(!stdout.contains("Task 3"), "{stdout}");
+}
+
+#[test]
+fn next_command_filters_by_milestone() {
+    let path = write_temp_tasks("milestone_next.toml", MILESTONE_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--milestone")
+        .arg("v0_1")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --milestone v0_1");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Task 1"), "{stdout}");
+}
+
+#[test]
+fn next_command_composes_milestone_and_bundle() {
+    let path = write_temp_tasks("milestone_compose.toml", MILESTONE_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--milestone")
+        .arg("v1_0")
+        .arg("--bundle")
+        .arg("beta")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --milestone v1_0 --bundle beta");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Task 2"), "{stdout}");
+
+    // milestone v1_0 + bundle alpha = empty (no task has both).
+    let empty = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--milestone")
+        .arg("v1_0")
+        .arg("--bundle")
+        .arg("alpha")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap next --milestone v1_0 --bundle alpha");
+
+    assert!(empty.status.success());
+    assert_eq!(String::from_utf8_lossy(&empty.stdout), "");
+}
+
+#[test]
+fn milestone_command_sets_then_unsets() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", MILESTONE_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+
+    // initial render so check-render gates pass
+    let render = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("initial render");
+    assert!(
+        render.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&render.stderr)
+    );
+
+    // pin task 3 to v0_1
+    let pin = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("milestone")
+        .arg("3")
+        .arg("v0_1")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap milestone 3 v0_1");
+    assert!(
+        pin.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&pin.stderr)
+    );
+
+    let after_pin = fs::read_to_string(&tasks_path).expect("read tasks.toml");
+    assert!(
+        after_pin.matches("milestone = \"v0_1\"").count() >= 2,
+        "task 3 gains milestone:\n{after_pin}"
+    );
+
+    // unpin task 3
+    let unpin = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("milestone")
+        .arg("3")
+        .arg("none")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap milestone 3 none");
+    assert!(
+        unpin.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&unpin.stderr)
+    );
+
+    let after_unpin = fs::read_to_string(&tasks_path).expect("read tasks.toml");
+    // back to 2 occurrences (tasks 1 and 2 still have milestone)
+    assert_eq!(
+        after_unpin.matches("milestone = ").count(),
+        2,
+        "task 3 milestone removed:\n{after_unpin}"
+    );
+}
+
+#[test]
+fn milestone_command_rejects_unknown_target() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", MILESTONE_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("initial render");
+
+    let before = fs::read_to_string(&tasks_path).expect("read pre-state");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("milestone")
+        .arg("3")
+        .arg("v_nope")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap milestone 3 v_nope");
+
+    assert!(
+        !output.status.success(),
+        "unknown milestone is a hard error"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("unknown milestone") || stderr.contains("v_nope"),
+        "stderr should mention unknown milestone: {stderr}"
+    );
+
+    // file untouched
+    let after = fs::read_to_string(&tasks_path).expect("read post-state");
+    assert_eq!(before, after, "rejected mutation leaves file byte-equal");
+}
+
+#[test]
+fn new_command_accepts_milestone_via_stdin() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", MILESTONE_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("initial render");
+
+    let stdin_payload = r#"
+[[task]]
+phase = 1
+bundle = "alpha"
+milestone = "v0_1"
+title = "New milestone task"
+scores = { d = 2, b = 6, u = 6 }
+"#;
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("new")
+        .arg("--from-stdin")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn rmap new");
+    child
+        .stdin
+        .as_mut()
+        .expect("stdin")
+        .write_all(stdin_payload.as_bytes())
+        .expect("write stdin");
+    let output = child.wait_with_output().expect("wait rmap new");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read tasks.toml");
+    assert!(
+        after.contains("title = \"New milestone task\""),
+        "new task appended:\n{after}"
+    );
+    assert!(
+        after.matches("milestone = \"v0_1\"").count() >= 2,
+        "new task carries milestone = v0_1:\n{after}"
+    );
+}
+
+#[test]
+fn milestones_command_lists_with_next_glyphs() {
+    let path = write_temp_tasks("milestones_list.toml", MILESTONE_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("milestones")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap milestones");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // active milestone surfaces first
+    let v0_1_pos = stdout.find("v0_1").expect("v0_1 in output");
+    let v1_0_pos = stdout.find("v1_0").expect("v1_0 in output");
+    assert!(
+        v0_1_pos < v1_0_pos,
+        "active v0_1 sorts before pending v1_0:\n{stdout}"
+    );
+    // glyph ladder: v0_1 has a pending task 1 with deps satisfied → next: + Eff
+    assert!(
+        stdout.contains("next:1") || stdout.contains("next:2"),
+        "next-task hint:\n{stdout}"
+    );
+    // status badges visible
+    assert!(stdout.contains("[active]"), "{stdout}");
+    assert!(stdout.contains("[pending]"), "{stdout}");
+    // target_version surfaces when set
+    assert!(stdout.contains("target=0.1.0"), "{stdout}");
+}
+
+#[test]
+fn milestones_command_emits_json_envelope() {
+    let path = write_temp_tasks("milestones_json.toml", MILESTONE_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("milestones")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap milestones --json");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    assert_eq!(value["schema_version"], 2);
+    let milestones = value["milestones"].as_array().expect("milestones array");
+    assert_eq!(milestones.len(), 2);
+    // active sorts first
+    assert_eq!(milestones[0]["key"], "v0_1");
+    assert_eq!(milestones[0]["status"], "active");
+    assert_eq!(milestones[0]["target_version"], "0.1.0");
+    assert_eq!(milestones[0]["task_count"], 1);
+    assert_eq!(milestones[0]["status_counts"]["pending"], 1);
+    assert!(
+        milestones[0]["next_task"].is_object(),
+        "next_task populated"
+    );
+    assert_eq!(milestones[1]["key"], "v1_0");
+    assert!(milestones[1]["target_version"].is_null());
+}
+
+#[test]
+fn milestones_command_filter_has_next() {
+    // remove milestones' only candidate by marking task 2 as blocked
+    let tasks = MILESTONE_TASKS.replace(
+        "[[task]]\nid = 2\nphase = 1\nbundle = \"beta\"\nmilestone = \"v1_0\"\nstatus = \"pending\"",
+        "[[task]]\nid = 2\nphase = 1\nbundle = \"beta\"\nmilestone = \"v1_0\"\nstatus = \"blocked\"\nblocked_reason = \"upstream\"",
+    );
+    let path = write_temp_tasks("milestones_hasnext.toml", &tasks);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("milestones")
+        .arg("--has-next")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap milestones --has-next --json");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    let milestones = value["milestones"].as_array().expect("array");
+    // v0_1 still has next:1; v1_0's only task is blocked → no next → filtered out.
+    assert_eq!(milestones.len(), 1);
+    assert_eq!(milestones[0]["key"], "v0_1");
+}
+
+#[test]
+fn milestones_command_filter_status() {
+    let path = write_temp_tasks("milestones_filter_status.toml", MILESTONE_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("milestones")
+        .arg("--status")
+        .arg("pending")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap milestones --status pending");
+
+    assert!(output.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    let milestones = value["milestones"].as_array().expect("array");
+    assert_eq!(milestones.len(), 1);
+    assert_eq!(milestones[0]["key"], "v1_0");
+}
+
+#[test]
+fn milestones_command_empty_milestones() {
+    let path = write_temp_tasks("milestones_empty.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("milestones")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap milestones on empty");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("(no milestones declared)"),
+        "empty-state line:\n{stdout}"
+    );
+}
+
+#[test]
+fn show_command_surfaces_milestone_line() {
+    let path = write_temp_tasks("show_milestone.toml", MILESTONE_TASKS);
+
+    let human = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("1")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap show 1");
+    assert!(
+        human.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&human.stderr)
+    );
+    let text = String::from_utf8_lossy(&human.stdout);
+    assert!(text.contains("milestone: v0_1"), "{text}");
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("1")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap show 1 --json");
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    assert_eq!(value["milestone"], "v0_1");
+
+    // task 3 has no milestone → no milestone field in JSON, no line in human view.
+    let no_milestone = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("3")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap show 3 --json");
+    let value: serde_json::Value =
+        serde_json::from_slice(&no_milestone.stdout).expect("stdout is valid json");
+    assert!(
+        value.get("milestone").is_none() || value["milestone"].is_null(),
+        "task 3 has no milestone surface in JSON: {value}"
+    );
+}

@@ -40,6 +40,7 @@ gantt
     rmap import — emit a paste-ready ROADMAP.md→tasks.toml migration prompt :done, 2026-05-15, 2026-05-15
     section Phase 15 — Schema extensions
     `Task——implemented` field — record what was actually delivered (required when done) :done, 2026-05-17, 2026-05-17
+    Milestones — first-class release lines :done, 2026-05-17, 2026-05-17
 ```
 <!-- MERMAID:END -->
 
