@@ -111,9 +111,20 @@ Easy to violate without breaking tests immediately. The "why" lives in source do
 - **HTML data island id is `rmap-data`, script type `application/json`.** Agents parse the element's text; they do NOT scrape the DOM.
 - **HTML task cards carry six `data-*` attributes** (`data-id`, `-status`, `-eff`, `-markers`, `-depends-on`, `-phase`); DAG nodes carry `data-id`; phase sections carry `data-phase-status`. Stable selector contract.
 
-**Three-place edit rules**
-- **New field on `schema::Task` → also edit `diff::diff_fields!` AND `export::ExportedTask`** in the same commit. Otherwise `diff` misses it and `show --json` / `list --json` don't surface it. Decide whether to add to `TASK_VERBOSE_WHITELIST`.
-- **New top-level field on `schema::Tasks` → also edit `diff::diff_metadata` AND `export::ExportedTasks`** (Task-level macro doesn't cover them; hand-walked).
+**Mirror-surface edit rules**
+
+When adding a field to `schema::Task`, decide whether it is a **creation-time** field (set at `rmap new` time) or a **transition-time** field (set later by `rmap status` / `rmap mark` / `rmap depend` / etc.), then update the appropriate surfaces in the same commit. The full invariant lives on the `Task` doc comment in `src/schema.rs`; this is the working summary.
+
+- **Creation-time field → SIX surfaces:**
+  - `main.rs::StdinTask` (stdin parse shape)
+  - `mutate.rs::NewTaskFields` (mutator argument struct)
+  - `mutate.rs::add_task_str` (TOML writer)
+  - `mutate.rs::canonical_task_key_index` (key ordering for serialization)
+  - `diff.rs::diff_fields!` (drift surface for `rmap diff`)
+  - `export.rs::ExportedTask` (`--json` / `data.json` shape)
+  - Then decide whether to add to `diff::TASK_VERBOSE_WHITELIST`. Interactive `prompt_task_fields` (main.rs) is optional — power-user fields (`branch`, `files_to_modify`, `cross_repo`) intentionally require `--from-stdin` rather than dialoguer.
+- **Transition-time field** (lifecycle timestamps, `implemented`, etc.) → update the owning mutator (`set_status_str` for status transitions, etc.) plus `diff::diff_fields!` and `export::ExportedTask`. Stays absent from `StdinTask` / `NewTaskFields` on purpose — today: `started_at`, `done_at`, `blocked_reason`, `shipped_in`, `implemented`.
+- **New top-level field on `schema::Tasks`** → also edit `diff::diff_metadata` AND `export::ExportedTasks` (Task-level macro doesn't cover them; hand-walked).
 
 **Time & determinism**
 - **`today_iso()` is the only source of "now".** Reads `RMAP_TODAY` env var first, falls back to `SystemTime::now()`. Date-sensitive tests MUST set `RMAP_TODAY` on the `Command` env (or `today.txt` for golden fixtures).

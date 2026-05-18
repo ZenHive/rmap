@@ -703,7 +703,7 @@ done_at = "2026-05-17"
 id = 25
 phase = 15
 bundle = "schema_milestones"
-status = "pending"
+status = "done"
 title = "Backfill creation paths with branch / files_to_modify / cross_repo (converge StdinTask/NewTaskFields mirror)"
 scores = { d = 4, b = 6, u = 6 }
 markers = ["bug"]
@@ -724,5 +724,7 @@ Originally surfaced by audit-review on 2026-05-17 (audit(dcad8e5..794036e)),
 deferred from commit 180329c as out-of-scope for that commit's targeted
 out_of_scope drift fix.
 """
+implemented = "Backfilled branch / files_to_modify / cross_repo into StdinTask (main.rs) and NewTaskFields + add_task_str writer (mutate.rs). Mirror invariant documented on schema::Task doc comment and CLAUDE.md mirror-surface rules. Interactive prompt_task_fields intentionally not extended — documented skip path = use --from-stdin. Four round-trip tests added in tests/cli.rs (branch, files_to_modify, cross_repo, canonical-order)."
 created_at = "2026-05-17"
 scored_at = "2026-05-17"
+done_at = "2026-05-18"

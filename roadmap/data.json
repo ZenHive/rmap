@@ -809,7 +809,7 @@
       "id": 25,
       "phase": 15,
       "bundle": "schema_milestones",
-      "status": "pending",
+      "status": "done",
       "title": "Backfill creation paths with branch / files_to_modify / cross_repo (converge StdinTask/NewTaskFields mirror)",
       "scores": {
         "d": 4,
@@ -832,7 +832,9 @@
       ],
       "body": "schema::Task has branch, files_to_modify, cross_repo fields that StdinTask\n(src/main.rs StdinTask struct) and NewTaskFields (src/mutate.rs) cannot accept\nat creation. Backfill both surfaces.\n\nWhile there, evaluate whether StdinTask should be replaced with a derive-from-\nschema::Task pattern (or a small macro) to stop the three-place mirror from\ndrifting every schema add. Today every new schema::Task field requires a\nmanual edit to StdinTask + NewTaskFields + add_task_str's emit logic — the\npattern drifted twice already (out_of_scope in Task 21, implemented in Task 22).\n\nOriginally surfaced by audit-review on 2026-05-17 (audit(dcad8e5..794036e)),\ndeferred from commit 180329c as out-of-scope for that commit's targeted\nout_of_scope drift fix.\n",
       "created_at": "2026-05-17",
+      "done_at": "2026-05-18",
       "scored_at": "2026-05-17",
+      "implemented": "Backfilled branch / files_to_modify / cross_repo into StdinTask (main.rs) and NewTaskFields + add_task_str writer (mutate.rs). Mirror invariant documented on schema::Task doc comment and CLAUDE.md mirror-surface rules. Interactive prompt_task_fields intentionally not extended — documented skip path = use --from-stdin. Four round-trip tests added in tests/cli.rs (branch, files_to_modify, cross_repo, canonical-order).",
       "cross_repo": []
     }
   ]

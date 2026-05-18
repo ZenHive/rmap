@@ -2994,6 +2994,270 @@ scores = { d = 2, b = 6, u = 6 }
     );
 }
 
+#[test]
+fn new_from_stdin_round_trips_branch_field() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Branch-tagged task"
+scores = { d = 2, b = 6, u = 6 }
+branch = "feat/task-25-smoke"
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(
+        tasks.contains("branch = \"feat/task-25-smoke\""),
+        "branch should round-trip into tasks.toml; tasks: {tasks}"
+    );
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show --json");
+    assert!(json.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    assert_eq!(
+        value["branch"].as_str(),
+        Some("feat/task-25-smoke"),
+        "show --json should surface branch; value: {value}"
+    );
+}
+
+#[test]
+fn new_from_stdin_round_trips_files_to_modify_field() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "File-scoped task"
+scores = { d = 2, b = 6, u = 6 }
+files_to_modify = ["src/foo.rs", "tests/foo.rs"]
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(
+        tasks.contains("files_to_modify = [\"src/foo.rs\", \"tests/foo.rs\"]"),
+        "files_to_modify should round-trip into tasks.toml; tasks: {tasks}"
+    );
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show --json");
+    assert!(json.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    let files = value["files_to_modify"]
+        .as_array()
+        .expect("files_to_modify is an array");
+    assert_eq!(files.len(), 2);
+    assert_eq!(files[0], "src/foo.rs");
+    assert_eq!(files[1], "tests/foo.rs");
+
+    // `rmap delegate` already renders `## Files to modify` from this field
+    // (see src/delegate.rs::append_files_to_modify) — exercise the read path
+    // end-to-end so a regression in either creation or rendering surfaces.
+    let delegate = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("2")
+        .arg("--to")
+        .arg("claude")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap delegate");
+    assert!(
+        delegate.status.success(),
+        "delegate failed; stderr: {}",
+        String::from_utf8_lossy(&delegate.stderr)
+    );
+    let delegate_stdout = String::from_utf8_lossy(&delegate.stdout);
+    assert!(
+        delegate_stdout.contains("## Files to modify"),
+        "delegate missing `## Files to modify`; stdout: {delegate_stdout}"
+    );
+    assert!(
+        delegate_stdout.contains("src/foo.rs"),
+        "delegate missing file bullet; stdout: {delegate_stdout}"
+    );
+}
+
+#[test]
+fn new_from_stdin_round_trips_cross_repo_field() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Cross-repo task"
+scores = { d = 2, b = 6, u = 6 }
+cross_repo = [
+  { repo = "other-repo", task_id = 42, relation = "blocks" },
+  { repo = "third-repo", task_id = "alpha", linear_id = "ABC-1", relation = "blocked_by" },
+]
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(
+        tasks.contains("cross_repo = ["),
+        "cross_repo array should round-trip into tasks.toml; tasks: {tasks}"
+    );
+    // Integer task_id stays integer, text task_id stays string (mirrors
+    // add_dependency_str's shape).
+    assert!(
+        tasks.contains("task_id = 42"),
+        "integer task_id should serialize as integer; tasks: {tasks}"
+    );
+    assert!(
+        tasks.contains("task_id = \"alpha\""),
+        "text task_id should serialize as string; tasks: {tasks}"
+    );
+    assert!(
+        tasks.contains("linear_id = \"ABC-1\""),
+        "optional linear_id should be preserved; tasks: {tasks}"
+    );
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show --json");
+    assert!(json.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    let entries = value["cross_repo"]
+        .as_array()
+        .expect("cross_repo is an array");
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0]["repo"], "other-repo");
+    assert_eq!(entries[0]["task_id"], 42);
+    assert_eq!(entries[0]["relation"], "blocks");
+    assert_eq!(entries[1]["repo"], "third-repo");
+    assert_eq!(entries[1]["task_id"], "alpha");
+    assert_eq!(entries[1]["linear_id"], "ABC-1");
+    assert_eq!(entries[1]["relation"], "blocked_by");
+}
+
+#[test]
+fn new_from_stdin_emits_canonical_order_for_creation_fields() {
+    // Asserts the writer in add_task_str + canonical_task_key_index produce
+    // the expected key ordering when all three Task-25 fields are present:
+    //   out_of_scope (10) < files_to_modify (11) < cross_repo (12) < model (16) < branch (17)
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Full-shape task"
+scores = { d = 2, b = 6, u = 6 }
+out_of_scope = ["No DB migration"]
+files_to_modify = ["src/foo.rs"]
+cross_repo = [{ repo = "other-repo", task_id = 1, relation = "blocks" }]
+model = "claude-opus-4-7"
+branch = "feat/task-25"
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    // Anchor on `\n` to avoid matching `default_branch = ` at the document head.
+    let oos_idx = tasks
+        .find("\nout_of_scope = ")
+        .expect("out_of_scope present");
+    let ftm_idx = tasks
+        .find("\nfiles_to_modify = ")
+        .expect("files_to_modify present");
+    let xrepo_idx = tasks.find("\ncross_repo = ").expect("cross_repo present");
+    let model_idx = tasks.find("\nmodel = ").expect("model present");
+    let branch_idx = tasks.find("\nbranch = ").expect("branch present");
+
+    assert!(
+        oos_idx < ftm_idx,
+        "files_to_modify should follow out_of_scope; tasks:\n{tasks}"
+    );
+    assert!(
+        ftm_idx < xrepo_idx,
+        "cross_repo should follow files_to_modify; tasks:\n{tasks}"
+    );
+    assert!(
+        xrepo_idx < model_idx,
+        "model should follow cross_repo; tasks:\n{tasks}"
+    );
+    assert!(
+        model_idx < branch_idx,
+        "branch should follow model; tasks:\n{tasks}"
+    );
+}
+
 const NEXT_BUNDLE_FOCUS_VS_OTHER: &str = r#"
 schema_version = 2
 project = "demo"

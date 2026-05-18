@@ -64,6 +64,30 @@ pub struct Milestone {
     pub target_version: Option<String>,
 }
 
+/// A single roadmap task.
+///
+/// MIRROR SURFACES — when adding a field here, decide whether it is a
+/// **creation-time** field (set at `rmap new` time) or a **transition-time**
+/// field (set by `rmap status` / `rmap mark` / `rmap depend`), and update the
+/// appropriate surfaces in the same commit:
+///
+/// Creation-time field → SIX surfaces:
+///   1. `main.rs::StdinTask`                  — stdin parse shape
+///   2. `mutate.rs::NewTaskFields`            — mutator argument struct
+///   3. `mutate.rs::add_task_str`             — TOML writer
+///   4. `mutate.rs::canonical_task_key_index` — key ordering for serialization
+///   5. `diff.rs::diff_fields!`               — drift surface for `rmap diff`
+///   6. `export.rs::ExportedTask`             — JSON shape for `--json` / `data.json`
+///
+/// Plus decide whether to add to `diff::TASK_VERBOSE_WHITELIST`. Interactive
+/// `prompt_task_fields` (main.rs) is optional — power-user fields (`branch`,
+/// `files_to_modify`, `cross_repo`) intentionally route through
+/// `rmap new --from-stdin` rather than dialoguer.
+///
+/// Transition-time field → owning mutator (`set_status_str` for lifecycle
+/// timestamps + `implemented`, etc.) + surfaces 4–6. Stays absent from
+/// `StdinTask` / `NewTaskFields` on purpose. Today: `started_at`, `done_at`,
+/// `blocked_reason`, `shipped_in`, `implemented`.
 #[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Task {

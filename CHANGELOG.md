@@ -19,6 +19,16 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 15 — Schema extensions
 
+### Phase 15 Task 25: Backfill creation paths with `branch` / `files_to_modify` / `cross_repo` (schema_milestones bundle, 🐛 bug)
+
+**What was done:**
+- Backfilled the three power-user fields onto the `rmap new` creation surfaces so callers no longer have to manually edit `tasks.toml` after creation. `branch`, `files_to_modify`, and `cross_repo` already existed on `schema::Task`, were already surfaced by `rmap diff` / `--json` / `rmap delegate`, but had no path through `StdinTask` (stdin parse shape) or `NewTaskFields` + `add_task_str` (writer). Originally surfaced by audit-review on 2026-05-17 (`audit(dcad8e5..794036e)`), deferred from commit 180329c as out-of-scope for that targeted fix.
+- **Four-place writer edit:** `main.rs::StdinTask` gained the three fields (with `#[serde(default)]` on the two `Vec` types), `mutate.rs::NewTaskFields` gained the matching slice borrows, `mutate.rs::add_task_str` gained the three conditional writers (empty-slice → skip serialization; `cross_repo` task_id is integer-when-parseable, mirroring `add_dependency_str`'s shape), and `mutate.rs::canonical_task_key_index` gained `"files_to_modify" => 11` (between `out_of_scope` and `cross_repo`), shifting subsequent indices by one.
+- **Interactive `prompt_task_fields` (main.rs) intentionally not extended.** Documented skip path = use `rmap new --from-stdin` for `branch` / `files_to_modify` / `cross_repo`. The interactive flow stays focused on common-path fields; `dialoguer::Input` for path lists and inline-table cross-repo entries would be heavier than the value warrants. The `StdinTask` doc comment now spells out the power-user-fields-via-stdin contract explicitly.
+- **Mirror-surface invariant promoted to load-bearing doc**: `src/schema.rs::Task` doc comment now carries the full SIX-surfaces (creation-time) vs three-surfaces (transition-time) decision tree on its head. `CLAUDE.md` "Mirror-surface edit rules" section restructured around the same split — the old "Three-place edit rules" subhead was incomplete (only covered surfaces 4–6, missed the StdinTask / NewTaskFields / add_task_str / canonical_task_key_index mirror that this very bug drifted across). Future field-adds now have one canonical checklist.
+- **Four new round-trip tests** in `tests/cli.rs`: `new_from_stdin_round_trips_branch_field`, `new_from_stdin_round_trips_files_to_modify_field` (asserts `rmap delegate` renders `## Files to modify` end-to-end), `new_from_stdin_round_trips_cross_repo_field` (asserts integer-vs-text `task_id` shape preservation + optional `linear_id`), and `new_from_stdin_emits_canonical_order_for_creation_fields` (asserts `out_of_scope` < `files_to_modify` < `cross_repo` < `model` < `branch` byte ordering in the written TOML).
+- **No `schema_version` bump.** Purely a writer-surface backfill — the schema and validator are unchanged; existing `tasks.toml` files validate identically.
+
 ### Phase 15 Task 24: Milestones — first-class release lines (schema_milestones bundle)
 
 **What was done:**

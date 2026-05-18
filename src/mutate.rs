@@ -4,6 +4,7 @@ use std::str::FromStr;
 use thiserror::Error;
 use toml_edit::{Array, ArrayOfTables, DocumentMut, InlineTable, Item, Table, Value};
 
+use crate::schema::CrossRepo;
 use crate::validate::{ValidateError, validate_tasks_str};
 
 #[derive(Debug, Error)]
@@ -413,20 +414,21 @@ fn canonical_task_key_index(key: &str) -> u32 {
         "depends_on" => 8,
         "acceptance_criteria" => 9,
         "out_of_scope" => 10,
-        "cross_repo" => 11,
-        "assignee" => 12,
-        "linear_id" => 13,
-        "module" => 14,
-        "model" => 15,
-        "branch" => 16,
-        "blocked_reason" => 17,
-        "body" => 18,
-        "implemented" => 19,
-        "created_at" => 20,
-        "started_at" => 21,
-        "scored_at" => 22,
-        "done_at" => 23,
-        "shipped_in" => 24,
+        "files_to_modify" => 11,
+        "cross_repo" => 12,
+        "assignee" => 13,
+        "linear_id" => 14,
+        "module" => 15,
+        "model" => 16,
+        "branch" => 17,
+        "blocked_reason" => 18,
+        "body" => 19,
+        "implemented" => 20,
+        "created_at" => 21,
+        "started_at" => 22,
+        "scored_at" => 23,
+        "done_at" => 24,
+        "shipped_in" => 25,
         _ => u32::MAX,
     }
 }
@@ -573,10 +575,17 @@ pub struct NewTaskFields<'a> {
     pub depends_on: &'a [u32],
     pub acceptance_criteria: &'a [&'a str],
     pub out_of_scope: &'a [&'a str],
+    /// Slice of file paths the task is scoped to. Empty slice = skip serialization.
+    pub files_to_modify: &'a [String],
+    /// Slice of cross-repo dependencies. Empty slice = skip serialization. Each
+    /// entry's `task_id` is written as an integer when parseable, otherwise a
+    /// string — mirroring `add_dependency_str`'s shape.
+    pub cross_repo: &'a [CrossRepo],
     pub assignee: Option<&'a str>,
     pub linear_id: Option<&'a str>,
     pub module: Option<&'a str>,
     pub model: Option<&'a str>,
+    pub branch: Option<&'a str>,
     pub body: Option<&'a str>,
     pub created_at: Option<&'a str>,
     pub scored_at: Option<&'a str>,
@@ -695,6 +704,34 @@ pub fn add_task_str(
         table["out_of_scope"] = Item::Value(Value::Array(array));
     }
 
+    if !fields.files_to_modify.is_empty() {
+        let mut array = Array::new();
+        for path in fields.files_to_modify {
+            array.push(path.as_str());
+        }
+        table["files_to_modify"] = Item::Value(Value::Array(array));
+    }
+
+    if !fields.cross_repo.is_empty() {
+        let mut array = Array::new();
+        for entry in fields.cross_repo {
+            let mut inline = InlineTable::new();
+            inline.insert("repo", Value::from(entry.repo.as_str()));
+            let task_id_str = entry.task_id.to_string();
+            if let Ok(numeric) = task_id_str.parse::<i64>() {
+                inline.insert("task_id", Value::from(numeric));
+            } else {
+                inline.insert("task_id", Value::from(task_id_str.as_str()));
+            }
+            if let Some(linear_id) = &entry.linear_id {
+                inline.insert("linear_id", Value::from(linear_id.as_str()));
+            }
+            inline.insert("relation", Value::from(entry.relation.as_str()));
+            array.push(Value::InlineTable(inline));
+        }
+        table["cross_repo"] = Item::Value(Value::Array(array));
+    }
+
     if let Some(assignee) = fields.assignee {
         table["assignee"] = Item::Value(Value::from(assignee));
     }
@@ -706,6 +743,9 @@ pub fn add_task_str(
     }
     if let Some(model) = fields.model {
         table["model"] = Item::Value(Value::from(model));
+    }
+    if let Some(branch) = fields.branch {
+        table["branch"] = Item::Value(Value::from(branch));
     }
     if let Some(body) = fields.body {
         table["body"] = Item::Value(Value::from(body));

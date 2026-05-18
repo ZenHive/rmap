@@ -1121,10 +1121,13 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
             depends_on: &depends_on,
             acceptance_criteria: &acceptance_criteria,
             out_of_scope: &out_of_scope,
+            files_to_modify: &task.files_to_modify,
+            cross_repo: &task.cross_repo,
             assignee: task.assignee.as_deref(),
             linear_id: task.linear_id.as_deref(),
             module: task.module.as_deref(),
             model: task.model.as_deref(),
+            branch: task.branch.as_deref(),
             body: task.body.as_deref(),
             created_at: Some(task.created_at.as_deref().unwrap_or(today.as_str())),
             scored_at: Some(task.scored_at.as_deref().unwrap_or(today.as_str())),
@@ -1162,9 +1165,14 @@ struct StdinPayload {
 
 /// Task-shaped stdin row. Field set matches `schema::Task` except `id` is
 /// optional (auto-allocate when absent). `status` is excluded — creation
-/// produces `"pending"` tasks only. Lifecycle timestamps (`started_at`,
-/// `done_at`, `blocked_reason`, `shipped_in`) are also excluded; `rmap status`
-/// owns those transitions.
+/// produces `"pending"` tasks only. Lifecycle / transition-time fields
+/// (`started_at`, `done_at`, `blocked_reason`, `shipped_in`, `implemented`)
+/// are excluded; `rmap status` owns those transitions.
+///
+/// `branch`, `files_to_modify`, and `cross_repo` are the documented
+/// power-user fields — only reachable via `--from-stdin`, not via the
+/// interactive `prompt_task_fields` flow. See the `MIRROR SURFACES` block
+/// on `schema::Task` for the full invariant.
 #[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StdinTask {
@@ -1186,6 +1194,11 @@ struct StdinTask {
     pub acceptance_criteria: Vec<String>,
     #[serde(default)]
     pub out_of_scope: Vec<String>,
+    #[serde(default)]
+    pub files_to_modify: Vec<String>,
+    #[serde(default)]
+    pub cross_repo: Vec<rmap::schema::CrossRepo>,
+    pub branch: Option<String>,
     pub body: Option<String>,
     pub created_at: Option<String>,
     pub scored_at: Option<String>,
@@ -1363,6 +1376,11 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         model,
         acceptance_criteria,
         out_of_scope,
+        // Power-user fields not exposed by the interactive prompt — set via
+        // `rmap new --from-stdin` or edit `tasks.toml` directly.
+        files_to_modify: Vec::new(),
+        cross_repo: Vec::new(),
+        branch: None,
         body: None,
         created_at: None,
         scored_at: None,
