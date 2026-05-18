@@ -98,4 +98,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 22 | ✅ | 🎁 **schema_implemented** · `Task::implemented` field — record what was actually delivered (required when done) [D:4/B:6/U:7 → Eff:1.62] 🚀 |
 | Task 24 | ✅ | 🎁 **schema_milestones** · Milestones — first-class release lines [D:6/B:8/U:8 → Eff:1.33] 📋 |
 | Task 25 | ✅ | 🎁 **schema_milestones** · 🐛 Backfill creation paths with branch / files_to_modify / cross_repo (converge StdinTask/NewTaskFields mirror) [D:4/B:6/U:6 → Eff:1.5] 🚀 |
+| Task 26 | ⬜ | 🎁 **deps_schemars** · Upgrade schemars 0.8 → 0.9+ for JSON Schema draft 2020-12 [D:3/B:3/U:3 → Eff:1.0] 📋 |
 <!-- TASKS:END -->

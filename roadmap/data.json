@@ -50,6 +50,11 @@
       "order": 2,
       "description": "Phase 13c: delegate prompt parity with task-writing.md"
     },
+    "deps_schemars": {
+      "phase": 15,
+      "order": 4,
+      "description": "Upgrade schemars 0.8 → 0.9+ to emit JSON Schema draft 2020-12 instead of draft-07"
+    },
     "doctor_tuning": {
       "phase": 13,
       "order": 3,
@@ -835,6 +840,43 @@
       "done_at": "2026-05-18",
       "scored_at": "2026-05-17",
       "implemented": "Backfilled branch / files_to_modify / cross_repo into StdinTask (main.rs) and NewTaskFields + add_task_str writer (mutate.rs). Mirror invariant documented on schema::Task doc comment and CLAUDE.md mirror-surface rules. Interactive prompt_task_fields intentionally not extended — documented skip path = use --from-stdin. Four round-trip tests added in tests/cli.rs (branch, files_to_modify, cross_repo, canonical-order).",
+      "cross_repo": []
+    },
+    {
+      "id": 26,
+      "phase": 15,
+      "bundle": "deps_schemars",
+      "status": "pending",
+      "title": "Upgrade schemars 0.8 → 0.9+ for JSON Schema draft 2020-12",
+      "scores": {
+        "d": 3,
+        "b": 3,
+        "u": 3
+      },
+      "eff": 1.0,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`cargo build` and `cargo test` pass on stable Rust 1.85+",
+        "`rmap schema` emits `\"$schema\": \"https://json-schema.org/draft/2020-12/schema\"`",
+        "`rmap schema` output validates as a draft 2020-12 schema (e.g. against `jsonschema` CLI or a tested validator)",
+        "Existing `tasks.toml` round-trips through validate → render with no behavioral regression",
+        "`tests/cli.rs` golden output for `rmap schema --help` (if any) is updated to reflect the new dialect"
+      ],
+      "out_of_scope": [
+        "Adding flags to opt back into draft-07",
+        "Generating multi-dialect schemas",
+        "Migrating JSON Schema consumers beyond rmap's own templates and docs"
+      ],
+      "files_to_modify": [
+        "Cargo.toml",
+        "src/schema.rs",
+        "src/schema_json.rs",
+        "src/import.rs"
+      ],
+      "body": "Bump the `schemars` dependency from 0.8 to the latest 0.9+ release so `rmap schema` and `roadmap/data.json` consumers see JSON Schema draft 2020-12 instead of draft-07. The current pin emits `\"$schema\": \"http://json-schema.org/draft-07/schema#\"`; post-upgrade it should emit `\"https://json-schema.org/draft/2020-12/schema\"`.\n\nThis is a breaking API jump in schemars, not just a dialect flip. Expect renames around `Schema` (now a thin newtype over `serde_json::Value`), changes to the `JsonSchema` trait method shape, and possible adjustments in how `#[serde(deny_unknown_fields)]` and the untagged `TaskId` enum surface in the emitted schema. Walk `src/schema.rs`, `src/schema_json.rs`, and `src/import.rs` to update call sites.\n\nInvestigate downstream contract impact in the same task: the import prompt template (`templates/import_prompt.md`) interpolates the live schema; the README / CLAUDE.md references to `rmap schema` may need a note about the dialect change; agent consumers that pin to draft-07 validators will break. Decide whether to land the upgrade outright or expose a flag — recommendation goes in the PR description, not preemptively in code.\n",
+      "created_at": "2026-05-18",
+      "scored_at": "2026-05-18",
       "cross_repo": []
     }
   ]
