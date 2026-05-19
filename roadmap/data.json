@@ -878,6 +878,39 @@
       "created_at": "2026-05-18",
       "scored_at": "2026-05-18",
       "cross_repo": []
+    },
+    {
+      "id": 27,
+      "phase": 15,
+      "bundle": "schema_milestones",
+      "status": "done",
+      "title": "Active-milestone preference in `rmap next`",
+      "scores": {
+        "d": 3,
+        "b": 5,
+        "u": 6
+      },
+      "eff": 1.83,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Tasks pinned to an active milestone win over out-of-active-milestone tasks within the same focus-phase tier",
+        "Focus-phase preference dominates milestone preference when the two diverge",
+        "No active milestones → byte-identical behavior to today",
+        "All existing tests/next.rs tests pass unchanged"
+      ],
+      "out_of_scope": [
+        "Changing --milestone <name> filter semantics (still narrows pool)",
+        "Adding a 'max one active' milestone validation",
+        "Adding an opt-out flag for the new bias",
+        "Reranking rmap next-bundle or rmap bundles"
+      ],
+      "body": "Make `rmap next` bias toward tasks pinned to any milestone with status=active, analogous to the existing focus-phase bias. 4-tier lexicographic key (focus phase × active milestone), focus dominant, then Eff desc. Update next.rs doc comment, SKILLS.md picking-work and milestone sections, CLAUDE.md next.rs module summary + load-bearing invariants, ~/.claude/includes/rmap.md Milestones section. Add 6 tests to tests/next.rs covering: active-ms wins on low Eff; focus beats ms on divergence; tier-0/1/2 ordering; multi-active milestones; no-active regression; explicit --milestone filter falls back to pure Eff within pool. See plan b-flickering-cupcake.md.",
+      "created_at": "2026-05-18",
+      "done_at": "2026-05-18",
+      "scored_at": "2026-05-18",
+      "implemented": "next_tasks gained a 4-tier lexicographic ranking (focus-phase × active-milestone, focus dominant) then Eff desc. Without [focus] every task counts as in-focus so tiers collapse to milestone-only bias; with no active milestone the selector reduces to the pre-existing focus-phase partition (regression-safe). New tier helper next::tier; active-milestone set computed once per call. SKILLS.md, CLAUDE.md, ~/.claude/includes/rmap.md updated. 6 new tests in tests/next.rs pin the precedence rule (focus dominant), multi-active milestones, no-active regression, and explicit --milestone filter sanity.",
+      "cross_repo": []
     }
   ]
 }

@@ -19,6 +19,16 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 15 — Schema extensions
 
+### Phase 15 Task 27: Active-milestone preference in `rmap next` (schema_milestones bundle)
+
+**What was done:**
+- `next_tasks` (in `src/next.rs`) now ranks pending unblocked tasks by a 4-tier lexicographic key (`focus-phase × active-milestone`, **focus dominant**) then Eff desc. Tier 0 = both, tier 1 = focus-only, tier 2 = active-milestone-only, tier 3 = neither. Replaces the prior `partition(focus)` + per-partition `sort_by_eff_desc` + concat strategy with a single stable sort over the candidate vector. The `next::tier` helper centralizes the cross-product; the active-milestone set is computed once per call from `tasks.milestones`.
+- **Focus-dominance over milestone is the load-bearing decision.** A task in `[focus].phase` but outside any active milestone (tier 1) beats a task pinned to an active milestone but outside the focus phase (tier 2). This was the consumer-first call: focus answers "what am I working on right now?", milestone answers "what release line is this for?" — when they diverge, the daily-path question wins.
+- **Degenerate cases preserve prior behavior.** Without `[focus]`, every task is treated as in-focus → tiers collapse to 0/1 (pure milestone bias). With no `active` milestone, tiers collapse to 1/3 — equivalent to the original focus-phase partition; the regression test `no_active_milestones_preserves_focus_only_behavior` pins this byte-identically.
+- **No `schema_version` bump.** Pure read-path ranking change — schema, validator, mutators, and JSON envelopes are untouched. `--milestone <name>` filter semantics also unchanged (narrows the pool before tiering, so an explicit filter onto a non-active milestone reduces to pure Eff desc within that pool).
+- **Six new tests** in `tests/next.rs`: active-ms wins on low Eff (no focus); focus beats ms on divergence (tier 1 > tier 2); tier-0/1/2 ordering when all three are populated; multi-active milestones (any `active` qualifies); no-active regression (byte-identical to focus-only behavior); explicit `--milestone` filter falls back to pure Eff within the filtered pool.
+- **Docs**: `src/next.rs` module doc rewritten around the tier table; `CLAUDE.md` "Agent contract" section gained a new invariant pinning the 4-tier key (focus-dominance bit called out as load-bearing); `SKILLS.md` "Picking work" and "Milestones" sections updated to describe the auto-bias; `~/.claude/includes/rmap.md` Milestones section gained the auto-bias + focus-dominance note.
+
 ### Phase 15 Task 25: Backfill creation paths with `branch` / `files_to_modify` / `cross_repo` (schema_milestones bundle, 🐛 bug)
 
 **What was done:**

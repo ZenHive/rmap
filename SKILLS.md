@@ -47,7 +47,7 @@ rmap list --phase 1 --json
 
 ## Picking work
 
-`rmap next` returns the highest-Eff `pending` task whose dependencies are all `done`. When `[focus].phase` is set, focus-phase candidates win over higher-Eff candidates in other phases.
+`rmap next` returns the highest-Eff `pending` task whose dependencies are all `done`. When `[focus].phase` is set, focus-phase candidates win over higher-Eff candidates in other phases. When any `[milestones.<name>].status = "active"`, tasks pinned to an active milestone win over out-of-active-milestone tasks within the same focus tier — focus phase dominates milestone when the two diverge.
 
 ```bash
 rmap next
@@ -146,7 +146,7 @@ rmap milestone 3 none
 # exit: 0
 ```
 
-`--milestone <name>` filters `rmap list` and `rmap next` to one release line. Composes with `--bundle`, `--phase`, `--marker`.
+`--milestone <name>` filters `rmap list` and `rmap next` to one release line. Composes with `--bundle`, `--phase`, `--marker`. Without an explicit `--milestone` flag, `rmap next` automatically biases toward tasks pinned to any `active` milestone (see § "Picking work" above) — `--milestone v_x` is the override when you want a different release line.
 
 ```bash
 rmap list --milestone demo

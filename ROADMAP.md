@@ -99,4 +99,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 24 | ✅ | 🎁 **schema_milestones** · Milestones — first-class release lines [D:6/B:8/U:8 → Eff:1.33] 📋 |
 | Task 25 | ✅ | 🎁 **schema_milestones** · 🐛 Backfill creation paths with branch / files_to_modify / cross_repo (converge StdinTask/NewTaskFields mirror) [D:4/B:6/U:6 → Eff:1.5] 🚀 |
 | Task 26 | ⬜ | 🎁 **deps_schemars** · Upgrade schemars 0.8 → 0.9+ for JSON Schema draft 2020-12 [D:3/B:3/U:3 → Eff:1.0] 📋 |
+| Task 27 | ✅ | 🎁 **schema_milestones** · Active-milestone preference in `rmap next` [D:3/B:5/U:6 → Eff:1.83] 🚀 |
 <!-- TASKS:END -->

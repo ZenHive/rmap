@@ -1,52 +1,70 @@
 use std::cmp::Ordering;
+use std::collections::HashSet;
 
 use crate::query::{TaskFilter, matches_bundle, matches_marker, matches_milestone};
 use crate::schema::{Task, Tasks};
 use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 
-/// Top `count` `pending` tasks whose `depends_on` are all `done`, Eff-ranked.
+/// Top `count` `pending` tasks whose `depends_on` are all `done`, ranked by
+/// a lexicographic key: **(focus-phase × active-milestone) → Eff desc**.
 ///
-/// Honors `filter.marker`, `filter.bundle`, and `filter.milestone`. `filter.status` is ignored
-/// (next is implicitly `"pending"`-only) and `filter.phase` is ignored (focus
-/// preference is sourced from `[focus].phase`, not the user). When `[focus]`
-/// is set, focus-phase candidates win over higher-Eff candidates in other
-/// phases — bundle filtering happens BEFORE the focus partition, so
-/// `--bundle X` restricts the candidate pool first and focus only ranks
-/// within the bundle.
+/// Honors `filter.marker`, `filter.bundle`, and `filter.milestone`.
+/// `filter.status` and `filter.phase` are ignored (next is implicitly
+/// `"pending"`-only; focus comes from `[focus].phase`, not the caller).
+/// Bundle / milestone filters narrow the candidate pool BEFORE tiering, so
+/// `--bundle X` / `--milestone Y` restrict the pool first and ranking only
+/// orders within that pool.
 ///
-/// For `count > 1`, the result fills with focus-phase candidates first (Eff
-/// desc, stable on ties) and falls through to non-focus candidates only if
-/// the focus pool has fewer than `count` entries. Returns up to `count`
-/// tasks; fewer is fine when the eligible pool is smaller.
+/// Ranking tiers (lower wins; **focus dominant over milestone**):
+///   0 — in `[focus].phase` AND pinned to any `active` milestone
+///   1 — in `[focus].phase` only
+///   2 — pinned to an `active` milestone only
+///   3 — neither
+/// Within a tier, Eff descending; ties preserve TOML order (stable sort).
+///
+/// Degenerate cases preserve prior behavior: when `[focus]` is unset every
+/// task is treated as "in focus" for tiering purposes, so tiers collapse to
+/// 0/1 (milestone-only bias) or, when no milestone is `active`, to all
+/// tier 1 (pure Eff descending). When `[focus]` is set but no milestone is
+/// `active`, only tiers 1 and 3 are occupied — equivalent to the original
+/// focus-phase partition.
+///
+/// Returns up to `count` tasks; fewer is fine when the eligible pool is
+/// smaller.
 pub fn next_tasks<'a>(tasks: &'a Tasks, filter: &TaskFilter, count: usize) -> Vec<&'a Task> {
     if count == 0 {
         return Vec::new();
     }
 
-    let candidates = tasks
+    let mut candidates: Vec<&Task> = tasks
         .task
         .iter()
         .filter(|task| task.status == "pending")
         .filter(|task| matches_bundle(task, filter.bundle.as_deref()))
         .filter(|task| matches_milestone(task, filter.milestone.as_deref()))
         .filter(|task| matches_marker(task, filter.marker.as_deref()))
-        .filter(|task| is_unblocked(task, tasks));
+        .filter(|task| is_unblocked(task, tasks))
+        .collect();
 
     let focus_phase = tasks.focus.as_ref().map(|focus| focus.phase);
-    let (mut focus, mut other): (Vec<_>, Vec<_>) = candidates.partition(|task| match focus_phase {
-        Some(phase) => task.phase == phase,
-        None => true,
+    let active_milestones: HashSet<&str> = tasks
+        .milestones
+        .iter()
+        .filter(|(_, milestone)| milestone.status == "active")
+        .map(|(name, _)| name.as_str())
+        .collect();
+
+    candidates.sort_by(|a, b| {
+        tier(a, focus_phase, &active_milestones)
+            .cmp(&tier(b, focus_phase, &active_milestones))
+            .then_with(|| {
+                efficiency(b)
+                    .partial_cmp(&efficiency(a))
+                    .unwrap_or(Ordering::Equal)
+            })
     });
 
-    sort_by_eff_desc(&mut focus);
-    sort_by_eff_desc(&mut other);
-
-    let mut result: Vec<&Task> = focus.into_iter().take(count).collect();
-    if result.len() < count {
-        let needed = count - result.len();
-        result.extend(other.into_iter().take(needed));
-    }
-    result
+    candidates.into_iter().take(count).collect()
 }
 
 /// Highest-Eff pending unblocked task — thin wrapper over [`next_tasks`].
@@ -54,12 +72,18 @@ pub fn next_task<'a>(tasks: &'a Tasks, filter: &TaskFilter) -> Option<&'a Task> 
     next_tasks(tasks, filter, 1).into_iter().next()
 }
 
-fn sort_by_eff_desc(tasks: &mut [&Task]) {
-    tasks.sort_by(|a, b| {
-        efficiency(b)
-            .partial_cmp(&efficiency(a))
-            .unwrap_or(Ordering::Equal)
-    });
+fn tier(task: &Task, focus_phase: Option<u32>, active_milestones: &HashSet<&str>) -> u8 {
+    let in_focus = focus_phase.is_none_or(|phase| task.phase == phase);
+    let in_active = task
+        .milestone
+        .as_deref()
+        .is_some_and(|name| active_milestones.contains(name));
+    match (in_focus, in_active) {
+        (true, true) => 0,
+        (true, false) => 1,
+        (false, true) => 2,
+        (false, false) => 3,
+    }
 }
 
 pub fn format_next_task(task: &Task) -> String {

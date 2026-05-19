@@ -52,7 +52,7 @@ Modules — each file's doc comment is the authoritative reference for its inter
 - `export.rs` — `ExportedTask` JSON shape; adds computed `eff`. Pretty by default; `_compact_` variant feeds the HTML data island.
 - `render_html.rs` — `rmap render --html` single-project view via the one minijinja template (`templates/roadmap.html.j2`, `include_str!`'d). Builds DAG via longest-path layered layout.
 - `mutate.rs` — `status` / `mark` / `depend` / `new` paths. All use `toml_edit::DocumentMut` and end with `validate_tasks_str` before returning.
-- `next.rs` — pure selector: `next_tasks(tasks, filter, count)` returns highest-Eff pending tasks with deps done. Focus-phase candidates win over higher-Eff out-of-focus.
+- `next.rs` — pure selector: `next_tasks(tasks, filter, count)` returns pending tasks with deps done, ranked by a 4-tier lexicographic key (focus phase × active milestone, **focus dominant**) then Eff descending. Tier helper is `next::tier`; the `active` milestone set is computed once per call from `tasks.milestones`.
 - `query.rs` — `show` / `list` read paths. `TaskFilter` + `find_task` + `list_tasks` pure; humans get `format_task*`, JSON delegates to `export.rs`.
 - `bundles.rs` — `rmap bundles` read path. Per-bundle `next_task` reuses `next::next_task`.
 - `next_bundle.rs` — `rmap next-bundle` pure selector. Broad actionability (in-bundle pending deps satisfy if themselves actionable). Topological emit via Kahn's.
@@ -99,6 +99,7 @@ Easy to violate without breaking tests immediately. The "why" lives in source do
 **Agent contract (renaming/removing breaks consumers)**
 - **`--json` outputs of `show` / `list` / `next` / `next-bundle` / `bundles` / `schema` / `diff` / `doctor` are additive-only.** Add fields freely; rename/remove → `schema_version` bump.
 - **`rmap next --count` JSON shape is split by N**: default (`--count 1`) emits a bare object/null; `--count >1` emits an array. Flipping default-to-array is a bump.
+- **`rmap next` ranking is 4-tier lexicographic** `(in_focus_phase × in_active_milestone) ⇒ Eff desc`, focus dominant: tier 0 (both) > tier 1 (focus-only) > tier 2 (active-milestone-only) > tier 3 (neither). Tasks pinned to ANY milestone with `status = "active"` qualify. Without `[focus]`, every task counts as "in focus" → tiers collapse to 0/1. The focus-dominance bit (tier 1 > tier 2) is the load-bearing decision.
 - **`rmap next-bundle` ranking is `(in_focus_phase desc, sum_eff desc, bundle.order asc)`** and the three empty-state stderr spellings are load-bearing.
 - **`rmap bundles` row separator and five-branch glyph ladder** (`✅` / `🚧` / `all-blocked ⛔` / `pending:<n> (deps unmet) ⏸` / `next:<id> [Eff:x.y] <tier_glyph>`) are agent-grep contract.
 - **`rmap milestones` mirrors `rmap bundles`'s five-branch glyph ladder** and adds a trailing `[target=<version>]` segment when `milestone.target_version` is set. Sort key and row shape are agent-grep contract.

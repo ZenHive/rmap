@@ -372,3 +372,404 @@ markers = ["parallel"]"#,
 
     assert_eq!(task.id.to_string(), "75");
 }
+
+#[test]
+fn active_milestone_wins_over_higher_eff_in_other_milestones() {
+    let input = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase 1"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[milestones.v0_1]
+name = "v0.1"
+order = 1
+status = "active"
+target_version = "0.1.0"
+
+[milestones.v1_0]
+name = "v1.0"
+order = 2
+status = "pending"
+
+[[task]]
+id = 10
+phase = 1
+bundle = "alpha"
+milestone = "v1_0"
+status = "pending"
+title = "Higher Eff in non-active milestone"
+scores = { d = 2, b = 10, u = 10 }
+
+[[task]]
+id = 20
+phase = 1
+bundle = "alpha"
+milestone = "v0_1"
+status = "pending"
+title = "Lower Eff in active milestone"
+scores = { d = 5, b = 6, u = 6 }
+"#;
+
+    let tasks = validate_tasks_str("tasks.toml", input).expect("valid");
+
+    let task = next_task(&tasks, &TaskFilter::default()).expect("next task");
+
+    // Without `[focus]`, every task is "in focus" → tiers collapse to 0 (active ms)
+    // vs 1 (non-active ms). Task 20 is tier 0, task 10 is tier 1 → 20 wins.
+    assert_eq!(task.id.to_string(), "20");
+}
+
+#[test]
+fn focus_phase_beats_active_milestone_when_dominance_diverges() {
+    let input = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[focus]
+phase = 13
+
+[phases.12]
+name = "Phase 12"
+order = 12
+status = "in_progress"
+
+[phases.13]
+name = "Phase 13"
+order = 13
+status = "in_progress"
+
+[bundles.twelve]
+phase = 12
+order = 1
+description = "Twelve"
+
+[bundles.thirteen]
+phase = 13
+order = 1
+description = "Thirteen"
+
+[milestones.v0_1]
+name = "v0.1"
+order = 1
+status = "active"
+
+[[task]]
+id = 30
+phase = 12
+bundle = "twelve"
+milestone = "v0_1"
+status = "pending"
+title = "Active milestone, NOT in focus phase (tier 2)"
+scores = { d = 2, b = 10, u = 10 }
+
+[[task]]
+id = 40
+phase = 13
+bundle = "thirteen"
+status = "pending"
+title = "In focus phase, NOT in active milestone (tier 1)"
+scores = { d = 6, b = 6, u = 6 }
+"#;
+
+    let tasks = validate_tasks_str("tasks.toml", input).expect("valid");
+
+    let task = next_task(&tasks, &TaskFilter::default()).expect("next task");
+
+    // Tier 1 (focus-only) beats tier 2 (active-milestone-only) despite lower Eff.
+    assert_eq!(task.id.to_string(), "40");
+}
+
+#[test]
+fn focus_and_active_milestone_combined_win_over_either_alone() {
+    let input = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[focus]
+phase = 13
+
+[phases.12]
+name = "Phase 12"
+order = 12
+status = "in_progress"
+
+[phases.13]
+name = "Phase 13"
+order = 13
+status = "in_progress"
+
+[bundles.twelve]
+phase = 12
+order = 1
+description = "Twelve"
+
+[bundles.thirteen]
+phase = 13
+order = 1
+description = "Thirteen"
+
+[milestones.v0_1]
+name = "v0.1"
+order = 1
+status = "active"
+
+[[task]]
+id = 50
+phase = 13
+bundle = "thirteen"
+milestone = "v0_1"
+status = "pending"
+title = "Tier 0 (focus + active milestone) — lowest Eff"
+scores = { d = 5, b = 5, u = 5 }
+
+[[task]]
+id = 60
+phase = 13
+bundle = "thirteen"
+status = "pending"
+title = "Tier 1 (focus only) — middle Eff"
+scores = { d = 3, b = 8, u = 8 }
+
+[[task]]
+id = 70
+phase = 12
+bundle = "twelve"
+milestone = "v0_1"
+status = "pending"
+title = "Tier 2 (active milestone only) — highest Eff"
+scores = { d = 2, b = 10, u = 10 }
+"#;
+
+    let tasks = validate_tasks_str("tasks.toml", input).expect("valid");
+
+    let selected = next_tasks(&tasks, &TaskFilter::default(), 3);
+
+    assert_eq!(selected.len(), 3);
+    assert_eq!(selected[0].id.to_string(), "50");
+    assert_eq!(selected[1].id.to_string(), "60");
+    assert_eq!(selected[2].id.to_string(), "70");
+}
+
+#[test]
+fn multiple_active_milestones_all_qualify() {
+    let input = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase 1"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[milestones.v0_1]
+name = "v0.1"
+order = 1
+status = "active"
+
+[milestones.v0_2]
+name = "v0.2"
+order = 2
+status = "active"
+
+[milestones.v1_0]
+name = "v1.0"
+order = 3
+status = "pending"
+
+[[task]]
+id = 10
+phase = 1
+bundle = "alpha"
+milestone = "v1_0"
+status = "pending"
+title = "Pinned to pending milestone — tier 1"
+scores = { d = 2, b = 10, u = 10 }
+
+[[task]]
+id = 20
+phase = 1
+bundle = "alpha"
+milestone = "v0_1"
+status = "pending"
+title = "Pinned to one active milestone — tier 0"
+scores = { d = 5, b = 5, u = 5 }
+
+[[task]]
+id = 30
+phase = 1
+bundle = "alpha"
+milestone = "v0_2"
+status = "pending"
+title = "Pinned to other active milestone — tier 0"
+scores = { d = 4, b = 6, u = 6 }
+"#;
+
+    let tasks = validate_tasks_str("tasks.toml", input).expect("valid");
+
+    let selected = next_tasks(&tasks, &TaskFilter::default(), 3);
+
+    assert_eq!(selected.len(), 3);
+    // Tier 0 (active milestones) wins over tier 1 (non-active). Within tier 0,
+    // task 30 (Eff 1.5) beats task 20 (Eff 1.0). Task 10 (tier 1, Eff 5.0) trails.
+    assert_eq!(selected[0].id.to_string(), "30");
+    assert_eq!(selected[1].id.to_string(), "20");
+    assert_eq!(selected[2].id.to_string(), "10");
+}
+
+#[test]
+fn no_active_milestones_preserves_focus_only_behavior() {
+    // Mirrors `focus_phase_wins_over_higher_eff_in_other_phases` but adds a
+    // milestone table with NO active entries. Behavior must be byte-identical:
+    // task 60 (in focus phase) wins over task 50 (higher Eff out of focus).
+    let input = r#"
+schema_version = 2
+project = "ccxt_extract"
+default_branch = "development"
+
+[focus]
+phase = 13
+
+[phases.12]
+name = "Phase 12"
+order = 12
+status = "in_progress"
+
+[phases.13]
+name = "Phase 13"
+order = 13
+status = "pending"
+
+[bundles.simple]
+phase = 12
+order = 1
+description = "Simple"
+
+[bundles.thirteen]
+phase = 13
+order = 1
+description = "Thirteen"
+
+[milestones.v0_1]
+name = "v0.1"
+order = 1
+status = "pending"
+
+[milestones.v1_0]
+name = "v1.0"
+order = 2
+status = "done"
+
+[[task]]
+id = 50
+phase = 12
+bundle = "simple"
+status = "pending"
+title = "Higher-Eff task in phase 12"
+scores = { d = 2, b = 10, u = 10 }
+
+[[task]]
+id = 60
+phase = 13
+bundle = "thirteen"
+status = "pending"
+title = "Lower-Eff task in focus phase"
+scores = { d = 6, b = 8, u = 8 }
+"#;
+
+    let tasks = validate_tasks_str("tasks.toml", input).expect("valid");
+
+    let task = next_task(&tasks, &marker_filter(None)).expect("next task");
+
+    assert_eq!(task.id.to_string(), "60");
+}
+
+#[test]
+fn explicit_milestone_filter_within_inactive_milestone_falls_back_to_eff() {
+    // When `--milestone v_pending` narrows the pool to a non-active milestone,
+    // every candidate is tier 1 (no focus set → in_focus=true; not in active ms
+    // → in_active=false). Tier collapses, so pure Eff descending decides.
+    let input = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase 1"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[milestones.v0_1]
+name = "v0.1"
+order = 1
+status = "active"
+
+[milestones.v1_0]
+name = "v1.0"
+order = 2
+status = "pending"
+
+[[task]]
+id = 10
+phase = 1
+bundle = "alpha"
+milestone = "v1_0"
+status = "pending"
+title = "Low Eff in v1_0"
+scores = { d = 5, b = 5, u = 5 }
+
+[[task]]
+id = 20
+phase = 1
+bundle = "alpha"
+milestone = "v1_0"
+status = "pending"
+title = "High Eff in v1_0"
+scores = { d = 2, b = 10, u = 10 }
+
+[[task]]
+id = 30
+phase = 1
+bundle = "alpha"
+milestone = "v0_1"
+status = "pending"
+title = "In active milestone — would dominate without the filter"
+scores = { d = 4, b = 4, u = 4 }
+"#;
+
+    let tasks = validate_tasks_str("tasks.toml", input).expect("valid");
+
+    let filter = TaskFilter {
+        milestone: Some("v1_0".to_string()),
+        ..Default::default()
+    };
+    let selected = next_tasks(&tasks, &filter, 2);
+
+    // Pool narrowed to v1_0; task 30 is excluded by the filter. Within v1_0,
+    // pure Eff desc → task 20 (Eff 5.0) then task 10 (Eff 1.0).
+    assert_eq!(selected.len(), 2);
+    assert_eq!(selected[0].id.to_string(), "20");
+    assert_eq!(selected[1].id.to_string(), "10");
+}
