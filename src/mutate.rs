@@ -895,8 +895,7 @@ scores = { d = 1, b = 5, u = 5 }
         // `id = "1"` and `id = 3` mixed — and duplicate detection, keyed on
         // `TaskId`, cannot see `Number(3)` and `Text("3")` as the same id.
         let fields = new_task_fields("Task Three");
-        let (output, _) =
-            add_task_str("test.toml", STRING_ID_TOML, &fields).expect("add_task_str");
+        let (output, _) = add_task_str("test.toml", STRING_ID_TOML, &fields).expect("add_task_str");
 
         assert!(
             output.contains("id = \"3\""),
