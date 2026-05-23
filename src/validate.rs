@@ -77,6 +77,9 @@ pub fn collect_findings(tasks: &Tasks, path: &str, input: &str) -> Vec<ValidateE
     if let Err(e) = validate_implemented(path, input, tasks) {
         findings.push(e);
     }
+    if let Err(e) = validate_unique_ids(path, input, tasks) {
+        findings.push(e);
+    }
     if let Err(e) = validate_dependencies(path, input, tasks) {
         findings.push(e);
     }
@@ -115,6 +118,7 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_timestamps(&path, input, &tasks)?;
     validate_blocked_reasons(&path, input, &tasks)?;
     validate_implemented(&path, input, &tasks)?;
+    validate_unique_ids(&path, input, &tasks)?;
     validate_dependencies(&path, input, &tasks)?;
     validate_dependency_cycles(&path, input, &tasks)?;
     validate_cross_repo_relations(&path, input, &tasks)?;
@@ -445,6 +449,63 @@ fn validate_implemented(path: &str, input: &str, tasks: &Tasks) -> Result<(), Va
     Ok(())
 }
 
+fn validate_unique_ids(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    let mut seen: HashMap<TaskId, usize> = HashMap::with_capacity(tasks.task.len());
+
+    for (current_index, task) in tasks.task.iter().enumerate() {
+        if let Some(&first_index) = seen.get(&task.id) {
+            // `TaskId::Eq` is normalizing, so `seen.get(&task.id)` finds the
+            // first occurrence even when its disk form differs from this one
+            // (e.g. `id = 1` first, then `id = "1"`). Surface both forms in
+            // the diagnostic as they appear on disk — `Display` strips the
+            // quotes, which makes the cross-form case ambiguous on its own.
+            let first = &tasks.task[first_index].id;
+            let same_form = matches!(
+                (&task.id, first),
+                (TaskId::Number(_), TaskId::Number(_)) | (TaskId::Text(_), TaskId::Text(_))
+            );
+            let message = if same_form {
+                format!("duplicate task id {}", format_id_literal(&task.id))
+            } else {
+                format!(
+                    "duplicate task id {} (already defined as {})",
+                    format_id_literal(&task.id),
+                    format_id_literal(first),
+                )
+            };
+            // For same-form, both lines match `id = N` — return the SECOND
+            // occurrence so the line number points at the duplicate, not the
+            // original. For cross-form, `format_id_search` distinguishes the
+            // two disk forms, so the first match is already the duplicate.
+            let needle = format_id_search(&task.id);
+            let occurrence = if same_form { 2 } else { 1 };
+            let line = nth_line_containing(input, &needle, occurrence).unwrap_or(FIRST_LINE_NUMBER);
+            return Err(semantic_error(path, line, message));
+        }
+        seen.insert(task.id.clone(), current_index);
+    }
+
+    Ok(())
+}
+
+/// Render a `TaskId` as it appears in TOML — bare for `Number`, quoted for
+/// `Text` — for use in diagnostics where the disk form matters (e.g. the
+/// cross-form duplicate message). Distinct from `Display`, which strips
+/// quotes for the human-identity case.
+fn format_id_literal(id: &TaskId) -> String {
+    match id {
+        TaskId::Number(n) => n.to_string(),
+        TaskId::Text(s) => format!("\"{s}\""),
+    }
+}
+
+fn format_id_search(id: &TaskId) -> String {
+    match id {
+        TaskId::Number(n) => format!("id = {n}"),
+        TaskId::Text(s) => format!("id = \"{s}\""),
+    }
+}
+
 fn validate_focus_phase(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
     let Some(focus) = &tasks.focus else {
         return Ok(());
@@ -594,6 +655,18 @@ fn line_containing(input: &str, needle: &str) -> Option<usize> {
         .lines()
         .position(|line| line.contains(needle))
         .map(|index| index + FIRST_LINE_NUMBER)
+}
+
+/// Returns the line number of the `n`-th (1-indexed) line containing
+/// `needle`, or `None` if fewer than `n` matches exist. Used by
+/// `validate_unique_ids` to point at the duplicate row, not the original.
+fn nth_line_containing(input: &str, needle: &str, n: usize) -> Option<usize> {
+    input
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.contains(needle))
+        .nth(n.saturating_sub(1))
+        .map(|(index, _)| index + FIRST_LINE_NUMBER)
 }
 
 fn line_for_offset(input: &str, offset: usize) -> usize {

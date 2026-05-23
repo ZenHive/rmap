@@ -87,6 +87,7 @@ Easy to violate without breaking tests immediately. The "why" lives in source do
 - **Status / marker / cross-repo-relation enums live in `validate.rs` constants**; render-time match arms in `render.rs` don't share a source — keep both in sync.
 - **Milestone status enum (`pending | active | done`) lives in `validate.rs::VALID_MILESTONE_STATUSES`** — distinct vocabulary from task status. `rmap milestones` sort order is `(status_rank: active=0/pending=1/done=2 asc, milestone.order asc)`; "active first" is load-bearing for the daily release-cut query.
 - **`task.milestone` references must resolve in `tasks.milestones`.** `validate_milestone_references` enforces this; mutator pre-validates before writing.
+- **`TaskId` `Eq`/`Hash` are normalizing across `Number(n)` ↔ `Text("n")`.** A task id is a primary key; the disk form (TOML integer vs TOML string of the same digits) does not change which task it names. `validate_unique_ids` relies on this to catch cross-form collisions; `validate_dependencies` / `validate_dependency_cycles` / `doctor.rs` degenerate-bundle check / `next_bundle.rs` actionability memo are correct on mixed-form files because of it. Text ids that don't parse as `u32` (e.g. `"INE-5"`, `"alpha"`) keep their own canonical key. Agent-grep substring for the duplicate-id error is `duplicate task id`.
 
 **Mutations**
 - **All mutators use `toml_edit::DocumentMut`** (never `toml::from_str`) and end with `validate_tasks_str(...)` before returning. Invalid mutations leave the file byte-equal.

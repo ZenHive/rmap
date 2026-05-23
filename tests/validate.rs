@@ -488,3 +488,190 @@ status = "shipped"
     assert!(message.contains("milestone \"v0_1\""));
     assert!(message.contains("invalid status \"shipped\""));
 }
+
+#[test]
+fn rejects_duplicate_task_id_same_form() {
+    // Two tasks both at `id = 74` — same numeric form. Strip the second's
+    // `depends_on` so the dep validator can't reorder around us, and the
+    // duplicate-id check fires first.
+    let input = VALID_TASKS
+        .replace("id = 75", "id = 74")
+        .replace("depends_on = [74]\n", "");
+
+    let err =
+        validate_tasks_str("roadmap/tasks.toml", &input).expect_err("same-form duplicate rejected");
+
+    let message = err.to_string();
+    assert!(
+        message.contains("duplicate task id 74"),
+        "missing duplicate-id error: {message}"
+    );
+}
+
+#[test]
+fn rejects_duplicate_task_id_cross_form() {
+    // First task keeps `id = 74` (numeric); second flips to `id = "74"`
+    // (string). Under TaskId's normalizing Eq/Hash these collide.
+    let input = VALID_TASKS
+        .replace("id = 75", "id = \"74\"")
+        .replace("depends_on = [74]\n", "");
+
+    let err = validate_tasks_str("roadmap/tasks.toml", &input)
+        .expect_err("cross-form duplicate rejected");
+
+    let message = err.to_string();
+    assert!(
+        message.contains("duplicate task id \"74\""),
+        "second (Text) form should appear quoted: {message}"
+    );
+    assert!(
+        message.contains("already defined as 74"),
+        "first (Number) form should appear bare after `already defined as`: {message}"
+    );
+}
+
+#[test]
+fn accepts_dependency_across_id_forms() {
+    // Regression for the latent `validate_dependencies` bug: a string-form
+    // depends_on entry pointing at a numeric-form id should resolve under
+    // TaskId's normalizing Eq.
+    let input = r#"
+schema_version = 2
+project = "rmap_test"
+default_branch = "development"
+
+[phases.1]
+name = "Mixed forms"
+order = 1
+status = "pending"
+
+[bundles.simple]
+phase = 1
+order = 1
+description = "Simple"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "simple"
+status = "pending"
+title = "A"
+scores = { d = 1, b = 1, u = 1 }
+
+[[task]]
+id = "2"
+phase = 1
+bundle = "simple"
+status = "pending"
+title = "B"
+scores = { d = 1, b = 1, u = 1 }
+depends_on = ["1"]
+"#;
+
+    let tasks =
+        validate_tasks_str("roadmap/tasks.toml", input).expect("mixed-form dependency resolves");
+
+    assert_eq!(tasks.task.len(), 2);
+}
+
+#[test]
+fn detects_self_cycle_across_id_forms() {
+    // Regression for the latent `validate_dependency_cycles` bug:
+    // `id = 1` depending on `["1"]` is a self-cycle under the normalizing
+    // Eq, and the cycle detector must flag it.
+    let input = r#"
+schema_version = 2
+project = "rmap_test"
+default_branch = "development"
+
+[phases.1]
+name = "Self-cycle across forms"
+order = 1
+status = "pending"
+
+[bundles.simple]
+phase = 1
+order = 1
+description = "Simple"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "simple"
+status = "pending"
+title = "Self"
+scores = { d = 1, b = 1, u = 1 }
+depends_on = ["1"]
+"#;
+
+    let err = validate_tasks_str("roadmap/tasks.toml", input)
+        .expect_err("mixed-form self-cycle rejected");
+
+    assert!(
+        err.to_string().contains("dependency cycle"),
+        "expected cycle error, got: {err}"
+    );
+}
+
+#[test]
+fn accepts_unique_ids_mixed_forms() {
+    // Numeric and non-numeric text ids that share no canonical key all
+    // validate clean — `Number(5)` is not `Text("INE-5")`.
+    let input = r#"
+schema_version = 2
+project = "rmap_test"
+default_branch = "development"
+
+[phases.1]
+name = "Mixed unique"
+order = 1
+status = "pending"
+
+[bundles.simple]
+phase = 1
+order = 1
+description = "Simple"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "simple"
+status = "pending"
+title = "Numeric"
+scores = { d = 1, b = 1, u = 1 }
+
+[[task]]
+id = "alpha"
+phase = 1
+bundle = "simple"
+status = "pending"
+title = "Text"
+scores = { d = 1, b = 1, u = 1 }
+
+[[task]]
+id = "INE-5"
+phase = 1
+bundle = "simple"
+status = "pending"
+title = "Linear-style"
+scores = { d = 1, b = 1, u = 1 }
+"#;
+
+    let tasks =
+        validate_tasks_str("roadmap/tasks.toml", input).expect("distinct mixed-form ids validate");
+
+    assert_eq!(tasks.task.len(), 3);
+}
+
+#[test]
+fn task_id_partial_eq_u32_accepts_numeric_text_form() {
+    use rmap::schema::TaskId;
+
+    // Tightened in tandem with the normalizing TaskId::Eq — Text("1") == 1u32
+    // must hold so callsites that compare an id to a numeric literal treat
+    // both disk forms uniformly. Non-numeric text ids still differ.
+    assert!(TaskId::Number(1) == 1u32);
+    assert!(TaskId::Text("1".into()) == 1u32);
+    assert!(TaskId::Text("INE-5".into()) != 5u32);
+    assert!(TaskId::Text("alpha".into()) != 0u32);
+}

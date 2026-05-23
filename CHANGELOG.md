@@ -19,6 +19,17 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 15 — Schema extensions
 
+### Phase 15 Task 30: `rmap validate` does not detect duplicate task ids (schema_milestones bundle, 🐛 bug)
+
+**What was done:**
+- `validate_tasks_str` ran sixteen semantic checks but none asserted task-id uniqueness. A roadmap with two `[[task]]` entries sharing an id — from a hand-edit, a botched `rmap import`, or the `next_task_id` bug fixed in Task 29 — passed `rmap validate` clean. Added `validate_unique_ids` as the 10th of 17 checks (between `validate_implemented` and `validate_dependencies` — ordering matters: duplicate ids would otherwise confuse dependency resolution).
+- **Made `TaskId::Eq` / `Hash` normalizing across `Number(n)` ↔ `Text("n")`.** A task id is a primary key; the disk form (TOML integer vs string of the same digits) does not change which task it names. Without this, a `HashSet<TaskId>` treats `Number(1)` and `Text("1")` as distinct keys — exactly the gap that let the Task-29 bug's bad output reach disk uncaught. New canonical-key helper (`Cow`-returning, zero-alloc for non-numeric text ids) backs the manual `PartialEq` / `Hash` impls.
+- **Four call sites become correct on mixed-form files for free** — no edits required: `validate_dependencies`, `validate_dependency_cycles`, `doctor.rs` degenerate-bundle check, `next_bundle.rs` actionability memo. All key on `TaskId` (directly or via `&TaskId`) and inherit the normalizing behavior.
+- **Cross-form error message uses TOML-literal forms** so the human can locate both lines: `duplicate task id "1" (already defined as 1)` for mixed-form collisions, plain `duplicate task id 1` for same-form. `format_id_literal` helper renders ids as they appear on disk (bare for `Number`, quoted for `Text`) — distinct from `Display`, which strips quotes for the human-identity case. `PartialEq<u32>` also tightened to accept `Text("1") == 1u32` for consistency with the normalizing `Eq`.
+- **Text ids that do not parse as `u32` (`"INE-5"`, `"alpha"`) keep their own canonical key** — `Number(5)` ≠ `Text("INE-5")`. Agent-grep contract substring: `duplicate task id`.
+- **No `schema_version` bump.** Purely additive validator + tighter in-memory equality; on-disk format and roundtrip unchanged. `validate_command_rejects_duplicate_task_ids` (CLI test) plus five `tests/validate.rs` tests cover same-form, cross-form, mixed-form happy path, cross-form self-cycle, and distinct mixed-form ids.
+- **Docs:** `CLAUDE.md` load-bearing-invariants section gained a TaskId Eq/Hash bullet; `DESIGN.md` schema-invariants gained the matching paragraph.
+
 ### Phase 15 Task 29: `rmap new` allocates a colliding task id on a string-id roadmap (schema_milestones bundle, 🐛 bug)
 
 **What was done:**

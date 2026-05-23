@@ -839,7 +839,7 @@ done_at = "2026-05-22"
 id = 30
 phase = 15
 bundle = "schema_milestones"
-status = "pending"
+status = "done"
 title = "rmap validate does not detect duplicate task ids"
 scores = { d = 3, b = 6, u = 5 }
 markers = ["bug"]
@@ -852,5 +852,8 @@ The check is complicated by `TaskId` being dual-form (`Number(u32)` | `Text(Stri
 
 Add a `validate_unique_ids` check that normalizes each id to a canonical key (numeric-string ids fold to their number) before detecting collisions, and decide whether to give `TaskId` a normalizing `Eq`/`Hash` so dependency and cycle validation become correct on mixed files too. Discovered while fixing the `next_task_id` colliding-id bug — that bug's bad output reached disk precisely because validation could not see the collision.
 """
+implemented = 'Added validate_unique_ids (10th of 17 checks) and made TaskId Eq/Hash normalizing across Number(n)↔Text("n") canonical-key, so the same id in different disk forms (id = 1 vs id = "1") collides. Four call sites become correct on mixed-form files for free: validate_dependencies, validate_dependency_cycles, doctor.rs degenerate-bundle check, next_bundle.rs actionability memo — no edits to those sites; six new tests assert the regression on mixed forms. Cross-form error message uses TOML-literal forms (`duplicate task id "1" (already defined as 1)`) so the human can locate both lines; Display still strips quotes for the human-identity case. PartialEq<u32> also tightened to accept Text("1") == 1u32 for consistency with the normalizing Eq. Agent-grep contract substring: `duplicate task id`. Text ids that do not parse as u32 (e.g. "INE-5", "alpha") keep their own canonical key — Number(5) ≠ Text("INE-5"). No schema_version bump (purely additive validator + tighter in-memory equality; on-disk format and roundtrip unchanged). Docs: CLAUDE.md schema-invariants bullet + DESIGN.md schema-invariants paragraph.'
 created_at = "2026-05-22"
+started_at = "2026-05-23"
 scored_at = "2026-05-22"
+done_at = "2026-05-23"

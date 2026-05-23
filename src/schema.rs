@@ -1,5 +1,7 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -142,11 +144,59 @@ pub struct CrossRepo {
     pub relation: String,
 }
 
-#[derive(Debug, Clone, Eq, Hash, JsonSchema, PartialEq, Deserialize, Serialize)]
+/// Primary key for a `Task`. Stored on-disk as either a TOML integer
+/// (`id = 1`) or a TOML string (`id = "INE-5"`, `id = "alpha"`); kept as a
+/// dual-form enum so both shapes round-trip byte-identically.
+///
+/// **`Eq` / `Hash` are normalizing.** `Number(1)` and `Text("1")` compare
+/// equal and hash identically — identity is identity, and a task id is a
+/// primary key. The disk form (integer vs string) does not change which
+/// task the id names. The manual impls below replace the derived ones for
+/// this reason; without them a `HashSet<TaskId>` would treat `Number(1)`
+/// and `Text("1")` as distinct keys, which `validate_unique_ids`,
+/// `validate_dependencies`, `validate_dependency_cycles`,
+/// `doctor::find_degenerate_bundles`, and `next_bundle`'s actionability
+/// memo all rely on NOT being the case.
+///
+/// `Text` ids that do not parse as a `u32` (e.g. `"INE-5"`, `"alpha"`)
+/// keep their own canonical key — `Number(5)` is NOT equal to
+/// `Text("INE-5")`.
+#[derive(Debug, Clone, JsonSchema, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum TaskId {
     Number(u32),
     Text(String),
+}
+
+impl TaskId {
+    /// Returns the form used by `Eq` / `Hash` to determine identity.
+    ///
+    /// `Number(n)` → owned `"n"`. `Text(s)` → borrowed `s` (zero-alloc
+    /// unless it parses as a `u32`, in which case it's folded to the
+    /// canonical decimal form via `Cow::Owned`).
+    fn canonical_key(&self) -> Cow<'_, str> {
+        match self {
+            Self::Number(id) => Cow::Owned(id.to_string()),
+            Self::Text(id) => match id.parse::<u32>() {
+                Ok(n) => Cow::Owned(n.to_string()),
+                Err(_) => Cow::Borrowed(id.as_str()),
+            },
+        }
+    }
+}
+
+impl PartialEq for TaskId {
+    fn eq(&self, other: &Self) -> bool {
+        self.canonical_key() == other.canonical_key()
+    }
+}
+
+impl Eq for TaskId {}
+
+impl Hash for TaskId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.canonical_key().hash(state);
+    }
 }
 
 impl fmt::Display for TaskId {
@@ -160,6 +210,9 @@ impl fmt::Display for TaskId {
 
 impl PartialEq<u32> for TaskId {
     fn eq(&self, other: &u32) -> bool {
-        matches!(self, Self::Number(id) if id == other)
+        match self {
+            Self::Number(id) => id == other,
+            Self::Text(id) => id.parse::<u32>().is_ok_and(|n| n == *other),
+        }
     }
 }

@@ -102,6 +102,60 @@ fn validate_command_accepts_valid_tasks_file() {
 }
 
 #[test]
+fn validate_command_rejects_duplicate_task_ids() {
+    let input = r#"
+schema_version = 2
+project = "ccxt_extract"
+default_branch = "development"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.foundation]
+phase = 1
+order = 1
+description = "Foundation tasks"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "foundation"
+status = "pending"
+title = "First"
+scores = { d = 1, b = 1, u = 1 }
+
+[[task]]
+id = 1
+phase = 1
+bundle = "foundation"
+status = "pending"
+title = "Second — same id"
+scores = { d = 1, b = 1, u = 1 }
+"#;
+    let path = write_temp_tasks("duplicate_ids.toml", input);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("validate")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap validate");
+
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit on duplicate ids, stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("duplicate task id"),
+        "expected agent-grep substring `duplicate task id`, stderr: {stderr}"
+    );
+}
+
+#[test]
 fn validate_check_render_accepts_current_roadmap() {
     let dir = temp_dir();
     fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
