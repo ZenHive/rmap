@@ -19,6 +19,16 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 15 — Schema extensions
 
+### Phase 15 Task 29: `rmap new` allocates a colliding task id on a string-id roadmap (schema_milestones bundle, 🐛 bug)
+
+**What was done:**
+- `next_task_id` (`src/mutate.rs`) computed the next auto-allocated id with `value.as_integer()`, which matches only TOML integer-typed ids. `TaskId` is dual-form — a roadmap may store ids as integers (`id = 28`, rmap's own convention) or as numeric strings (`id = "28"`, the convention harness's roadmap uses). On a string-id roadmap every `as_integer()` returned `None`, `max` stayed `0`, and `next_task_id` returned `1` — silently allocating a task whose id collided with the existing `id = "1"`. The colliding task was unreachable by `rmap show`, and `rmap validate` passed it clean (duplicate detection keys on `TaskId`, whose `Number(1)` and `Text("1")` are distinct values).
+- **Fix 1 — count both id forms.** New `task_id_value_as_u32` helper reads a task `id` value as a `u32` whether it is integer-typed or a numeric string; `next_task_id` now folds it over every task, so `max + 1` is correct on a string-id roadmap. A non-numeric text id (`id = "MW-7"`) is still skipped — it has no place in the numeric sequence.
+- **Fix 2 — serialize in the file's form.** `add_task_str` always wrote the allocated id as a TOML integer, so even a corrected allocation drifted `id = 29` into a file of `id = "28"` strings. New `ids_are_string_typed` helper detects the roadmap's id form; an auto-allocated id is now serialized to match, so `rmap new` never mixes the two forms within one file (a mix defeats `TaskId`-keyed duplicate detection).
+- **No regression for integer-id roadmaps.** rmap's own roadmap uses integer ids — `ids_are_string_typed` returns `false`, the integer path is byte-identical to before. Verified by a dedicated no-regression test.
+- **Three unit tests** in `mutate.rs`: string-id roadmap continues the numeric sequence (`"1"`, `"2"` → `3`, not `1`); the allocated id is written string-typed on a string-id file; an integer-id file still gets an integer id. Full `cargo test` suite and `cargo clippy` green.
+- A sibling defect — `rmap validate` has no duplicate-task-id check at all — was filed separately as Task 30 (it is why this bug's bad output reached disk uncaught).
+
 ### Phase 15 Task 27: Active-milestone preference in `rmap next` (schema_milestones bundle)
 
 **What was done:**

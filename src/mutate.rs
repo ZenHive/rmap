@@ -592,23 +592,51 @@ pub struct NewTaskFields<'a> {
 }
 
 /// Walk a `[[task]]` array and return the next free numeric id (`max + 1`).
-/// `TaskId::Text` ids are skipped — only numeric ids participate in
-/// auto-allocation, mirroring the project convention that all fixtures use
-/// integer ids. Returns `1` when the array is empty. Returns
-/// `Err(MutateError::IdExhausted)` if the highest existing id is `u32::MAX`
-/// (the only failure mode — a real project would need ~4B tasks first).
+/// Ids are counted whether the file stores them as TOML integers (`id = 28`,
+/// rmap's own convention) or as numeric strings (`id = "28"`, harness's
+/// convention) — `TaskId` is dual-form, so auto-allocation has to read both;
+/// reading only integers restarts the sequence at `1` on a string-id roadmap
+/// and silently allocates a colliding id. A non-numeric text id (`id = "MW-7"`)
+/// has no place in the numeric sequence and is skipped. Returns `1` when the
+/// array holds no numeric id. Returns `Err(MutateError::IdExhausted)` if the
+/// highest existing id is `u32::MAX` (a real project would need ~4B tasks).
 fn next_task_id(tasks: &toml_edit::ArrayOfTables) -> Result<u32, MutateError> {
     let mut max: u32 = 0;
     for task in tasks.iter() {
         if let Some(value) = task.get("id").and_then(Item::as_value)
-            && let Some(n) = value.as_integer()
-            && let Ok(n_u32) = u32::try_from(n)
-            && n_u32 > max
+            && let Some(n) = task_id_value_as_u32(value)
+            && n > max
         {
-            max = n_u32;
+            max = n;
         }
     }
     max.checked_add(1).ok_or(MutateError::IdExhausted(max))
+}
+
+/// A task `id` TOML value as a `u32`, whether it is integer-typed (`28`) or a
+/// numeric string (`"28"`). `None` for a non-numeric text id (`"MW-7"`) or an
+/// integer outside `u32` range.
+fn task_id_value_as_u32(value: &Value) -> Option<u32> {
+    value
+        .as_integer()
+        .and_then(|n| u32::try_from(n).ok())
+        .or_else(|| value.as_str().and_then(|s| s.parse::<u32>().ok()))
+}
+
+/// `true` when the roadmap stores task ids as TOML strings (`id = "1"`, as
+/// harness's roadmap does) rather than integers (`id = 1`, rmap's own
+/// convention). An auto-allocated id is serialized to match, so `rmap new`
+/// never mixes the two forms within one file — a mix defeats duplicate
+/// detection, which keys on `TaskId` whose `Number(1)` and `Text("1")` are
+/// distinct values. A file carrying any string-typed id counts as
+/// string-typed (a mixed file recovers toward strings); an empty array
+/// defaults to integer.
+fn ids_are_string_typed(tasks: &toml_edit::ArrayOfTables) -> bool {
+    tasks.iter().any(|task| {
+        task.get("id")
+            .and_then(Item::as_value)
+            .is_some_and(Value::is_str)
+    })
 }
 
 /// Append a `[[task]]` to the document, optionally auto-allocating the id.
@@ -652,7 +680,11 @@ pub fn add_task_str(
     // Suppress the `[[task]]` header from being implicit — we want the standard
     // header to be emitted on serialisation so the row is well-formed in the file.
     table.set_implicit(false);
-    table["id"] = Item::Value(Value::from(allocated_id as i64));
+    table["id"] = if ids_are_string_typed(tasks) {
+        Item::Value(Value::from(allocated_id.to_string()))
+    } else {
+        Item::Value(Value::from(allocated_id as i64))
+    };
     table["phase"] = Item::Value(Value::from(fields.phase as i64));
     table["bundle"] = Item::Value(Value::from(fields.bundle));
     if let Some(milestone) = fields.milestone {
@@ -798,6 +830,99 @@ scores = { d = 1, b = 5, u = 5 }
         assert!(
             matches!(result, Err(MutateError::EmptyIds)),
             "expected EmptyIds, got: {result:?}"
+        );
+    }
+
+    /// A roadmap whose task ids are TOML strings (`id = "1"`) — harness's
+    /// convention, and the shape that exposed the `next_task_id` collision bug.
+    const STRING_ID_TOML: &str = r#"
+schema_version = 2
+project = "test"
+default_branch = "main"
+
+[phases.1]
+name = "Phase One"
+order = 1
+status = "pending"
+
+[bundles.b]
+phase = 1
+order = 1
+description = "Bundle B"
+
+[[task]]
+id = "1"
+phase = 1
+bundle = "b"
+status = "pending"
+title = "Task One"
+scores = { d = 1, b = 5, u = 5 }
+
+[[task]]
+id = "2"
+phase = 1
+bundle = "b"
+status = "pending"
+title = "Task Two"
+scores = { d = 1, b = 5, u = 5 }
+"#;
+
+    fn new_task_fields(title: &str) -> NewTaskFields<'_> {
+        NewTaskFields {
+            phase: 1,
+            bundle: "b",
+            title,
+            scores: (1, 5, 5),
+            status: "pending",
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn add_task_to_string_id_file_continues_the_numeric_sequence() {
+        // Before the fix `next_task_id` skipped string ids, so a string-id
+        // roadmap restarted at 1 and the new task collided with `id = "1"`.
+        let fields = new_task_fields("Task Three");
+        let (_, allocated) =
+            add_task_str("test.toml", STRING_ID_TOML, &fields).expect("add_task_str");
+
+        assert_eq!(allocated, 3, "next id after \"1\" / \"2\" must be 3, not 1");
+    }
+
+    #[test]
+    fn add_task_to_string_id_file_writes_the_id_as_a_string() {
+        // The new id must mirror the file's form, or the document ends up with
+        // `id = "1"` and `id = 3` mixed — and duplicate detection, keyed on
+        // `TaskId`, cannot see `Number(3)` and `Text("3")` as the same id.
+        let fields = new_task_fields("Task Three");
+        let (output, _) =
+            add_task_str("test.toml", STRING_ID_TOML, &fields).expect("add_task_str");
+
+        assert!(
+            output.contains("id = \"3\""),
+            "new id must be string-typed to match the file:\n{output}"
+        );
+        assert!(
+            !output.contains("\nid = 3\n"),
+            "new id must not be written as a bare integer:\n{output}"
+        );
+    }
+
+    #[test]
+    fn add_task_to_integer_id_file_still_writes_the_id_as_an_integer() {
+        // rmap's own roadmap uses integer ids — the fix must not regress it.
+        let fields = new_task_fields("Task Two");
+        let (output, allocated) =
+            add_task_str("test.toml", SIMPLE_TOML, &fields).expect("add_task_str");
+
+        assert_eq!(allocated, 2);
+        assert!(
+            output.contains("\nid = 2\n"),
+            "integer-id roadmaps must keep integer ids:\n{output}"
+        );
+        assert!(
+            !output.contains("id = \"2\""),
+            "must not switch an integer-id roadmap to string ids:\n{output}"
         );
     }
 }

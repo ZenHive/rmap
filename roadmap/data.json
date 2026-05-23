@@ -85,6 +85,11 @@
       "order": 3,
       "description": "First-class milestones — release-line pin parallel to phase/bundle/markers"
     },
+    "schema_outcome": {
+      "phase": 15,
+      "order": 5,
+      "description": "Task outcome layer — delivered_by + verified fields make a done task queryable, not just readable"
+    },
     "schema_parity": {
       "phase": 13,
       "order": 1,
@@ -846,7 +851,7 @@
       "id": 26,
       "phase": 15,
       "bundle": "deps_schemars",
-      "status": "pending",
+      "status": "done",
       "title": "Upgrade schemars 0.8 → 0.9+ for JSON Schema draft 2020-12",
       "scores": {
         "d": 3,
@@ -876,7 +881,10 @@
       ],
       "body": "Bump the `schemars` dependency from 0.8 to the latest 0.9+ release so `rmap schema` and `roadmap/data.json` consumers see JSON Schema draft 2020-12 instead of draft-07. The current pin emits `\"$schema\": \"http://json-schema.org/draft-07/schema#\"`; post-upgrade it should emit `\"https://json-schema.org/draft/2020-12/schema\"`.\n\nThis is a breaking API jump in schemars, not just a dialect flip. Expect renames around `Schema` (now a thin newtype over `serde_json::Value`), changes to the `JsonSchema` trait method shape, and possible adjustments in how `#[serde(deny_unknown_fields)]` and the untagged `TaskId` enum surface in the emitted schema. Walk `src/schema.rs`, `src/schema_json.rs`, and `src/import.rs` to update call sites.\n\nInvestigate downstream contract impact in the same task: the import prompt template (`templates/import_prompt.md`) interpolates the live schema; the README / CLAUDE.md references to `rmap schema` may need a note about the dialect change; agent consumers that pin to draft-07 validators will break. Decide whether to land the upgrade outright or expose a flag — recommendation goes in the PR description, not preemptively in code.\n",
       "created_at": "2026-05-18",
+      "started_at": "2026-05-23",
+      "done_at": "2026-05-23",
       "scored_at": "2026-05-18",
+      "implemented": "Bumped schemars 0.8 → 1.2.1 in Cargo.toml (single-line dep change; the 'derive' feature is default-on in 1.x). All ten JsonSchema derives + the untagged TaskId enum + serde(deny_unknown_fields) compile unchanged — schemars 1.x preserved the derive surface. rmap schema now emits $schema = https://json-schema.org/draft/2020-12/schema and $defs in place of definitions. The in-repo schema_json round-trip test (tests/cli.rs:1357) — which uses jsonschema 0.17 to compile-and-validate the emitted schema — passes unchanged, confirming jsonschema 0.17 auto-detects and validates the 2020-12 output. No code edits to src/, no template edits (templates/import_prompt.md is dialect-neutral; consumers see the new $schema inline). Downstream impact: agent JSON-Schema consumers pinning to draft-07 validators will need to widen support, per the task body's accepted out-of-scope choice.",
       "cross_repo": []
     },
     {
@@ -910,6 +918,105 @@
       "done_at": "2026-05-18",
       "scored_at": "2026-05-18",
       "implemented": "next_tasks gained a 4-tier lexicographic ranking (focus-phase × active-milestone, focus dominant) then Eff desc. Without [focus] every task counts as in-focus so tiers collapse to milestone-only bias; with no active milestone the selector reduces to the pre-existing focus-phase partition (regression-safe). New tier helper next::tier; active-milestone set computed once per call. SKILLS.md, CLAUDE.md, ~/.claude/includes/rmap.md updated. 6 new tests in tests/next.rs pin the precedence rule (focus dominant), multi-active milestones, no-active regression, and explicit --milestone filter sanity.",
+      "cross_repo": []
+    },
+    {
+      "id": 28,
+      "phase": 15,
+      "bundle": "schema_outcome",
+      "status": "pending",
+      "title": "Task outcome layer — delivered_by + verified fields",
+      "scores": {
+        "d": 4,
+        "b": 6,
+        "u": 6
+      },
+      "eff": 1.5,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`rmap status <id> done --delivered-by <agent> --verified` persists both fields and still accepts --implemented alongside them",
+        "`delivered_by` and `verified` surface in `rmap show`, `roadmap/data.json` (ExportedTask), and `rmap diff`",
+        "`rmap list --delivered-by <agent>` filters done tasks by the delivering agent",
+        "`rmap doctor` emits a soft advisory for a `done` task with `verified` absent (claimed, not graded) — it never fails the doctor run",
+        "Existing tasks.toml files round-trip validate → render unchanged; both fields default absent, no schema_version bump",
+        "Neither field appears on StdinTask / NewTaskFields — they are transition-time only"
+      ],
+      "out_of_scope": [
+        "A composite agent score or leaderboard — delivered_by + verified are raw queryable facts; ranking is the consumer's job",
+        "Validating delivered_by against an agent registry — free-text like `model`; a [agents.*] table is a separate future task",
+        "Backfilling existing done tasks — the fields land empty and populate going forward",
+        "Enriching `verified` beyond a bool (check-stack name, separate timestamp) — done_at is close enough; revisit only if the bool proves insufficient"
+      ],
+      "files_to_modify": [
+        "src/schema.rs",
+        "src/mutate.rs",
+        "src/diff.rs",
+        "src/export.rs",
+        "src/main.rs"
+      ],
+      "body": "The Task schema records intent (`scores`, `model`, `assignee`, `files_to_modify`) and the implementer's self-report (`implemented` — free-text prose). It has no structured slot for two facts every cross-session consumer needs cold: which agent actually delivered the task, and whether an evaluator separate from the implementer confirmed it. Today both are buried in `implemented` prose (\"Delivered by Grok in the dogfood batch; verified green by the check stack\") — readable, but not queryable — and `done` alone cannot distinguish a verification-graded task from one an implementer simply declared finished.\n\nAdd two optional transition-time fields:\n\n- `delivered_by` (Option<String>) — the agent or instance that executed the task. Distinct from `model` (the *intended* model) and `assignee` (the *owner*); this records who actually did the work. Free-text and unvalidated, like `model` — agent identifiers churn.\n- `verified` (Option<bool>) — whether an evaluator separate from the implementer confirmed the task: `true` = an independent check passed (a verification stack went green, a code-review session approved); absent = not independently graded (hand-built, bootstrap, merged directly). This encodes the evaluator-separation principle — `done` means \"an implementer said so\", `verified` means \"a grader agreed\".\n\nBoth are transition-time fields set alongside `implemented` at `rmap status <id> done` — add `--delivered-by <agent>` and `--verified` flags to that mutator. They deliberately take the lighter mirror path the Task doc-comment describes for transition-time fields (`set_status_str` + `canonical_task_key_index` + `diff_fields!` + `ExportedTask` + `schema.rs`), NOT the six-surface creation path — they never belong on `StdinTask` / `NewTaskFields`.\n\n`rmap show` renders both prominently on a done task, so a fresh instance sees the outcome without reading prose. `rmap list` gains a `--delivered-by <agent>` filter — the roadmap becomes an agent-delivery ledger as a free side effect of normal completion. `rmap doctor` gains a soft advisory: a `done` task with `verified` absent is surfaced as \"claimed, not graded\", never as an error (hand-built tasks are legitimate). Purely additive optional fields — no `schema_version` bump, mirroring the Task 19 `model` and Task 24 milestone precedent.\n",
+      "created_at": "2026-05-22",
+      "scored_at": "2026-05-22",
+      "cross_repo": []
+    },
+    {
+      "id": 29,
+      "phase": 15,
+      "bundle": "schema_milestones",
+      "status": "done",
+      "title": "rmap new allocates a colliding task id on a string-id roadmap",
+      "scores": {
+        "d": 3,
+        "b": 7,
+        "u": 6
+      },
+      "eff": 2.17,
+      "markers": [
+        "bug"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`rmap new` on a string-id roadmap (`id = \"1\"`) allocates max+1, not 1",
+        "An auto-allocated id is serialized in the roadmap's existing form — string for a string-id file, integer for an integer-id file",
+        "Integer-id roadmaps (rmap's own) are byte-identical — no regression",
+        "Unit tests cover string-id allocation, string-id serialization, and integer-id no-regression"
+      ],
+      "body": "`next_task_id` (src/mutate.rs) computed the next auto-allocated id by scanning existing tasks with `value.as_integer()` — which matches only TOML integer-typed ids. `TaskId` is dual-form: a roadmap may store ids as integers (`id = 28`, rmap's own convention) or as numeric strings (`id = \"28\"`, the convention harness's roadmap uses). On a string-id roadmap every `as_integer()` returned `None`, so `max` stayed 0 and `next_task_id` returned 1 — silently allocating a task whose id collided with the existing `id = \"1\"`. The colliding task was unreachable by `rmap show`, and `rmap validate` did not catch it because duplicate detection keys on `TaskId`, whose `Number(1)` and `Text(\"1\")` are distinct values.\n\nA second defect compounded it: the allocated id was always serialized as a TOML integer, so even a corrected allocation would write `id = 29` into a file of `id = \"28\"` strings, drifting the id type.\n\nFix `next_task_id` to count both integer and numeric-string ids, and serialize an auto-allocated id in the form the roadmap already uses so `rmap new` never mixes the two within one file. Surfaced while filing audit follow-up tasks into the harness roadmap (a string-id roadmap) — the same class of bug as the earlier f09ac55 incident.\n",
+      "created_at": "2026-05-22",
+      "done_at": "2026-05-22",
+      "scored_at": "2026-05-22",
+      "implemented": "Fixed next_task_id to count numeric-string ids (new task_id_value_as_u32 helper) so a string-id roadmap continues its sequence instead of restarting at 1; add_task_str serializes the allocated id in the file's existing form (new ids_are_string_typed helper) so integer and string id forms are never mixed within one file. 3 unit tests in mutate.rs cover string-id allocation, string-id serialization, and integer-id no-regression. Full cargo test suite + clippy green.",
+      "cross_repo": []
+    },
+    {
+      "id": 30,
+      "phase": 15,
+      "bundle": "schema_milestones",
+      "status": "pending",
+      "title": "rmap validate does not detect duplicate task ids",
+      "scores": {
+        "d": 3,
+        "b": 6,
+        "u": 5
+      },
+      "eff": 1.83,
+      "markers": [
+        "bug"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`rmap validate` fails a roadmap with two tasks sharing an id",
+        "A collision between an integer id and the string form of the same number (`id = 1` vs `id = \"1\"`) is detected",
+        "A decision is recorded on whether `TaskId`'s `Eq`/`Hash` should normalize numeric-string ids, fixing dependency / cycle validation on mixed-form files",
+        "Tests cover same-form and cross-form duplicate detection"
+      ],
+      "out_of_scope": [
+        "Auto-repairing a duplicated id — validation only reports"
+      ],
+      "body": "`validate_tasks_str` (src/validate.rs) runs sixteen semantic checks but none asserts that task ids are unique. A roadmap with two tasks sharing an id — from a hand-edit, a botched `rmap import`, or a mutator bug — passes `rmap validate` clean. The integrity gate should reject a duplicated primary key.\n\nThe check is complicated by `TaskId` being dual-form (`Number(u32)` | `Text(String)`) with derived `Eq`/`Hash`: `Number(1)` and `Text(\"1\")` hash and compare as distinct, so a naive `HashSet<TaskId>` would miss an `id = 1` / `id = \"1\"` collision. The same duality already makes `validate_dependencies` and `validate_dependency_cycles` latently wrong on a mixed-form file — a `depends_on` entry whose form differs from the target id's reads as an unknown task.\n\nAdd a `validate_unique_ids` check that normalizes each id to a canonical key (numeric-string ids fold to their number) before detecting collisions, and decide whether to give `TaskId` a normalizing `Eq`/`Hash` so dependency and cycle validation become correct on mixed files too. Discovered while fixing the `next_task_id` colliding-id bug — that bug's bad output reached disk precisely because validation could not see the collision.\n",
+      "created_at": "2026-05-22",
+      "scored_at": "2026-05-22",
       "cross_repo": []
     }
   ]

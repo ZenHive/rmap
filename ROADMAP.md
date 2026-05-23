@@ -41,6 +41,7 @@ gantt
     section Phase 15 — Schema extensions
     `Task——implemented` field — record what was actually delivered (required when done) :done, 2026-05-17, 2026-05-17
     Milestones — first-class release lines :done, 2026-05-17, 2026-05-17
+    Upgrade schemars 0.8 → 0.9+ for JSON Schema draft 2020-12 :done, 2026-05-23, 2026-05-23
 ```
 <!-- MERMAID:END -->
 
@@ -98,6 +99,9 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 22 | ✅ | 🎁 **schema_implemented** · `Task::implemented` field — record what was actually delivered (required when done) [D:4/B:6/U:7 → Eff:1.62] 🚀 |
 | Task 24 | ✅ | 🎁 **schema_milestones** · Milestones — first-class release lines [D:6/B:8/U:8 → Eff:1.33] 📋 |
 | Task 25 | ✅ | 🎁 **schema_milestones** · 🐛 Backfill creation paths with branch / files_to_modify / cross_repo (converge StdinTask/NewTaskFields mirror) [D:4/B:6/U:6 → Eff:1.5] 🚀 |
-| Task 26 | ⬜ | 🎁 **deps_schemars** · Upgrade schemars 0.8 → 0.9+ for JSON Schema draft 2020-12 [D:3/B:3/U:3 → Eff:1.0] 📋 |
+| Task 26 | ✅ | 🎁 **deps_schemars** · Upgrade schemars 0.8 → 0.9+ for JSON Schema draft 2020-12 [D:3/B:3/U:3 → Eff:1.0] 📋 |
 | Task 27 | ✅ | 🎁 **schema_milestones** · Active-milestone preference in `rmap next` [D:3/B:5/U:6 → Eff:1.83] 🚀 |
+| Task 28 | ⬜ | 🎁 **schema_outcome** · Task outcome layer — delivered_by + verified fields [D:4/B:6/U:6 → Eff:1.5] 🚀 |
+| Task 29 | ✅ | 🎁 **schema_milestones** · 🐛 rmap new allocates a colliding task id on a string-id roadmap [D:3/B:7/U:6 → Eff:2.17] 🎯 |
+| Task 30 | ⬜ | 🎁 **schema_milestones** · 🐛 rmap validate does not detect duplicate task ids [D:3/B:6/U:5 → Eff:1.83] 🚀 |
 <!-- TASKS:END -->
