@@ -69,6 +69,13 @@ pub enum DoctorFinding {
         id: String,
         scores: Scores,
     },
+    /// Soft outcome-layer advisory: a `done` task without `verified` was
+    /// declared finished by an implementer but no independent evaluator
+    /// confirmed it. Never failing — hand-built / bootstrap tasks legitimately
+    /// land without external verification.
+    ClaimedNotGraded {
+        id: String,
+    },
     Drift,
 }
 
@@ -166,7 +173,18 @@ impl DoctorReport {
             }
         }
 
-        // 6. render drift — only if a roadmap was provided
+        // 6. outcome layer — done tasks without `verified` (claimed, not graded).
+        // Soft advisory only; hand-built and bootstrap tasks legitimately land
+        // without an external grader and ClaimedNotGraded never fails the run.
+        for task in &tasks.task {
+            if task.status == "done" && task.verified.is_none() {
+                findings.push(DoctorFinding::ClaimedNotGraded {
+                    id: task_id_display(&task.id),
+                });
+            }
+        }
+
+        // 7. render drift — only if a roadmap was provided
         if let Some(roadmap) = roadmap_input
             && let Ok(rendered) = render_roadmap_str_with_today(roadmap, tasks, today)
             && rendered != roadmap
@@ -315,6 +333,28 @@ impl fmt::Display for DoctorReport {
                     f,
                     "  - task {id} [D:{}/B:{}/U:{}] — add acceptance_criteria",
                     scores.d, scores.b, scores.u
+                )?;
+            }
+        }
+
+        let claimed_not_graded_findings: Vec<&str> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::ClaimedNotGraded { id } = fi {
+                    Some(id.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !claimed_not_graded_findings.is_empty() {
+            writeln!(f, "\nClaimed, not graded (done without `verified`):")?;
+            for id in claimed_not_graded_findings {
+                writeln!(
+                    f,
+                    "  - task {id} — set `--verified` on `rmap status done` once an independent check passes"
                 )?;
             }
         }

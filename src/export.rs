@@ -68,6 +68,10 @@ struct ExportedTask<'a> {
     blocked_reason: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     implemented: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delivered_by: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verified: Option<bool>,
     cross_repo: &'a [CrossRepo],
 }
 
@@ -191,6 +195,8 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
         scored_at: task.scored_at.as_ref(),
         blocked_reason: task.blocked_reason.as_ref(),
         implemented: task.implemented.as_ref(),
+        delivered_by: task.delivered_by.as_ref(),
+        verified: task.verified,
         cross_repo: &task.cross_repo,
     }
 }

@@ -58,6 +58,8 @@ created_at = "2026-04-01"                     # ISO-8601 date (optional)
 started_at = "2026-04-12"                     # set when status → in_progress
 done_at    = "2026-04-30"                     # set when status → done
 shipped_in = "PR #21"                         # PR title/number or commit SHA
+delivered_by = "claude"                       # outcome layer — agent that actually shipped (free-text, optional)
+verified = true                               # outcome layer — independent evaluator confirmed (optional bool)
 
 [[task]]
 id = 75
@@ -236,6 +238,7 @@ Read this section before changing anything. The schema example above IS the cont
 - `linear_id` (when present) must match `<team_key>-<integer>` per `[linear].team_key`. Skip the format check entirely if the `[linear]` table is absent — Linear is opt-in.
 - `assignee` (when present) must be one of `{"human", "claude", "codex", "cursor"}`.
 - Timestamps (`created_at`, `started_at`, `done_at`, `scored_at`) are ISO-8601 dates (`YYYY-MM-DD`). All optional — presence is what unlocks decay / stale / recently-shipped features.
+- **Outcome layer** (`delivered_by`, `verified`) is two queryable facts about a completed task, distinct from the implementer's `implemented` prose. `delivered_by` (free-text, like `model`) records which agent actually executed the task; it answers "who shipped this?" without parsing prose. `verified` (optional bool) encodes evaluator separation per `workflow-philosophy.md`: `true` = an independent check passed (verification stack green, code-review approved); absent = not yet graded (hand-built, bootstrap, merged directly). Both are optional, both transition-time, both set by `rmap status <id> done --delivered-by <agent> --verified` (overwriting on re-set, like `implemented`). `rmap doctor` surfaces `done && verified.is_none()` as a soft `ClaimedNotGraded` advisory and never fails — hand-built tasks are legitimate. Adding a composite score / agent leaderboard / agent registry is out of scope; ranking is the consumer's job.
 - `<!-- TASKS:BEGIN phase=N -->` / `<!-- TASKS:END -->` are preservation boundaries. Render replaces ONLY contents between matching markers; everything else in `ROADMAP.md` is hand-edited prose and must be byte-preserved. Same rule for `<!-- FOCUS:BEGIN -->` / `<!-- FOCUS:END -->` and `<!-- MERMAID:BEGIN -->` / `<!-- MERMAID:END -->`.
 - Task ids are unique. `validate_unique_ids` rejects any `tasks.toml` with two `[[task]]` entries sharing an id, including cross-form collisions where one is written as a TOML integer and the other as a TOML string of the same digits (`id = 1` vs `id = "1"`). `TaskId`'s `Eq` and `Hash` are deliberately normalizing for this reason — identity is identity, and the disk form doesn't change which task an id names. The same normalization makes `validate_dependencies` and `validate_dependency_cycles` correct on mixed-form files: a `depends_on = ["1"]` entry resolves to a peer with `id = 1` (and a self-loop with `id = 1, depends_on = ["1"]` is caught as a cycle). Text ids that do not parse as `u32` (e.g. `"INE-5"`, `"alpha"`) keep their own canonical key and never collide with a numeric id.
 

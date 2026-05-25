@@ -123,12 +123,22 @@ impl CrossRepoSpec {
 /// non-`done` transitions. When `None`, no write; the conditional-required
 /// `validate_implemented` check will reject the transition unless the task
 /// already carries an `implemented` field.
+///
+/// `delivered_by` / `verified`: outcome-layer transition-time fields. Mirror
+/// `implemented`'s semantics — write on `done` transitions when `Some`,
+/// overwrite any existing value, ignored on non-`done` transitions.
+/// `verified = Some(true)` means an independent check passed; absent means
+/// not yet graded. Both are optional (the validator does not require them);
+/// `rmap doctor` emits a soft "claimed, not graded" advisory when `done` and
+/// `verified` is absent.
 pub fn update_status_many_str(
     path: impl Into<String>,
     input: &str,
     ids: &[&str],
     new_status: &str,
     implemented: Option<&str>,
+    delivered_by: Option<&str>,
+    verified: Option<bool>,
 ) -> Result<String, MutateError> {
     if ids.is_empty() {
         return Err(MutateError::EmptyIds);
@@ -153,6 +163,12 @@ pub fn update_status_many_str(
     } else {
         None
     };
+    let delivered_by_to_write = if new_status == "done" {
+        delivered_by
+    } else {
+        None
+    };
+    let verified_to_write = if new_status == "done" { verified } else { None };
     // Snapshot once per call so a bulk transition that straddles midnight
     // stamps every matched task with the same date.
     let today = timestamp_field.map(|_| crate::today_iso());
@@ -178,6 +194,22 @@ pub fn update_status_many_str(
             if let Some(value) = implemented_to_write {
                 let was_present = task.contains_key("implemented");
                 task.insert("implemented", Item::Value(Value::from(value)));
+                if !was_present {
+                    needs_sort = true;
+                }
+            }
+
+            if let Some(value) = delivered_by_to_write {
+                let was_present = task.contains_key("delivered_by");
+                task.insert("delivered_by", Item::Value(Value::from(value)));
+                if !was_present {
+                    needs_sort = true;
+                }
+            }
+
+            if let Some(value) = verified_to_write {
+                let was_present = task.contains_key("verified");
+                task.insert("verified", Item::Value(Value::from(value)));
                 if !was_present {
                     needs_sort = true;
                 }
@@ -212,8 +244,18 @@ pub fn update_status_str(
     task_id: &str,
     new_status: &str,
     implemented: Option<&str>,
+    delivered_by: Option<&str>,
+    verified: Option<bool>,
 ) -> Result<String, MutateError> {
-    update_status_many_str(path, input, &[task_id], new_status, implemented)
+    update_status_many_str(
+        path,
+        input,
+        &[task_id],
+        new_status,
+        implemented,
+        delivered_by,
+        verified,
+    )
 }
 
 fn item_to_task_id(item: &Item) -> Option<String> {
@@ -424,11 +466,13 @@ fn canonical_task_key_index(key: &str) -> u32 {
         "blocked_reason" => 18,
         "body" => 19,
         "implemented" => 20,
-        "created_at" => 21,
-        "started_at" => 22,
-        "scored_at" => 23,
-        "done_at" => 24,
-        "shipped_in" => 25,
+        "delivered_by" => 21,
+        "verified" => 22,
+        "created_at" => 23,
+        "started_at" => 24,
+        "scored_at" => 25,
+        "done_at" => 26,
+        "shipped_in" => 27,
         _ => u32::MAX,
     }
 }
@@ -826,7 +870,8 @@ scores = { d = 1, b = 5, u = 5 }
 
     #[test]
     fn update_status_many_str_empty_ids_returns_empty_ids_error() {
-        let result = update_status_many_str("test.toml", SIMPLE_TOML, &[], "done", None);
+        let result =
+            update_status_many_str("test.toml", SIMPLE_TOML, &[], "done", None, None, None);
         assert!(
             matches!(result, Err(MutateError::EmptyIds)),
             "expected EmptyIds, got: {result:?}"

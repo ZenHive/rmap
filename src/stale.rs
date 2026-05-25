@@ -78,6 +78,8 @@ mod tests {
             scored_at: None,
             blocked_reason: None,
             implemented: None,
+            delivered_by: None,
+            verified: None,
             cross_repo: vec![],
         }
     }

@@ -73,6 +73,8 @@ const TASK_VERBOSE_WHITELIST: &[&str] = &[
     "scored_at",
     "blocked_reason",
     "implemented",
+    "delivered_by",
+    "verified",
 ];
 const METADATA_VERBOSE_WHITELIST: &[&str] = &[
     "schema_version",
@@ -420,6 +422,8 @@ fn task_changes(
         scored_at,
         blocked_reason,
         implemented,
+        delivered_by,
+        verified,
         cross_repo,
     );
 

@@ -97,6 +97,18 @@ enum Commands {
         /// (with a one-line stderr note) on non-`done` transitions.
         #[arg(long)]
         implemented: Option<String>,
+        /// Outcome field: which agent or instance actually delivered the task
+        /// (free-text, like `model`). Settable only on `done` transitions;
+        /// ignored with a one-line stderr note otherwise. Overwrites any
+        /// existing value.
+        #[arg(long)]
+        delivered_by: Option<String>,
+        /// Outcome field: mark the task as independently verified by an
+        /// evaluator separate from the implementer. Settable only on `done`
+        /// transitions; ignored with a one-line stderr note otherwise.
+        /// Presence flag (no opposite — to clear, edit `tasks.toml` directly).
+        #[arg(long)]
+        verified: bool,
         #[arg(long)]
         tasks_path: Option<PathBuf>,
         #[arg(long)]
@@ -136,6 +148,9 @@ enum Commands {
         bundle: Option<String>,
         #[arg(long)]
         milestone: Option<String>,
+        /// Filter to tasks whose `delivered_by` matches this agent id.
+        #[arg(long)]
+        delivered_by: Option<String>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -401,12 +416,21 @@ fn run() -> Result<ExitCode> {
             id,
             new_status,
             implemented,
+            delivered_by,
+            verified,
             tasks_path,
             roadmap_path,
             data_path,
         } => {
             let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
-            update_status(paths, &id, &new_status, implemented.as_deref())?;
+            update_status(
+                paths,
+                &id,
+                &new_status,
+                implemented.as_deref(),
+                delivered_by.as_deref(),
+                verified,
+            )?;
         }
         Commands::Next {
             marker,
@@ -424,6 +448,7 @@ fn run() -> Result<ExitCode> {
                 phase: None,
                 bundle,
                 milestone,
+                delivered_by: None,
             };
 
             let count = count.get();
@@ -465,6 +490,7 @@ fn run() -> Result<ExitCode> {
             phase,
             bundle,
             milestone,
+            delivered_by,
             json,
             tasks_path,
         } => {
@@ -476,6 +502,7 @@ fn run() -> Result<ExitCode> {
                 phase,
                 bundle,
                 milestone,
+                delivered_by,
             };
             let listed = list_tasks(&tasks, &filter);
 
@@ -1001,6 +1028,8 @@ fn update_status(
     task_id: &str,
     new_status: &str,
     implemented: Option<&str>,
+    delivered_by: Option<&str>,
+    verified: bool,
 ) -> Result<()> {
     let ids: Vec<&str> = task_id
         .split(',')
@@ -1018,6 +1047,16 @@ fn update_status(
         );
     }
 
+    if delivered_by.is_some() && new_status != "done" {
+        eprintln!(
+            "warning: --delivered-by ignored for status `{new_status}` (only applies to `done`)"
+        );
+    }
+
+    if verified && new_status != "done" {
+        eprintln!("warning: --verified ignored for status `{new_status}` (only applies to `done`)");
+    }
+
     let input = std::fs::read_to_string(&paths.tasks_path)
         .with_context(|| format!("read {}", paths.tasks_path.display()))?;
 
@@ -1027,6 +1066,7 @@ fn update_status(
         None
     };
     let effective_implemented = implemented.or(prompted.as_deref());
+    let effective_verified = if verified { Some(true) } else { None };
 
     let updated = update_status_many_str(
         paths.tasks_path.display().to_string(),
@@ -1034,6 +1074,8 @@ fn update_status(
         &ids,
         new_status,
         effective_implemented,
+        delivered_by,
+        effective_verified,
     )?;
 
     let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &updated)?;

@@ -87,9 +87,10 @@ pub struct Milestone {
 /// `rmap new --from-stdin` rather than dialoguer.
 ///
 /// Transition-time field → owning mutator (`set_status_str` for lifecycle
-/// timestamps + `implemented`, etc.) + surfaces 4–6. Stays absent from
-/// `StdinTask` / `NewTaskFields` on purpose. Today: `started_at`, `done_at`,
-/// `blocked_reason`, `shipped_in`, `implemented`.
+/// timestamps + `implemented` + outcome layer, etc.) + surfaces 4–6. Stays
+/// absent from `StdinTask` / `NewTaskFields` on purpose. Today: `started_at`,
+/// `done_at`, `blocked_reason`, `shipped_in`, `implemented`, `delivered_by`,
+/// `verified`.
 #[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Task {
@@ -123,6 +124,8 @@ pub struct Task {
     pub scored_at: Option<String>,
     pub blocked_reason: Option<String>,
     pub implemented: Option<String>,
+    pub delivered_by: Option<String>,
+    pub verified: Option<bool>,
     #[serde(default)]
     pub cross_repo: Vec<CrossRepo>,
 }

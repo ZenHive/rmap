@@ -8,6 +8,7 @@ pub struct TaskFilter {
     pub phase: Option<u32>,
     pub bundle: Option<String>,
     pub milestone: Option<String>,
+    pub delivered_by: Option<String>,
 }
 
 pub fn find_task<'a>(tasks: &'a Tasks, id: &str) -> Option<&'a Task> {
@@ -23,6 +24,7 @@ pub fn list_tasks<'a>(tasks: &'a Tasks, filter: &TaskFilter) -> Vec<&'a Task> {
         .filter(|task| matches_phase(task, filter.phase))
         .filter(|task| matches_bundle(task, filter.bundle.as_deref()))
         .filter(|task| matches_milestone(task, filter.milestone.as_deref()))
+        .filter(|task| matches_delivered_by(task, filter.delivered_by.as_deref()))
         .collect()
 }
 
@@ -36,6 +38,10 @@ pub(crate) fn matches_bundle(task: &Task, bundle: Option<&str>) -> bool {
 
 pub(crate) fn matches_milestone(task: &Task, milestone: Option<&str>) -> bool {
     milestone.is_none_or(|name| task.milestone.as_deref() == Some(name))
+}
+
+pub(crate) fn matches_delivered_by(task: &Task, agent: Option<&str>) -> bool {
+    agent.is_none_or(|name| task.delivered_by.as_deref() == Some(name))
 }
 
 pub fn format_task(task: &Task) -> String {
@@ -133,6 +139,14 @@ pub fn format_task(task: &Task) -> String {
     if let Some(implemented) = &task.implemented {
         lines.push(implemented_header.to_string());
         lines.push(implemented.trim().to_string());
+    }
+
+    if let Some(delivered_by) = &task.delivered_by {
+        lines.push(format!("delivered_by: {delivered_by}"));
+    }
+
+    if let Some(verified) = task.verified {
+        lines.push(format!("verified: {}", if verified { "yes" } else { "no" }));
     }
 
     lines.join("\n")

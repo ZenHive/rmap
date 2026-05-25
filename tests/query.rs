@@ -74,6 +74,7 @@ fn lists_tasks_matching_all_filters_in_toml_order() {
         phase: Some(12),
         bundle: None,
         milestone: None,
+        delivered_by: None,
     };
 
     let listed = list_tasks(&tasks, &filter);

@@ -36,8 +36,16 @@ scores = { d = 4, b = 8, u = 8 }
 
 #[test]
 fn update_status_changes_only_target_status_and_preserves_comments() {
-    let updated = update_status_str("roadmap/tasks.toml", TASKS, "74", "done", Some("shipped"))
-        .expect("update status");
+    let updated = update_status_str(
+        "roadmap/tasks.toml",
+        TASKS,
+        "74",
+        "done",
+        Some("shipped"),
+        None,
+        None,
+    )
+    .expect("update status");
 
     assert!(updated.contains("# Roadmap source."));
     assert!(updated.contains("id = 74\nphase = 12\nbundle = \"simple\"\nstatus = \"done\""));
@@ -50,8 +58,16 @@ fn update_status_changes_only_target_status_and_preserves_comments() {
 
 #[test]
 fn update_status_supports_string_task_ids() {
-    let updated = update_status_str("roadmap/tasks.toml", TASKS, "78b", "in_progress", None)
-        .expect("update status");
+    let updated = update_status_str(
+        "roadmap/tasks.toml",
+        TASKS,
+        "78b",
+        "in_progress",
+        None,
+        None,
+        None,
+    )
+    .expect("update status");
 
     assert!(
         updated.contains("id = \"78b\"\nphase = 12\nbundle = \"simple\"\nstatus = \"in_progress\"")
@@ -60,16 +76,32 @@ fn update_status_supports_string_task_ids() {
 
 #[test]
 fn update_status_rejects_unknown_task_id() {
-    let err = update_status_str("roadmap/tasks.toml", TASKS, "999", "done", Some("x"))
-        .expect_err("unknown id is rejected");
+    let err = update_status_str(
+        "roadmap/tasks.toml",
+        TASKS,
+        "999",
+        "done",
+        Some("x"),
+        None,
+        None,
+    )
+    .expect_err("unknown id is rejected");
 
     assert!(err.to_string().contains("unknown task id 999"), "{err}");
 }
 
 #[test]
 fn update_status_rejects_invalid_status() {
-    let err = update_status_str("roadmap/tasks.toml", TASKS, "74", "shipped", None)
-        .expect_err("invalid status is rejected");
+    let err = update_status_str(
+        "roadmap/tasks.toml",
+        TASKS,
+        "74",
+        "shipped",
+        None,
+        None,
+        None,
+    )
+    .expect_err("invalid status is rejected");
 
     assert!(
         err.to_string().contains("invalid status \"shipped\""),

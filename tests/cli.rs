@@ -4142,6 +4142,7 @@ phase = 1
 bundle = "secondary"
 status = "done"
 implemented = "fixture"
+verified = true
 title = "Clean task B"
 scores = { d = 1, b = 3, u = 3 }
 scored_at = "2026-04-20"
@@ -4437,6 +4438,7 @@ phase = 1
 bundle = "everything"
 status = "done"
 implemented = "fixture"
+verified = true
 title = "Substantive but done — should be skipped"
 scores = { d = 6, b = 9, u = 7 }
 scored_at = "2026-04-20"
@@ -5699,5 +5701,483 @@ fn show_command_surfaces_milestone_line() {
     assert!(
         value.get("milestone").is_none() || value["milestone"].is_null(),
         "task 3 has no milestone surface in JSON: {value}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// outcome layer: delivered_by + verified
+// ---------------------------------------------------------------------------
+
+const OUTCOME_TASKS: &str = r#"
+schema_version = 2
+project = "outcome_test"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "pending"
+title = "First task"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Second task"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+
+[[task]]
+id = 3
+phase = 1
+bundle = "core"
+status = "done"
+implemented = "fixture"
+verified = true
+delivered_by = "codex"
+done_at = "2026-05-10"
+title = "Already-shipped task"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+"#;
+
+const OUTCOME_ROADMAP: &str = "# Roadmap\n\n<!-- FOCUS:BEGIN -->\n<!-- FOCUS:END -->\n\n<!-- MERMAID:BEGIN -->\n<!-- MERMAID:END -->\n\n<!-- TASKS:BEGIN -->\n<!-- TASKS:END -->\n";
+
+#[test]
+fn status_done_with_delivered_by_and_verified_persists_both_fields() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("done")
+        .arg("--implemented")
+        .arg("shipped")
+        .arg("--delivered-by")
+        .arg("claude")
+        .arg("--verified")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let task_1_section = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 1\n"))
+        .expect("task 1 section present");
+    assert!(
+        task_1_section.contains("delivered_by = \"claude\""),
+        "delivered_by missing on task 1:\n{task_1_section}"
+    );
+    assert!(
+        task_1_section.contains("verified = true"),
+        "verified missing on task 1:\n{task_1_section}"
+    );
+    assert!(
+        task_1_section.contains("implemented = \"shipped\""),
+        "implemented missing on task 1:\n{task_1_section}"
+    );
+}
+
+#[test]
+fn status_done_verified_alone_writes_only_verified() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("done")
+        .arg("--implemented")
+        .arg("shipped")
+        .arg("--verified")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let task_1_section = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 1\n"))
+        .expect("task 1 section present");
+    assert!(
+        task_1_section.contains("verified = true"),
+        "verified missing on task 1: {task_1_section}"
+    );
+    assert!(
+        !task_1_section.contains("delivered_by"),
+        "delivered_by unexpectedly written for task 1: {task_1_section}"
+    );
+}
+
+#[test]
+fn status_non_done_with_delivered_by_emits_warning_and_skips_write() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("in_progress")
+        .arg("--delivered-by")
+        .arg("claude")
+        .arg("--verified")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status in_progress");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--delivered-by ignored for status `in_progress`"),
+        "expected delivered_by warning:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("--verified ignored for status `in_progress`"),
+        "expected verified warning:\n{stderr}"
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let task_1_section = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 1\n"))
+        .expect("task 1 section present");
+    assert!(
+        !task_1_section.contains("delivered_by"),
+        "delivered_by must not be written on non-done transitions: {task_1_section}"
+    );
+    assert!(
+        !task_1_section.contains("verified"),
+        "verified must not be written on non-done transitions: {task_1_section}"
+    );
+}
+
+#[test]
+fn list_command_filters_by_delivered_by() {
+    let path = write_temp_tasks("outcome_list.toml", OUTCOME_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("list")
+        .arg("--delivered-by")
+        .arg("codex")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap list --delivered-by codex");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Task 3"), "{stdout}");
+    assert!(!stdout.contains("Task 1"), "{stdout}");
+    assert!(!stdout.contains("Task 2"), "{stdout}");
+}
+
+#[test]
+fn show_command_renders_delivered_by_and_verified() {
+    let path = write_temp_tasks("outcome_show.toml", OUTCOME_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("3")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap show 3");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("delivered_by: codex"), "{stdout}");
+    assert!(stdout.contains("verified: yes"), "{stdout}");
+
+    // JSON surface carries both as native types.
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("3")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap show 3 --json");
+    let value: serde_json::Value = serde_json::from_slice(&json.stdout).expect("valid json");
+    assert_eq!(value["delivered_by"], "codex");
+    assert_eq!(value["verified"], true);
+}
+
+#[test]
+fn doctor_emits_claimed_not_graded_for_done_without_verified() {
+    let unverified = r#"
+schema_version = 2
+project = "doctor_outcome"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[bundles.adjunct]
+phase = 1
+order = 2
+description = "Adjunct work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "done"
+implemented = "fixture"
+done_at = "2026-05-10"
+title = "Done without verified"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "adjunct"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Done and verified"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+"#;
+    let path = write_temp_tasks("doctor_outcome.toml", unverified);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-14")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor outcome");
+
+    assert!(
+        output.status.success(),
+        "doctor must always exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Claimed, not graded"),
+        "expected ClaimedNotGraded section:\n{stdout}"
+    );
+    assert!(stdout.contains("task 1"), "{stdout}");
+    assert!(
+        !stdout.contains("task 2"),
+        "task 2 has verified=true; should not appear:\n{stdout}"
+    );
+
+    // JSON surface carries the discriminant directly.
+    let json_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-14")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor --json outcome");
+    let report: serde_json::Value =
+        serde_json::from_slice(&json_output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    let claimed: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|f| f["kind"] == "claimed_not_graded")
+        .collect();
+    assert_eq!(claimed.len(), 1);
+    assert_eq!(claimed[0]["id"], "1");
+}
+
+#[test]
+fn diff_verbose_surfaces_delivered_by_and_verified_changes() {
+    let base = r#"
+schema_version = 2
+project = "diff_outcome"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "done"
+implemented = "fixture"
+done_at = "2026-05-10"
+title = "Task"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+"#;
+    let current = r#"
+schema_version = 2
+project = "diff_outcome"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "done"
+implemented = "fixture"
+delivered_by = "claude"
+verified = true
+done_at = "2026-05-10"
+title = "Task"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+"#;
+
+    let dir = temp_dir();
+    let _repo = std::process::Command::new("git")
+        .arg("init")
+        .arg("--quiet")
+        .arg("-b")
+        .arg("main")
+        .current_dir(&dir)
+        .output()
+        .expect("git init");
+    std::process::Command::new("git")
+        .args(["config", "user.email", "test@example.com"])
+        .current_dir(&dir)
+        .output()
+        .expect("git config email");
+    std::process::Command::new("git")
+        .args(["config", "user.name", "test"])
+        .current_dir(&dir)
+        .output()
+        .expect("git config name");
+
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", base);
+
+    std::process::Command::new("git")
+        .args(["add", "."])
+        .current_dir(&dir)
+        .output()
+        .expect("git add");
+    std::process::Command::new("git")
+        .args(["commit", "-m", "base", "--quiet"])
+        .current_dir(&dir)
+        .output()
+        .expect("git commit");
+
+    fs::write(&tasks_path, current).expect("write current");
+
+    let json_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("diff")
+        .arg("--against")
+        .arg("HEAD")
+        .arg("--verbose")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap diff --verbose --json");
+
+    assert!(
+        json_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&json_output.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&json_output.stdout).expect("valid diff json");
+    let tasks = value["tasks"].as_array().expect("tasks array in diff json");
+    let changed = tasks
+        .iter()
+        .find(|entry| entry["status"] == "changed")
+        .expect("at least one changed task entry");
+    let values = changed["values"]
+        .as_array()
+        .expect("values whitelist array");
+
+    let has_delivered_by = values.iter().any(|v| v["field"] == "delivered_by");
+    let has_verified = values.iter().any(|v| v["field"] == "verified");
+    assert!(
+        has_delivered_by,
+        "expected delivered_by in --verbose values: {value}"
+    );
+    assert!(
+        has_verified,
+        "expected verified in --verbose values: {value}"
     );
 }

@@ -174,6 +174,13 @@ rmap status 3,4 in_progress
 # exit: 0
 ```
 
+When flipping to `done`, supply `--implemented "<what shipped>"` (required when the task lacks the field). Add `--delivered-by <agent>` and `--verified` to record outcome facts — which agent shipped it and whether an independent evaluator confirmed it. Both outcome flags apply only on `done`; non-`done` transitions emit a stderr warning and skip the write.
+
+```bash
+rmap status 4 done --implemented shipped --delivered-by claude --verified
+# exit: 0
+```
+
 When flipping to `blocked`, supply `blocked_reason` directly in the TOML; the mutator refuses to write a blocked task without one.
 
 `rmap mark <id> +marker -marker …` toggles markers. Adds are idempotent; removes are idempotent. Token tier: `parallel | cx | csr`.

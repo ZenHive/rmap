@@ -83,6 +83,7 @@ Easy to violate without breaking tests immediately. The "why" lives in source do
 - **`linear_id` validation is conditional** on `[linear]` table presence (Linear is opt-in).
 - **`blocked_reason` is required iff `status = "blocked"`.** Mutator re-validates, so the transition can't write without one.
 - **`implemented` is required and non-empty iff `status = "done"`.** Mirrors the `blocked_reason` pattern. Error string `is done but missing implemented` is agent-grep contract.
+- **`delivered_by` and `verified` are optional outcome-layer fields, both transition-time, both settable only on `status = "done"`.** `delivered_by` is free-text (which agent shipped the task; mirrors `model` — unvalidated, no agent registry). `verified` is a bool with two-state semantics: `Some(true)` = an independent evaluator confirmed the task; absent = not graded. `Some(false)` is permitted by the schema but the mutator never writes it (presence flag only). Doctor emits a soft `ClaimedNotGraded` advisory when `status = "done"` && `verified.is_none()` — always exit 0; hand-built/bootstrap tasks legitimately land ungraded.
 - **Timestamps validate by shape (`YYYY-MM-DD`), not semantics.** `9999-99-99` passes on purpose; values live next to user-edited TOML.
 - **Status / marker / cross-repo-relation enums live in `validate.rs` constants**; render-time match arms in `render.rs` don't share a source — keep both in sync.
 - **Milestone status enum (`pending | active | done`) lives in `validate.rs::VALID_MILESTONE_STATUSES`** — distinct vocabulary from task status. `rmap milestones` sort order is `(status_rank: active=0/pending=1/done=2 asc, milestone.order asc)`; "active first" is load-bearing for the daily release-cut query.
@@ -125,7 +126,7 @@ When adding a field to `schema::Task`, decide whether it is a **creation-time** 
   - `diff.rs::diff_fields!` (drift surface for `rmap diff`)
   - `export.rs::ExportedTask` (`--json` / `data.json` shape)
   - Then decide whether to add to `diff::TASK_VERBOSE_WHITELIST`. Interactive `prompt_task_fields` (main.rs) is optional — power-user fields (`branch`, `files_to_modify`, `cross_repo`) intentionally require `--from-stdin` rather than dialoguer.
-- **Transition-time field** (lifecycle timestamps, `implemented`, etc.) → update the owning mutator (`set_status_str` for status transitions, etc.) plus `diff::diff_fields!` and `export::ExportedTask`. Stays absent from `StdinTask` / `NewTaskFields` on purpose — today: `started_at`, `done_at`, `blocked_reason`, `shipped_in`, `implemented`.
+- **Transition-time field** (lifecycle timestamps, `implemented`, outcome-layer, etc.) → update the owning mutator (`set_status_str` for status transitions, etc.) plus `diff::diff_fields!` and `export::ExportedTask`. Stays absent from `StdinTask` / `NewTaskFields` on purpose — today: `started_at`, `done_at`, `blocked_reason`, `shipped_in`, `implemented`, `delivered_by`, `verified`.
 - **New top-level field on `schema::Tasks`** → also edit `diff::diff_metadata` AND `export::ExportedTasks` (Task-level macro doesn't cover them; hand-walked).
 
 **Time & determinism**

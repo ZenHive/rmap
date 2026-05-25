@@ -19,6 +19,18 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 15 — Schema extensions
 
+### Phase 15 Task 28: Outcome layer — `delivered_by` + `verified` fields (schema_outcome bundle)
+
+**What was done:**
+- Two new optional transition-time fields on `schema::Task`: `delivered_by: Option<String>` (free-text agent id, like `model`) and `verified: Option<bool>` (independent-evaluator confirmation). Both land via `rmap status <id> done --delivered-by <agent> --verified` alongside `--implemented`. Set only on `done` transitions; non-`done` transitions emit a one-line stderr warning and skip the write, mirroring `--implemented`. Both overwrite on re-set.
+- **Two-state `verified` semantics:** `Some(true)` = an independent check passed (verification stack green, code-review approved); absent = not yet graded (hand-built, bootstrap, merged directly). `--verified` is a presence flag; to clear, edit `tasks.toml` directly. Encodes evaluator separation per `workflow-philosophy.md` as a queryable fact — `done` means "an implementer said so", `verified` means "a grader agreed".
+- **Read surfaces:** `rmap show` renders `delivered_by: <agent>` and `verified: yes/no` lines right after `implemented`, so a cold reader sees the outcome layer as one block. `ExportedTask` (and therefore `roadmap/data.json` + every `--json` envelope) carries both fields with `skip_serializing_if = Option::is_none`. `rmap diff --verbose` surfaces drift via the `TASK_VERBOSE_WHITELIST` (matching `implemented`'s precedent — verbose-mode only).
+- **`rmap list --delivered-by <agent>` filter:** new `TaskFilter::delivered_by` + `matches_delivered_by` helper, status-agnostic (matches field value regardless of status, consistent with `--milestone`). Turns the roadmap into an agent-delivery ledger as a free side effect of normal completion.
+- **`rmap doctor` soft advisory:** new `DoctorFinding::ClaimedNotGraded { id }` variant fires for `status == "done" && verified.is_none()`. Always exit 0 — hand-built and bootstrap tasks legitimately land ungraded. Rendered as "Claimed, not graded (done without `verified`)" with a per-task nudge to set `--verified` once an independent check passes.
+- **Took the lighter transition-time mirror path** the `Task` doc-comment describes: `schema.rs` + `set_status_str` write block + `canonical_task_key_index` (inserted after `implemented` at slots 21–22, shifting timestamps down by 2) + `diff_fields!` + `ExportedTask` + `query.rs` render. Deliberately stayed off `StdinTask` / `NewTaskFields` — these are outcome facts, not creation-time intent.
+- **No `schema_version` bump.** Purely additive optional fields; existing `tasks.toml` files round-trip validate → render byte-identically (round-trip suite green; existing `DOCTOR_CLEAN_TASKS` / `DOCTOR_LINT_TASKS` fixtures gained `verified = true` on their done fixtures so the new soft advisory doesn't fire under the "clean fixture" tests).
+- **Docs:** `CLAUDE.md` mirror-surface rule lists both fields under transition-time; load-bearing-invariants gained the outcome-layer paragraph (`Some(false)` permitted by schema but mutator never writes it; doctor advisory always exit 0). `DESIGN.md` schema example carries both fields with comments, and the invariants section gained the outcome-layer paragraph framing it as evaluator-separation-as-queryable-fact.
+
 ### Phase 15 Task 30: `rmap validate` does not detect duplicate task ids (schema_milestones bundle, 🐛 bug)
 
 **What was done:**

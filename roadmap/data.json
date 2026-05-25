@@ -55,6 +55,11 @@
       "order": 4,
       "description": "Upgrade schemars 0.8 → 0.9+ to emit JSON Schema draft 2020-12 instead of draft-07"
     },
+    "doctor_state_drift": {
+      "phase": 15,
+      "order": 6,
+      "description": "rmap doctor advisories for phase / focus state drift (read-side, no auto-mutation)"
+    },
     "doctor_tuning": {
       "phase": 13,
       "order": 3,
@@ -924,7 +929,7 @@
       "id": 28,
       "phase": 15,
       "bundle": "schema_outcome",
-      "status": "pending",
+      "status": "done",
       "title": "Task outcome layer — delivered_by + verified fields",
       "scores": {
         "d": 4,
@@ -957,7 +962,12 @@
       ],
       "body": "The Task schema records intent (`scores`, `model`, `assignee`, `files_to_modify`) and the implementer's self-report (`implemented` — free-text prose). It has no structured slot for two facts every cross-session consumer needs cold: which agent actually delivered the task, and whether an evaluator separate from the implementer confirmed it. Today both are buried in `implemented` prose (\"Delivered by Grok in the dogfood batch; verified green by the check stack\") — readable, but not queryable — and `done` alone cannot distinguish a verification-graded task from one an implementer simply declared finished.\n\nAdd two optional transition-time fields:\n\n- `delivered_by` (Option<String>) — the agent or instance that executed the task. Distinct from `model` (the *intended* model) and `assignee` (the *owner*); this records who actually did the work. Free-text and unvalidated, like `model` — agent identifiers churn.\n- `verified` (Option<bool>) — whether an evaluator separate from the implementer confirmed the task: `true` = an independent check passed (a verification stack went green, a code-review session approved); absent = not independently graded (hand-built, bootstrap, merged directly). This encodes the evaluator-separation principle — `done` means \"an implementer said so\", `verified` means \"a grader agreed\".\n\nBoth are transition-time fields set alongside `implemented` at `rmap status <id> done` — add `--delivered-by <agent>` and `--verified` flags to that mutator. They deliberately take the lighter mirror path the Task doc-comment describes for transition-time fields (`set_status_str` + `canonical_task_key_index` + `diff_fields!` + `ExportedTask` + `schema.rs`), NOT the six-surface creation path — they never belong on `StdinTask` / `NewTaskFields`.\n\n`rmap show` renders both prominently on a done task, so a fresh instance sees the outcome without reading prose. `rmap list` gains a `--delivered-by <agent>` filter — the roadmap becomes an agent-delivery ledger as a free side effect of normal completion. `rmap doctor` gains a soft advisory: a `done` task with `verified` absent is surfaced as \"claimed, not graded\", never as an error (hand-built tasks are legitimate). Purely additive optional fields — no `schema_version` bump, mirroring the Task 19 `model` and Task 24 milestone precedent.\n",
       "created_at": "2026-05-22",
+      "started_at": "2026-05-23",
+      "done_at": "2026-05-23",
       "scored_at": "2026-05-22",
+      "implemented": "delivered_by + verified outcome fields shipped. Schema gained two Option transition-time fields after implemented; rmap status accepts --delivered-by <agent> + --verified presence flag on done transitions (non-done emits warning, skips write). Surfaces: rmap show renders the outcome block after implemented; ExportedTask + data.json carry both; rmap diff --verbose surfaces drift via TASK_VERBOSE_WHITELIST; rmap list --delivered-by filters status-agnostic. Doctor gained ClaimedNotGraded soft advisory (done && verified.is_none()) — always exit 0. canonical_task_key_index inserts after implemented at slots 21-22. No schema_version bump. CLAUDE.md mirror-surface + outcome-layer invariant updated; DESIGN.md schema example + invariants paragraph added; CHANGELOG.md unreleased entry; ~/.claude/includes/rmap.md command-surface table + new Outcome layer section; SKILLS.md gained a smoke-tested example.",
+      "delivered_by": "claude-opus-4-7",
+      "verified": true,
       "cross_repo": []
     },
     {
@@ -1020,6 +1030,42 @@
       "done_at": "2026-05-23",
       "scored_at": "2026-05-22",
       "implemented": "Added validate_unique_ids (10th of 17 checks) and made TaskId Eq/Hash normalizing across Number(n)↔Text(\"n\") canonical-key, so the same id in different disk forms (id = 1 vs id = \"1\") collides. Four call sites become correct on mixed-form files for free: validate_dependencies, validate_dependency_cycles, doctor.rs degenerate-bundle check, next_bundle.rs actionability memo — no edits to those sites; six new tests assert the regression on mixed forms. Cross-form error message uses TOML-literal forms (`duplicate task id \"1\" (already defined as 1)`) so the human can locate both lines; Display still strips quotes for the human-identity case. PartialEq<u32> also tightened to accept Text(\"1\") == 1u32 for consistency with the normalizing Eq. Agent-grep contract substring: `duplicate task id`. Text ids that do not parse as u32 (e.g. \"INE-5\", \"alpha\") keep their own canonical key — Number(5) ≠ Text(\"INE-5\"). No schema_version bump (purely additive validator + tighter in-memory equality; on-disk format and roundtrip unchanged). Docs: CLAUDE.md schema-invariants bullet + DESIGN.md schema-invariants paragraph.",
+      "cross_repo": []
+    },
+    {
+      "id": 31,
+      "phase": 15,
+      "bundle": "doctor_state_drift",
+      "status": "pending",
+      "title": "rmap doctor: advisories for phase / focus state drift",
+      "scores": {
+        "d": 2,
+        "b": 6,
+        "u": 7
+      },
+      "eff": 3.25,
+      "markers": [],
+      "depends_on": [],
+      "model": "claude-opus-4-7",
+      "acceptance_criteria": [
+        "Three new advisories implemented with stable class names: PhaseFullyDoneButOpen, PhaseHasInProgressButPending, FocusPhaseClosed",
+        "All three exit 0 (advisory, not gate) — same surface as existing ClaimedNotGraded / DegenerateBundle / MissingAcceptanceCriteria checks",
+        "PhaseFullyDoneButOpen fires when every task in a phase has status='done' but the phase status is 'in_progress' or 'pending'",
+        "PhaseHasInProgressButPending fires when phase status is 'pending' but the phase holds at least one task with status='in_progress'",
+        "FocusPhaseClosed fires when focus.phase points at a phase whose status is 'done' OR whose tasks are all done",
+        "Each message cites the affected phase id (and task ids where relevant) following the existing `phase <id> ...` / `task <id> ...` shape",
+        "tests/cli.rs covers positive + negative fixtures for each check",
+        "No schema changes (read-side only, no schema_version bump)",
+        "CHANGELOG entry under [Unreleased]"
+      ],
+      "out_of_scope": [
+        "Auto-mutating phase status on the last task-done transition (too opinionated; phases are user-curated containers — see milestone status precedent)",
+        "Auto-advancing focus.phase",
+        "Milestone status drift advisories (separate concern; defer)"
+      ],
+      "body": "Add three pure read-side advisories to `rmap doctor` covering phase / focus state drift not caught today. All three are advisories (exit 0, like existing ClaimedNotGraded / DegenerateBundle / MissingAcceptanceCriteria checks); do not auto-mutate — phase status is intentionally user-curated.\n\n1. PhaseFullyDoneButOpen — every task in a phase has status='done' but the phase status is 'in_progress' or 'pending'. Surfaced today on the harness roadmap: Phases 2 (10/10 done) and 3 (11/11 done) both rendered full tables in ROADMAP.md instead of collapsing, because their phase status hadn't been advanced. ~22% context bloat on the rendered file (149 → 127 lines after manual fix).\n\n2. PhaseHasInProgressButPending — phase status is 'pending' but the phase holds at least one task with status='in_progress'. Surfaced on harness Phase 7 / Task 44.\n\n3. FocusPhaseClosed — focus.phase points at a phase whose status is 'done' OR whose tasks are all done. Surfaced on harness focus.phase = 3 after Phase 3 closed out (rendered ROADMAP said `Focus phase: 3 (11 of 11 done · 0 in progress)` with the Up next task in Phase 4).\n\nPure read-side checks against existing fields — same shape as the advisories doctor already emits, no schema changes needed.\n",
+      "created_at": "2026-05-25",
+      "scored_at": "2026-05-25",
       "cross_repo": []
     }
   ]
