@@ -107,4 +107,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 29 | ✅ | 🎁 **schema_milestones** · 🐛 rmap new allocates a colliding task id on a string-id roadmap [D:3/B:7/U:6 → Eff:2.17] 🎯 |
 | Task 30 | ✅ | 🎁 **schema_milestones** · 🐛 rmap validate does not detect duplicate task ids [D:3/B:6/U:5 → Eff:1.83] 🚀 |
 | Task 31 | ⬜ | 🎁 **doctor_state_drift** · rmap doctor: advisories for phase / focus state drift [D:2/B:6/U:7 → Eff:3.25] 🎯 |
+| Task 32 | ⬜ | 🎁 **doctor_state_drift** · rmap doctor: milestone status drift advisories [D:2/B:5/U:6 → Eff:2.75] 🎯 |
 <!-- TASKS:END -->
