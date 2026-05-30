@@ -29,7 +29,7 @@ gantt
 |------|--------|-------|
 | Task 74 | ✅ | 🎁 **ticker_normalization** · parseTicker field map [D:5/B:8/U:8 → Eff:1.6] 🚀 |
 | Task 75 | 🔄 | 🎁 **order_normalization** · parseOrder field map [D:6/B:8/U:8 → Eff:1.33] 📋 |
-| Task 76 | 🔶 | 🎁 **order_normalization** · venue normalization [D:3/B:6/U:5 → Eff:1.83] 🚀 |
+| Task 76 | 🔶 | 🎁 **order_normalization** · venue normalization [D:3/B:6/U:5 → Eff:1.83] 🚀 ⛔ waiting on schema review |
 | Task 77 | ⬜ | 🎁 **order_normalization** · emit normalized errors [D:2/B:8/U:8 → Eff:4.0] 🎯 |
 <!-- TASKS:END -->
 

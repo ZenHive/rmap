@@ -18,7 +18,7 @@ use rmap::milestones::{
     MilestoneFilter, format_milestones_human, list_milestones, milestones_json,
 };
 use rmap::mutate::{
-    CrossRepoSpec, DoneFields, MarkerOp, NewTaskFields, add_dependency_str, add_task_str,
+    CrossRepoSpec, MarkerOp, NewTaskFields, TransitionFields, add_dependency_str, add_task_str,
     update_markers_str, update_milestone_str, update_status_many_str,
 };
 use rmap::next::{format_next_task, next_tasks};
@@ -114,6 +114,12 @@ enum Commands {
         /// with a one-line stderr note otherwise. Overwrites any existing value.
         #[arg(long)]
         shipped_in: Option<String>,
+        /// Set or overwrite `blocked_reason` in the same transition. Settable
+        /// only on `blocked` transitions; ignored with a one-line stderr note
+        /// otherwise. Overwrites any existing value. Auto-cleared when a blocked
+        /// task leaves the blocked state. Passed non-TTY; no interactive prompt.
+        #[arg(long)]
+        reason: Option<String>,
         #[arg(long)]
         tasks_path: Option<PathBuf>,
         #[arg(long)]
@@ -424,6 +430,7 @@ fn run() -> Result<ExitCode> {
             delivered_by,
             verified,
             shipped_in,
+            reason,
             tasks_path,
             roadmap_path,
             data_path,
@@ -433,10 +440,13 @@ fn run() -> Result<ExitCode> {
                 paths,
                 &id,
                 &new_status,
-                implemented.as_deref(),
-                delivered_by.as_deref(),
-                verified,
-                shipped_in.as_deref(),
+                TransitionFields {
+                    implemented: implemented.as_deref(),
+                    delivered_by: delivered_by.as_deref(),
+                    verified: if verified { Some(true) } else { None },
+                    shipped_in: shipped_in.as_deref(),
+                    blocked_reason: reason.as_deref(),
+                },
             )?;
         }
         Commands::Next {
@@ -1034,10 +1044,7 @@ fn update_status(
     paths: ResolvedPaths,
     task_id: &str,
     new_status: &str,
-    implemented: Option<&str>,
-    delivered_by: Option<&str>,
-    verified: bool,
-    shipped_in: Option<&str>,
+    fields: TransitionFields<'_>,
 ) -> Result<()> {
     let ids: Vec<&str> = task_id
         .split(',')
@@ -1049,49 +1056,52 @@ fn update_status(
         anyhow::bail!("no task ids provided (got {:?})", task_id);
     }
 
-    if implemented.is_some() && new_status != "done" {
+    if fields.implemented.is_some() && new_status != "done" {
         eprintln!(
             "warning: --implemented ignored for status `{new_status}` (only applies to `done`)"
         );
     }
 
-    if delivered_by.is_some() && new_status != "done" {
+    if fields.delivered_by.is_some() && new_status != "done" {
         eprintln!(
             "warning: --delivered-by ignored for status `{new_status}` (only applies to `done`)"
         );
     }
 
-    if verified && new_status != "done" {
+    if fields.verified.is_some() && new_status != "done" {
         eprintln!("warning: --verified ignored for status `{new_status}` (only applies to `done`)");
     }
 
-    if shipped_in.is_some() && new_status != "done" {
+    if fields.shipped_in.is_some() && new_status != "done" {
         eprintln!(
             "warning: --shipped-in ignored for status `{new_status}` (only applies to `done`)"
+        );
+    }
+
+    if fields.blocked_reason.is_some() && new_status != "blocked" {
+        eprintln!(
+            "warning: --reason ignored for status `{new_status}` (only applies to `blocked`)"
         );
     }
 
     let input = std::fs::read_to_string(&paths.tasks_path)
         .with_context(|| format!("read {}", paths.tasks_path.display()))?;
 
-    let prompted: Option<String> = if new_status == "done" && implemented.is_none() {
+    let prompted: Option<String> = if new_status == "done" && fields.implemented.is_none() {
         prompt_for_implemented(&input, &ids)?
     } else {
         None
     };
-    let effective_implemented = implemented.or(prompted.as_deref());
-    let effective_verified = if verified { Some(true) } else { None };
+    let effective_implemented = fields.implemented.or(prompted.as_deref());
 
     let updated = update_status_many_str(
         paths.tasks_path.display().to_string(),
         &input,
         &ids,
         new_status,
-        DoneFields {
+        TransitionFields {
             implemented: effective_implemented,
-            delivered_by,
-            verified: effective_verified,
-            shipped_in,
+            ..fields
         },
     )?;
 

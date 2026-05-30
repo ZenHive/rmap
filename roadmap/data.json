@@ -1143,6 +1143,49 @@
       "implemented": "Added --shipped-in flag to rmap status, mirroring --delivered-by; grouped the four done-transition write-fields into DoneFields to stay under clippy's arg ceiling. Tests in mutate.rs + cli.rs; docs in CHANGELOG + rmap.md.",
       "delivered_by": "claude",
       "cross_repo": []
+    },
+    {
+      "id": 34,
+      "phase": 15,
+      "bundle": "schema_outcome",
+      "status": "done",
+      "title": "`--reason` flag on `rmap status` — settable + rendered + auto-cleared blocked_reason",
+      "scores": {
+        "d": 3,
+        "b": 6,
+        "u": 6
+      },
+      "eff": 2.0,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`rmap status <id> blocked --reason \"<text>\"` persists `blocked_reason` on the task (free-text, overwrites any existing value)",
+        "Settable only on `blocked` transitions; on any other transition it is ignored with a one-line stderr note (`--reason ignored for status X (only applies to blocked)`), mirroring the outcome flags",
+        "Leaving the blocked state (blocked -> pending/in_progress/done) auto-clears the now-stale `blocked_reason`; re-blocking keeps/overwrites",
+        "Blocked tasks render their reason inline in ROADMAP.md as a trailing `⛔ <reason>` segment; non-blocked rows render byte-identically (additive, golden-guarded)",
+        "`blocked_reason` already surfaces in `rmap show`/`list --json`, `roadmap/data.json` (ExportedTask) and `rmap diff` — confirm no further read-side wiring needed",
+        "`--reason` does NOT appear on `rmap new` / StdinTask / NewTaskFields — transition-time only; no schema_version bump (field already in schema)",
+        "tests/mutate.rs + tests/cli.rs cover: set-on-blocked, ignored-on-non-blocked (stderr note), auto-clear on leaving blocked, overwrite; mermaid_block golden updated for the render segment; SKILLS.md gains a runnable example",
+        "CHANGELOG entry under the schema_outcome phase section"
+      ],
+      "out_of_scope": [
+        "Enum/validation on the reason text — free-text like implemented/delivered_by",
+        "A new top-level command — a flag on status is enough",
+        "Backfilling existing blocked tasks",
+        "Interactive TTY prompt — harness always passes --reason non-TTY"
+      ],
+      "files_to_modify": [
+        "src/main.rs",
+        "src/mutate.rs",
+        "src/render.rs"
+      ],
+      "body": "First consumer: the harness autonomous merge-train lander (harness Task 101) needs a terminal sink for tasks it abandons after exhausting its landing-attempt cap. `rmap status <id> blocked` already flips status and `rmap next` skips blocked tasks, but there is no CLI path to record *why* — a blocked task with no machine-readable reason is an opaque dead end to an orchestrator scanning the roadmap. The lander writes a structured-ish string via `rmap status <id> blocked --reason \"land-cap exhausted: post-merge-red x2 (task 101, integrated HEAD abc1234)\"`.\n\nThe `blocked_reason` field already exists across schema/validation/export/diff (it was always required when status=blocked, but only settable by hand-editing tasks.toml — exactly the gap the harness contract forbids). Wire a `--reason` flag on `rmap status` mirroring the outcome-flag path (`--delivered-by` is the template), but gated on the `blocked` transition instead of `done`; render the reason inline on the blocked row; and auto-clear it when the task leaves blocked. Implementation details (exact gating, render placement, canonical key order) are for the implementing agent to derive from how the sibling outcome flags are wired.\n",
+      "created_at": "2026-05-30",
+      "done_at": "2026-05-30",
+      "scored_at": "2026-05-30",
+      "implemented": "Added --reason flag to rmap status (blocked-only, mirrors the outcome-flag path); renamed DoneFields -> TransitionFields with a blocked_reason field gated on the blocked transition. Auto-clears blocked_reason when a task leaves blocked. Renders ⛔ <reason> inline on blocked rows in ROADMAP.md. Tests in mutate.rs + cli.rs; mermaid_block golden updated; SKILLS.md + rmap.md + CLAUDE.md + CHANGELOG docs.",
+      "delivered_by": "claude",
+      "cross_repo": []
     }
   ]
 }

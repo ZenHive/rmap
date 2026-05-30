@@ -1,6 +1,6 @@
 # SKILLS.md — agent guide to `rmap`
 
-> **Verified:** 2026-05-13 with `rmap @ development`. Re-run `cargo test --test skills_smoke` after schema or render changes.
+> **Verified:** 2026-05-31 with `rmap @ development`. Re-run `cargo test --test skills_smoke` after schema or render changes.
 
 `rmap` is a single-binary Rust CLI that manages `roadmap/tasks.toml` in any project. This file teaches cloud agents (Claude, Codex, Cursor) how to drive `rmap` from inside a consumer repo. The fenced `bash` blocks below run against `tests/skills_fixture/` via `tests/skills_smoke.rs`; the exit codes are part of the agent contract.
 
@@ -33,7 +33,7 @@ rmap show 1 --json
 # exit: 0
 ```
 
-`rmap list` filters across the whole tasks file. The `--json` envelope mirrors `data.json` (computed `eff` included).
+`rmap list` filters across the whole tasks file via `--status`, `--phase`, `--marker`, `--bundle`, `--milestone`, and `--delivered-by`; flags compose with AND semantics. The `--json` envelope mirrors `data.json` (computed `eff` included).
 
 ```bash
 rmap list --status pending
@@ -42,6 +42,13 @@ rmap list --status pending
 
 ```bash
 rmap list --phase 1 --json
+# exit: 0
+```
+
+`--delivered-by <agent>` filters the roadmap into a per-agent delivery ledger — status-agnostic, matching the `delivered_by` outcome field rather than just `done` tasks. An agent id with no matches returns empty / `[]` without erroring.
+
+```bash
+rmap list --delivered-by claude
 # exit: 0
 ```
 
@@ -181,7 +188,12 @@ rmap status 4 done --implemented shipped --delivered-by claude --verified --ship
 # exit: 0
 ```
 
-When flipping to `blocked`, supply `blocked_reason` directly in the TOML; the mutator refuses to write a blocked task without one.
+When flipping to `blocked`, supply `--reason "<why>"` — the mutator refuses to write a blocked task without one. The reason renders inline on the blocked row in `ROADMAP.md` and is auto-cleared when the task leaves the blocked state. Like the outcome flags, it applies only on `blocked`; other transitions emit a stderr warning and skip the write.
+
+```bash
+rmap status 3 blocked --reason vendor-approval-pending
+# exit: 0
+```
 
 `rmap mark <id> +marker -marker …` toggles markers. Adds are idempotent; removes are idempotent. Token tier: `parallel | cx | csr`.
 
@@ -260,7 +272,7 @@ rmap diff --json
 
 ## Health
 
-`rmap doctor` is the soft-signal aggregator — validate findings + stale (>30d in-progress) + score-decay (>30d `scored_at` or missing) + degenerate-bundle + missing-`acceptance_criteria` + render drift. **Always exits 0** on success; only fails when input is unparseable. CI gates should pipe through `jq`:
+`rmap doctor` is the soft-signal aggregator. Findings, in severity order: validate findings + render drift + stale (>30d in-progress) + score-decay (>30d `scored_at` or missing) + milestone-status-drift (a milestone's `status` contradicts its tasks) + degenerate-bundle + missing-`acceptance_criteria` + claimed-not-graded (a `done` task without `verified` set — "claimed, not graded"). **Always exits 0** on success; only fails when input is unparseable. CI gates should pipe through `jq`:
 
 ```bash
 rmap doctor --json

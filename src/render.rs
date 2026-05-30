@@ -371,6 +371,19 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
             .map(|m| format!("*{m}* · "))
             .unwrap_or_default();
         let category_segment = category_prefix(task);
+        // Surface the block reason inline so an orchestrator scanning the
+        // rendered roadmap sees the dead-end cause without opening tasks.toml.
+        // Conditional + trailing: non-blocked rows render byte-identically.
+        let blocked_segment = if task.status == "blocked" {
+            task.blocked_reason
+                .as_deref()
+                .map(str::trim)
+                .filter(|r| !r.is_empty())
+                .map(|r| format!(" ⛔ {r}"))
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
         let status_cell = match (task.status.as_str(), task.branch.as_deref()) {
             ("in_progress", Some(branch)) => {
                 let trimmed = branch.trim();
@@ -384,7 +397,7 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
         };
         writeln!(
             table,
-            "| Task {}{} | {} | 🎁 **{}** · {}{}{}{} [D:{}/B:{}/U:{} → Eff:{}{}] {} |",
+            "| Task {}{} | {} | 🎁 **{}** · {}{}{}{} [D:{}/B:{}/U:{} → Eff:{}{}] {}{} |",
             task.id,
             marker_suffix(task),
             status_cell,
@@ -398,7 +411,8 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
             task.scores.u,
             format_efficiency(eff),
             decay,
-            tier_glyph(eff)
+            tier_glyph(eff),
+            blocked_segment
         )
         .expect("write to string");
     }

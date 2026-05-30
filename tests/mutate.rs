@@ -1,4 +1,4 @@
-use rmap::mutate::{DoneFields, MarkerOp, update_markers_str, update_status_str};
+use rmap::mutate::{MarkerOp, TransitionFields, update_markers_str, update_status_str};
 use rmap::validate::validate_tasks_str;
 
 const TASKS: &str = r#"# Roadmap source.
@@ -41,9 +41,9 @@ fn update_status_changes_only_target_status_and_preserves_comments() {
         TASKS,
         "74",
         "done",
-        DoneFields {
+        TransitionFields {
             implemented: Some("shipped"),
-            ..DoneFields::default()
+            ..TransitionFields::default()
         },
     )
     .expect("update status");
@@ -64,7 +64,7 @@ fn update_status_supports_string_task_ids() {
         TASKS,
         "78b",
         "in_progress",
-        DoneFields::default(),
+        TransitionFields::default(),
     )
     .expect("update status");
 
@@ -80,9 +80,9 @@ fn update_status_rejects_unknown_task_id() {
         TASKS,
         "999",
         "done",
-        DoneFields {
+        TransitionFields {
             implemented: Some("x"),
-            ..DoneFields::default()
+            ..TransitionFields::default()
         },
     )
     .expect_err("unknown id is rejected");
@@ -97,13 +97,69 @@ fn update_status_rejects_invalid_status() {
         TASKS,
         "74",
         "shipped",
-        DoneFields::default(),
+        TransitionFields::default(),
     )
     .expect_err("invalid status is rejected");
 
     assert!(
         err.to_string().contains("invalid status \"shipped\""),
         "{err}"
+    );
+}
+
+#[test]
+fn update_status_blocked_writes_then_auto_clears_reason() {
+    // Blocking writes the reason...
+    let blocked = update_status_str(
+        "roadmap/tasks.toml",
+        TASKS,
+        "74",
+        "blocked",
+        TransitionFields {
+            blocked_reason: Some("waiting on vendor"),
+            ..TransitionFields::default()
+        },
+    )
+    .expect("block task");
+    assert!(
+        blocked.contains("blocked_reason = \"waiting on vendor\""),
+        "blocked_reason not written:\n{blocked}"
+    );
+    validate_tasks_str("roadmap/tasks.toml", &blocked).expect("blocked tasks validate");
+
+    // ...and leaving blocked drops it again.
+    let unblocked = update_status_str(
+        "roadmap/tasks.toml",
+        &blocked,
+        "74",
+        "in_progress",
+        TransitionFields::default(),
+    )
+    .expect("unblock task");
+    assert!(
+        !unblocked.contains("blocked_reason"),
+        "stale blocked_reason not cleared when leaving blocked:\n{unblocked}"
+    );
+}
+
+#[test]
+fn update_status_ignores_reason_on_non_blocked_transition() {
+    let updated = update_status_str(
+        "roadmap/tasks.toml",
+        TASKS,
+        "74",
+        "done",
+        TransitionFields {
+            implemented: Some("shipped"),
+            blocked_reason: Some("ignored"),
+            ..TransitionFields::default()
+        },
+    )
+    .expect("update status");
+
+    assert!(
+        !updated.contains("blocked_reason"),
+        "blocked_reason must not be written on a non-blocked transition:\n{updated}"
     );
 }
 

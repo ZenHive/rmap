@@ -19,6 +19,15 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 15 — Schema extensions
 
+### Phase 15 Task 34: `--reason` flag on `rmap status` — settable, rendered, auto-cleared `blocked_reason` (schema_outcome bundle)
+
+**What was done:**
+- New `--reason "<text>"` flag on `rmap status`: sets `blocked_reason` in the same `blocked` transition (free-text, overwrites). Closes the gap where `blocked_reason` was required-on-blocked and surfaced read-side (schema, validation, export, diff, show) but had no mutator — it could previously only be set by hand-editing `tasks.toml`, exactly the workaround the harness merge-train lander (its terminal sink for cap-exhausted tasks) can't take. Blocked-only: non-`blocked` transitions emit a one-line stderr note and skip the write, mirroring the `done`-only outcome flags.
+- **Auto-clear:** transitioning a blocked task to any other status drops the now-stale `blocked_reason` (it described a state that no longer holds); re-blocking keeps/overwrites.
+- **Render:** blocked tasks now show their reason inline in `ROADMAP.md` as a trailing `⛔ <reason>` segment. Conditional + additive — non-blocked rows render byte-identically; golden-guarded by `tests/golden/mermaid_block`.
+- Internal: the four `done`-transition write-fields plus `blocked_reason` are now carried by `TransitionFields` (renamed from `DoneFields`), each gated on its matching transition; the `update_status` wrapper takes the struct to stay under clippy's arg ceiling. No `schema_version` bump — the field already existed; `--reason` stays off the creation surfaces (`StdinTask` / `NewTaskFields`).
+- Tests in `tests/mutate.rs` + `tests/cli.rs` (set-on-blocked, ignored-on-non-blocked, auto-clear across pending/in_progress/done, overwrite); `SKILLS.md`, `~/.claude/includes/rmap.md`, and repo `CLAUDE.md` updated.
+
 ### Phase 15 Task 33: `--shipped-in` flag on `rmap status` — complete the outcome layer (schema_outcome bundle)
 
 **What was done:**

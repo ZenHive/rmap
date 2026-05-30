@@ -6038,6 +6038,210 @@ fn status_bulk_done_with_shipped_in_applies_to_all() {
     }
 }
 
+// Task 1 starts blocked with a reason already on disk, so transitions *out* of
+// blocked (auto-clear) and reason overwrites can be exercised in a single command.
+const BLOCKED_TASKS: &str = r#"
+schema_version = 2
+project = "blocked_test"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "blocked"
+title = "Stuck task"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+blocked_reason = "old reason"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Second task"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+"#;
+
+// The blocked-row render segment is covered end-to-end by the `mermaid_block`
+// golden fixture; here we assert the mutator writes the field to tasks.toml.
+#[test]
+fn status_blocked_with_reason_writes_field() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("blocked")
+        .arg("--reason")
+        .arg("land-cap exhausted: post-merge-red x2 (task 101)")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status blocked");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let task_1_section = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 1\n"))
+        .expect("task 1 section present");
+    assert!(
+        task_1_section
+            .contains("blocked_reason = \"land-cap exhausted: post-merge-red x2 (task 101)\""),
+        "blocked_reason missing on task 1:\n{task_1_section}"
+    );
+}
+
+#[test]
+fn status_non_blocked_with_reason_emits_warning_and_skips_write() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("in_progress")
+        .arg("--reason")
+        .arg("should be ignored")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status in_progress");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--reason ignored for status `in_progress`"),
+        "expected reason warning:\n{stderr}"
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let task_1_section = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 1\n"))
+        .expect("task 1 section present");
+    assert!(
+        !task_1_section.contains("blocked_reason"),
+        "blocked_reason must not be written on non-blocked transitions: {task_1_section}"
+    );
+}
+
+#[test]
+fn status_leaving_blocked_clears_blocked_reason() {
+    for (new_status, extra_args) in [
+        ("in_progress", Vec::new()),
+        ("pending", Vec::new()),
+        ("done", vec!["--implemented", "shipped"]),
+    ] {
+        let dir = temp_dir();
+        fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+        let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", BLOCKED_TASKS);
+        write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rmap"));
+        cmd.arg("status").arg("1").arg(new_status);
+        for arg in &extra_args {
+            cmd.arg(arg);
+        }
+        let output = cmd
+            .arg("--tasks-path")
+            .arg(&tasks_path)
+            .env("RMAP_TODAY", "2026-05-14")
+            .current_dir(&dir)
+            .output()
+            .expect("run rmap status leaving blocked");
+
+        assert!(
+            output.status.success(),
+            "transition to {new_status} failed, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+        let task_1_section = tasks
+            .split("[[task]]")
+            .find(|chunk| chunk.contains("id = 1\n"))
+            .expect("task 1 section present");
+        assert!(
+            !task_1_section.contains("blocked_reason"),
+            "blocked_reason must be cleared when leaving blocked for {new_status}:\n{task_1_section}"
+        );
+    }
+}
+
+#[test]
+fn status_blocked_reason_overwrites_existing() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", BLOCKED_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("blocked")
+        .arg("--reason")
+        .arg("new reason")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status re-block");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let task_1_section = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 1\n"))
+        .expect("task 1 section present");
+    assert!(
+        task_1_section.contains("blocked_reason = \"new reason\""),
+        "blocked_reason not overwritten on task 1:\n{task_1_section}"
+    );
+    assert!(
+        !task_1_section.contains("old reason"),
+        "stale blocked_reason still present on task 1:\n{task_1_section}"
+    );
+}
+
 #[test]
 fn list_command_filters_by_delivered_by() {
     let path = write_temp_tasks("outcome_list.toml", OUTCOME_TASKS);

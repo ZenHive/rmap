@@ -103,21 +103,29 @@ impl CrossRepoSpec {
     }
 }
 
-/// Transition-time fields written only on a `done` transition, grouped into one
-/// argument so the status mutators stay under clippy's argument-count ceiling as
-/// the outcome layer grows. All are optional; `None` leaves the field untouched.
-/// On a non-`done` transition every field is ignored. `Default` yields all-`None`
-/// (the common "just change the status" case).
+/// Transition-time fields written by a status change, grouped into one argument
+/// so the status mutators stay under clippy's argument-count ceiling as the
+/// outcome layer grows. All are optional; `None` leaves the field untouched.
+/// Each field is gated on its matching transition: the first four (`implemented`,
+/// `delivered_by`, `verified`, `shipped_in`) apply only on a `done` transition;
+/// `blocked_reason` applies only on a `blocked` transition. On any other
+/// transition the relevant fields are ignored. `Default` yields all-`None` (the
+/// common "just change the status" case).
 #[derive(Default, Clone, Copy)]
-pub struct DoneFields<'a> {
+pub struct TransitionFields<'a> {
     /// What was actually built (overwrites any existing value when `Some`).
+    /// Done-only.
     pub implemented: Option<&'a str>,
-    /// Which agent or instance shipped the task (free-text).
+    /// Which agent or instance shipped the task (free-text). Done-only.
     pub delivered_by: Option<&'a str>,
     /// Independent-evaluator confirmation. `Some(true)` = a grader agreed.
+    /// Done-only.
     pub verified: Option<bool>,
-    /// Where the work landed — commit SHA / PR ref (free-text).
+    /// Where the work landed — commit SHA / PR ref (free-text). Done-only.
     pub shipped_in: Option<&'a str>,
+    /// Why the task is blocked (free-text). Blocked-only: written on a `blocked`
+    /// transition, auto-cleared when the task leaves the blocked state.
+    pub blocked_reason: Option<&'a str>,
 }
 
 /// Atomically flip the `status` field on every task in `ids` to `new_status`.
@@ -141,7 +149,7 @@ pub struct DoneFields<'a> {
 /// `validate_implemented` check will reject the transition unless the task
 /// already carries an `implemented` field.
 ///
-/// `done.delivered_by` / `done.verified` / `done.shipped_in`: outcome-layer
+/// `fields.delivered_by` / `fields.verified` / `fields.shipped_in`: outcome-layer
 /// transition-time fields. Mirror `implemented`'s semantics — write on `done`
 /// transitions when `Some`, overwrite any existing value, ignored on non-`done`
 /// transitions. `verified = Some(true)` means an independent check passed; absent
@@ -149,12 +157,18 @@ pub struct DoneFields<'a> {
 /// free-text). All are optional (the validator does not require them);
 /// `rmap doctor` emits a soft "claimed, not graded" advisory when `done` and
 /// `verified` is absent.
+///
+/// `fields.blocked_reason`: written only on a `blocked` transition (overwriting
+/// any existing value), ignored otherwise. Conversely, leaving the blocked state
+/// (current status `blocked`, new status anything else) auto-removes the stale
+/// `blocked_reason` — it described a state that no longer holds. Re-blocking
+/// (`blocked → blocked`) keeps or overwrites the existing reason.
 pub fn update_status_many_str(
     path: impl Into<String>,
     input: &str,
     ids: &[&str],
     new_status: &str,
-    done: DoneFields<'_>,
+    fields: TransitionFields<'_>,
 ) -> Result<String, MutateError> {
     if ids.is_empty() {
         return Err(MutateError::EmptyIds);
@@ -174,15 +188,25 @@ pub fn update_status_many_str(
         "in_progress" => Some("started_at"),
         _ => None,
     };
-    let DoneFields {
+    // Each transition-field group is gated on its matching new status: the
+    // done-only outcome fields apply on `done`, the blocked-only reason applies
+    // on `blocked`. Everything else is ignored (set to `None`).
+    let TransitionFields {
         implemented,
         delivered_by,
         verified,
         shipped_in,
-    } = if new_status == "done" {
-        done
+        blocked_reason,
+    } = fields;
+    let (implemented, delivered_by, verified, shipped_in) = if new_status == "done" {
+        (implemented, delivered_by, verified, shipped_in)
     } else {
-        DoneFields::default()
+        (None, None, None, None)
+    };
+    let blocked_reason = if new_status == "blocked" {
+        blocked_reason
+    } else {
+        None
     };
     // Snapshot once per call so a bulk transition that straddles midnight
     // stamps every matched task with the same date.
@@ -194,6 +218,7 @@ pub fn update_status_many_str(
         };
 
         if target.contains(id.as_str()) {
+            let was_blocked = task.get("status").and_then(|i| i.as_str()) == Some("blocked");
             task["status"] = Item::Value(Value::from(new_status));
 
             let mut needs_sort = false;
@@ -238,6 +263,20 @@ pub fn update_status_many_str(
                 }
             }
 
+            if let Some(value) = blocked_reason {
+                let was_present = task.contains_key("blocked_reason");
+                task.insert("blocked_reason", Item::Value(Value::from(value)));
+                if !was_present {
+                    needs_sort = true;
+                }
+            }
+
+            // Leaving the blocked state drops the now-stale reason (gating above
+            // guarantees `blocked_reason` is `None` here, so no write to undo).
+            if was_blocked && new_status != "blocked" {
+                task.remove("blocked_reason");
+            }
+
             if needs_sort {
                 task.sort_values_by(|a, _, b, _| {
                     canonical_task_key_index(a.get()).cmp(&canonical_task_key_index(b.get()))
@@ -266,9 +305,9 @@ pub fn update_status_str(
     input: &str,
     task_id: &str,
     new_status: &str,
-    done: DoneFields<'_>,
+    fields: TransitionFields<'_>,
 ) -> Result<String, MutateError> {
-    update_status_many_str(path, input, &[task_id], new_status, done)
+    update_status_many_str(path, input, &[task_id], new_status, fields)
 }
 
 fn item_to_task_id(item: &Item) -> Option<String> {
@@ -883,8 +922,13 @@ scores = { d = 1, b = 5, u = 5 }
 
     #[test]
     fn update_status_many_str_empty_ids_returns_empty_ids_error() {
-        let result =
-            update_status_many_str("test.toml", SIMPLE_TOML, &[], "done", DoneFields::default());
+        let result = update_status_many_str(
+            "test.toml",
+            SIMPLE_TOML,
+            &[],
+            "done",
+            TransitionFields::default(),
+        );
         assert!(
             matches!(result, Err(MutateError::EmptyIds)),
             "expected EmptyIds, got: {result:?}"

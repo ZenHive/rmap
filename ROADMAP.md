@@ -109,4 +109,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 31 | ⬜ | 🎁 **doctor_state_drift** · rmap doctor: advisories for phase / focus state drift [D:2/B:6/U:7 → Eff:3.25] 🎯 |
 | Task 32 | ⬜ | 🎁 **doctor_state_drift** · rmap doctor: milestone status drift advisories [D:2/B:5/U:6 → Eff:2.75] 🎯 |
 | Task 33 | ✅ | 🎁 **schema_outcome** · `--shipped-in` flag on `rmap status` — complete the outcome layer [D:2/B:6/U:6 → Eff:3.0] 🎯 |
+| Task 34 | ✅ | 🎁 **schema_outcome** · `--reason` flag on `rmap status` — settable + rendered + auto-cleared blocked_reason [D:3/B:6/U:6 → Eff:2.0] 🎯 |
 <!-- TASKS:END -->

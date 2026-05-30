@@ -84,7 +84,8 @@ body = """
 Multi-line prompt-style body when needed. Optional.
 """
 
-# When status = "blocked", blocked_reason is required:
+# When status = "blocked", blocked_reason is required. Set it via
+# `rmap status <id> blocked --reason "..."` (auto-cleared on unblock), or inline:
 #   status = "blocked"
 #   blocked_reason = "Waiting on legal review of session token storage"
 ```
