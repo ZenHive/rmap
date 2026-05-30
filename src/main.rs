@@ -18,8 +18,8 @@ use rmap::milestones::{
     MilestoneFilter, format_milestones_human, list_milestones, milestones_json,
 };
 use rmap::mutate::{
-    CrossRepoSpec, MarkerOp, NewTaskFields, add_dependency_str, add_task_str, update_markers_str,
-    update_milestone_str, update_status_many_str,
+    CrossRepoSpec, DoneFields, MarkerOp, NewTaskFields, add_dependency_str, add_task_str,
+    update_markers_str, update_milestone_str, update_status_many_str,
 };
 use rmap::next::{format_next_task, next_tasks};
 use rmap::next_bundle::{BundlePick, NextBundleFilter, pick as pick_next_bundle};
@@ -109,6 +109,11 @@ enum Commands {
         /// Presence flag (no opposite — to clear, edit `tasks.toml` directly).
         #[arg(long)]
         verified: bool,
+        /// Outcome field: where the work landed (commit SHA / PR ref, free-text
+        /// like `delivered_by`). Settable only on `done` transitions; ignored
+        /// with a one-line stderr note otherwise. Overwrites any existing value.
+        #[arg(long)]
+        shipped_in: Option<String>,
         #[arg(long)]
         tasks_path: Option<PathBuf>,
         #[arg(long)]
@@ -418,6 +423,7 @@ fn run() -> Result<ExitCode> {
             implemented,
             delivered_by,
             verified,
+            shipped_in,
             tasks_path,
             roadmap_path,
             data_path,
@@ -430,6 +436,7 @@ fn run() -> Result<ExitCode> {
                 implemented.as_deref(),
                 delivered_by.as_deref(),
                 verified,
+                shipped_in.as_deref(),
             )?;
         }
         Commands::Next {
@@ -1030,6 +1037,7 @@ fn update_status(
     implemented: Option<&str>,
     delivered_by: Option<&str>,
     verified: bool,
+    shipped_in: Option<&str>,
 ) -> Result<()> {
     let ids: Vec<&str> = task_id
         .split(',')
@@ -1057,6 +1065,12 @@ fn update_status(
         eprintln!("warning: --verified ignored for status `{new_status}` (only applies to `done`)");
     }
 
+    if shipped_in.is_some() && new_status != "done" {
+        eprintln!(
+            "warning: --shipped-in ignored for status `{new_status}` (only applies to `done`)"
+        );
+    }
+
     let input = std::fs::read_to_string(&paths.tasks_path)
         .with_context(|| format!("read {}", paths.tasks_path.display()))?;
 
@@ -1073,9 +1087,12 @@ fn update_status(
         &input,
         &ids,
         new_status,
-        effective_implemented,
-        delivered_by,
-        effective_verified,
+        DoneFields {
+            implemented: effective_implemented,
+            delivered_by,
+            verified: effective_verified,
+            shipped_in,
+        },
     )?;
 
     let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &updated)?;

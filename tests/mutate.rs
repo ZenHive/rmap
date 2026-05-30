@@ -1,4 +1,4 @@
-use rmap::mutate::{MarkerOp, update_markers_str, update_status_str};
+use rmap::mutate::{DoneFields, MarkerOp, update_markers_str, update_status_str};
 use rmap::validate::validate_tasks_str;
 
 const TASKS: &str = r#"# Roadmap source.
@@ -41,9 +41,10 @@ fn update_status_changes_only_target_status_and_preserves_comments() {
         TASKS,
         "74",
         "done",
-        Some("shipped"),
-        None,
-        None,
+        DoneFields {
+            implemented: Some("shipped"),
+            ..DoneFields::default()
+        },
     )
     .expect("update status");
 
@@ -63,9 +64,7 @@ fn update_status_supports_string_task_ids() {
         TASKS,
         "78b",
         "in_progress",
-        None,
-        None,
-        None,
+        DoneFields::default(),
     )
     .expect("update status");
 
@@ -81,9 +80,10 @@ fn update_status_rejects_unknown_task_id() {
         TASKS,
         "999",
         "done",
-        Some("x"),
-        None,
-        None,
+        DoneFields {
+            implemented: Some("x"),
+            ..DoneFields::default()
+        },
     )
     .expect_err("unknown id is rejected");
 
@@ -97,9 +97,7 @@ fn update_status_rejects_invalid_status() {
         TASKS,
         "74",
         "shipped",
-        None,
-        None,
-        None,
+        DoneFields::default(),
     )
     .expect_err("invalid status is rejected");
 

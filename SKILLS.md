@@ -174,10 +174,10 @@ rmap status 3,4 in_progress
 # exit: 0
 ```
 
-When flipping to `done`, supply `--implemented "<what shipped>"` (required when the task lacks the field). Add `--delivered-by <agent>` and `--verified` to record outcome facts — which agent shipped it and whether an independent evaluator confirmed it. Both outcome flags apply only on `done`; non-`done` transitions emit a stderr warning and skip the write.
+When flipping to `done`, supply `--implemented "<what shipped>"` (required when the task lacks the field). Add `--delivered-by <agent>`, `--verified`, and `--shipped-in <sha>` to record outcome facts — which agent shipped it, whether an independent evaluator confirmed it, and where it landed (commit SHA / PR ref, free-text). All three outcome flags apply only on `done`; non-`done` transitions emit a stderr warning and skip the write.
 
 ```bash
-rmap status 4 done --implemented shipped --delivered-by claude --verified
+rmap status 4 done --implemented shipped --delivered-by claude --verified --shipped-in abc123
 # exit: 0
 ```
 

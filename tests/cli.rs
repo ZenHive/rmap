@@ -5900,6 +5900,145 @@ fn status_non_done_with_delivered_by_emits_warning_and_skips_write() {
 }
 
 #[test]
+fn status_done_with_shipped_in_persists_field() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("done")
+        .arg("--implemented")
+        .arg("shipped")
+        .arg("--delivered-by")
+        .arg("claude")
+        .arg("--verified")
+        .arg("--shipped-in")
+        .arg("abc123")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let task_1_section = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 1\n"))
+        .expect("task 1 section present");
+    assert!(
+        task_1_section.contains("shipped_in = \"abc123\""),
+        "shipped_in missing on task 1:\n{task_1_section}"
+    );
+    // The outcome triple coexists with implemented in a single transition.
+    assert!(
+        task_1_section.contains("delivered_by = \"claude\""),
+        "delivered_by missing on task 1:\n{task_1_section}"
+    );
+    assert!(
+        task_1_section.contains("verified = true"),
+        "verified missing on task 1:\n{task_1_section}"
+    );
+    assert!(
+        task_1_section.contains("implemented = \"shipped\""),
+        "implemented missing on task 1:\n{task_1_section}"
+    );
+}
+
+#[test]
+fn status_non_done_with_shipped_in_emits_warning_and_skips_write() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("in_progress")
+        .arg("--shipped-in")
+        .arg("abc123")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status in_progress");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--shipped-in ignored for status `in_progress`"),
+        "expected shipped_in warning:\n{stderr}"
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let task_1_section = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 1\n"))
+        .expect("task 1 section present");
+    assert!(
+        !task_1_section.contains("shipped_in"),
+        "shipped_in must not be written on non-done transitions: {task_1_section}"
+    );
+}
+
+#[test]
+fn status_bulk_done_with_shipped_in_applies_to_all() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1,2")
+        .arg("done")
+        .arg("--implemented")
+        .arg("shipped")
+        .arg("--shipped-in")
+        .arg("abc123")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status bulk");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    for id in ["id = 1\n", "id = 2\n"] {
+        let section = tasks
+            .split("[[task]]")
+            .find(|chunk| chunk.contains(id))
+            .unwrap_or_else(|| panic!("{id} section present"));
+        assert!(
+            section.contains("shipped_in = \"abc123\""),
+            "shipped_in missing on {id}:\n{section}"
+        );
+    }
+}
+
+#[test]
 fn list_command_filters_by_delivered_by() {
     let path = write_temp_tasks("outcome_list.toml", OUTCOME_TASKS);
 

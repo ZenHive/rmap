@@ -1102,6 +1102,47 @@
       "created_at": "2026-05-26",
       "scored_at": "2026-05-26",
       "cross_repo": []
+    },
+    {
+      "id": 33,
+      "phase": 15,
+      "bundle": "schema_outcome",
+      "status": "done",
+      "title": "`--shipped-in` flag on `rmap status` — complete the outcome layer",
+      "scores": {
+        "d": 2,
+        "b": 6,
+        "u": 6
+      },
+      "eff": 3.0,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`rmap status <id> done --shipped-in <sha>` persists `shipped_in` on the task, accepted alongside --implemented / --delivered-by / --verified in the same transition",
+        "Settable only on `done` transitions; on a non-`done` transition it is ignored with a one-line stderr note, exactly like --delivered-by",
+        "Bulk `rmap status 1,2,3 done --shipped-in <sha>` applies the same value to every matched task (mirror --delivered-by bulk semantics)",
+        "`shipped_in` already surfaces in `rmap show`, `roadmap/data.json` (ExportedTask) and `rmap diff` — confirm those paths now reflect a status-set value with no further wiring",
+        "`--shipped-in` does NOT appear on `rmap new` / StdinTask / NewTaskFields — it stays transition-time only, matching the existing rule that shipped_in is never settable at creation",
+        "Existing tasks.toml round-trip validate -> render unchanged; field already in schema, so NO schema_version bump",
+        "tests/mutate.rs + tests/cli.rs cover: set-on-done, ignored-on-non-done (stderr note), bulk apply, and alongside --delivered-by/--verified/--implemented",
+        "CHANGELOG entry under [Unreleased]"
+      ],
+      "out_of_scope": [
+        "Validating the sha shape — free-text like delivered_by; any commit-ish / PR string is accepted",
+        "Setting shipped_in at creation time or via `rmap new`",
+        "Auto-deriving shipped_in from git — the caller supplies it"
+      ],
+      "files_to_modify": [
+        "src/main.rs",
+        "src/mutate.rs"
+      ],
+      "body": "First consumer: the harness autonomous merge-train lander (harness Task 100) writes the merged commit SHA back to rmap on a successful land via `rmap status <id> done --verified --delivered-by <agent> --shipped-in <sha>`. Today `rmap status` exposes `--implemented`, `--delivered-by`, and `--verified`, but `shipped_in` has no status-time mutator — the field exists in the schema (schema.rs), exports (export.rs / ExportedTask), diff (diff.rs) and show (query.rs), yet can only be set by hand-editing tasks.toml. That hand-edit is exactly the \"work around a gap in rmap\" the harness contract forbids, so the lander needs a first-class flag.\n\nAdd a `--shipped-in <sha>` flag to the `Status` command and thread it through the existing transition-time outcome path the lighter mirror way — the same path `--delivered-by` already takes (status arg struct in main.rs -> `update_status` -> `update_status_many_str` / `update_status_str` in mutate.rs -> insert the `shipped_in` key + canonical key-order sort). It is `done`-only with a warn-and-ignore stderr note on other transitions, overwrites any existing value, and must never leak onto the creation surfaces. This completes the schema_outcome bundle: delivered_by (who), verified (graded?), shipped_in (where it landed) — the full queryable outcome triple.\n\nImplementation details (flag name, exact insertion point, sort index — shipped_in is already index 27 in canonical_task_key_index) are for the implementing agent to derive from how --delivered-by is wired in sibling Task 28.\n",
+      "created_at": "2026-05-30",
+      "done_at": "2026-05-30",
+      "scored_at": "2026-05-30",
+      "implemented": "Added --shipped-in flag to rmap status, mirroring --delivered-by; grouped the four done-transition write-fields into DoneFields to stay under clippy's arg ceiling. Tests in mutate.rs + cli.rs; docs in CHANGELOG + rmap.md.",
+      "delivered_by": "claude",
+      "cross_repo": []
     }
   ]
 }

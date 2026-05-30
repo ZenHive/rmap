@@ -19,6 +19,13 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 15 — Schema extensions
 
+### Phase 15 Task 33: `--shipped-in` flag on `rmap status` — complete the outcome layer (schema_outcome bundle)
+
+**What was done:**
+- New `--shipped-in <sha>` flag on `rmap status`: persists `shipped_in` (commit/PR ref, free-text) in the same `done` transition as `--implemented` / `--delivered-by` / `--verified`. Closes the gap where `shipped_in` existed end-to-end on the read side (schema, export, diff, show) but had no mutator — it could previously only be set by hand-editing `tasks.toml`. Completes the outcome triple: `delivered_by` (who), `verified` (graded?), `shipped_in` (where it landed).
+- Mirrors `--delivered-by` exactly: `done`-only (non-`done` transitions emit a one-line stderr warning and skip the write), overwrites on re-set, bulk `rmap status 1,2 done --shipped-in <sha>` applies the same value to every matched task. No sha-shape validation (free-text), no git auto-derivation — the caller supplies it.
+- Stays off the creation surfaces (`rmap new` / `StdinTask` / `NewTaskFields`) — `shipped_in` is a transition-time outcome fact, not creation-time intent. Field already in the schema, so **no `schema_version` bump**.
+
 ### Phase 15 Task 28: Outcome layer — `delivered_by` + `verified` fields (schema_outcome bundle)
 
 **What was done:**
