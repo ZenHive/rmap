@@ -21,7 +21,7 @@ use rmap::mutate::{
     CrossRepoSpec, MarkerOp, NewTaskFields, TransitionFields, add_dependency_str, add_task_str,
     update_markers_str, update_milestone_str, update_status_many_str,
 };
-use rmap::next::{format_next_task, next_tasks};
+use rmap::next::{format_next_task, next_tasks, ready_tasks};
 use rmap::next_bundle::{BundlePick, NextBundleFilter, pick as pick_next_bundle};
 use rmap::paths::{ResolvedPaths, resolve_paths};
 use rmap::query::{TaskFilter, find_task, format_task, format_task_row, list_tasks};
@@ -162,6 +162,34 @@ enum Commands {
         /// Filter to tasks whose `delivered_by` matches this agent id.
         #[arg(long)]
         delivered_by: Option<String>,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+    },
+    /// List the parallel-safe dispatch set: every `pending` task whose
+    /// `depends_on` are all `done`, ranked like `rmap next` (4-tier focus ×
+    /// active-milestone, then Eff desc).
+    ///
+    /// The set is mutually independent by construction — a pending task whose
+    /// deps are all `done` cannot depend on another pending task — so it is
+    /// safe to dispatch every returned task in parallel. `--bundle <B>` yields
+    /// the dispatchable layer-0 of that bundle (the answer `next-bundle`'s
+    /// serial chain can't give). Unlike `next`, `--count` is optional and
+    /// defaults to the whole set. `--json` carries `dep_layer` per task so a
+    /// single call answers "what can I dispatch now + which wave each unlocks."
+    Ready {
+        #[arg(long)]
+        marker: Option<String>,
+        #[arg(long)]
+        bundle: Option<String>,
+        #[arg(long)]
+        phase: Option<u32>,
+        #[arg(long)]
+        milestone: Option<String>,
+        /// Cap the result to the top N (default: the entire ready set).
+        #[arg(long)]
+        count: Option<NonZeroUsize>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -528,6 +556,35 @@ fn run() -> Result<ExitCode> {
             } else {
                 for task in listed {
                     println!("{}", format_task_row(task));
+                }
+            }
+        }
+        Commands::Ready {
+            marker,
+            bundle,
+            phase,
+            milestone,
+            count,
+            json,
+            tasks_path,
+        } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+            let filter = TaskFilter {
+                status: None,
+                marker,
+                phase,
+                bundle,
+                milestone,
+                delivered_by: None,
+            };
+            let selected = ready_tasks(&tasks, &filter, count.map(NonZeroUsize::get));
+
+            if json {
+                println!("{}", export_filtered_json_str(&tasks, &selected)?);
+            } else {
+                for task in &selected {
+                    println!("{}", format_next_task(task));
                 }
             }
         }

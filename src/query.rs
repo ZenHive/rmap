@@ -168,6 +168,6 @@ fn matches_status(task: &Task, status: Option<&str>) -> bool {
     status.is_none_or(|status| task.status == status)
 }
 
-fn matches_phase(task: &Task, phase: Option<u32>) -> bool {
+pub(crate) fn matches_phase(task: &Task, phase: Option<u32>) -> bool {
     phase.is_none_or(|phase| task.phase == phase)
 }

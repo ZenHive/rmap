@@ -82,6 +82,66 @@ assignee = "codex"
 acceptance_criteria = ["parseOrder accepts spot payloads"]
 "#;
 
+// Dependency shapes for `rmap ready`: task 1 is done (excluded); 2 depends on
+// the done root (ready, layer 1); 3 depends on the still-pending 2 (NOT ready);
+// 4 has no deps (ready, layer 0). No `[focus]` / active milestone, so the ready
+// set ranks by Eff desc: Eff(2)=4.0 > Eff(4)=2.5.
+const READY_TASKS: &str = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase One"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "alpha tasks"
+
+[bundles.beta]
+phase = 1
+order = 2
+description = "beta tasks"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+status = "done"
+implemented = "fixture root"
+title = "done root"
+scores = { d = 2, b = 6, u = 6 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "ready: dep on done root"
+scores = { d = 2, b = 8, u = 8 }
+depends_on = [1]
+
+[[task]]
+id = 3
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "blocked: dep on pending 2"
+scores = { d = 2, b = 9, u = 9 }
+depends_on = [2]
+
+[[task]]
+id = 4
+phase = 1
+bundle = "beta"
+status = "pending"
+title = "ready: no deps"
+scores = { d = 2, b = 5, u = 5 }
+"#;
+
 #[test]
 fn validate_command_accepts_valid_tasks_file() {
     let path = write_temp_tasks("valid_tasks.toml", VALID_TASKS);
@@ -1148,6 +1208,78 @@ fn show_json_includes_dep_layer() {
 
     assert_eq!(dep_layer("74"), 0, "root task is layer 0");
     assert_eq!(dep_layer("75"), 1, "task depending on a root is layer 1");
+}
+
+#[test]
+fn ready_returns_only_dep_satisfied_pending_ranked() {
+    // The parallel-safe set is {2, 4}: 1 is done (excluded), 3 depends on the
+    // still-pending 2 (not dispatchable yet). Ranking is Eff desc → [2, 4].
+    let path = write_temp_tasks("ready_tasks.toml", READY_TASKS);
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("ready")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap ready --json");
+    assert!(
+        json.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&json.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    let tasks = value["task"].as_array().expect("task array");
+    let ids: Vec<u64> = tasks
+        .iter()
+        .map(|t| t["id"].as_u64().expect("numeric id"))
+        .collect();
+    assert_eq!(ids, vec![2, 4], "ready set is {{2,4}} ranked Eff desc");
+
+    // dep_layer rides along on the ready envelope: 4 is a root (0), 2 sits one
+    // wave deep behind the done root (1).
+    let layer = |id: u64| {
+        tasks
+            .iter()
+            .find(|t| t["id"].as_u64() == Some(id))
+            .expect("task present")["dep_layer"]
+            .as_u64()
+            .expect("dep_layer numeric")
+    };
+    assert_eq!(layer(4), 0);
+    assert_eq!(layer(2), 1);
+}
+
+#[test]
+fn ready_bundle_filters_to_dispatchable_layer_zero_of_bundle() {
+    // `--bundle alpha` narrows to alpha's dispatchable set: only task 2 (1 is
+    // done, 3 is blocked by pending 2; 4 is in bundle beta).
+    let path = write_temp_tasks("ready_bundle.toml", READY_TASKS);
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("ready")
+        .arg("--bundle")
+        .arg("alpha")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap ready --bundle alpha --json");
+    assert!(
+        json.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&json.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    let ids: Vec<u64> = value["task"]
+        .as_array()
+        .expect("task array")
+        .iter()
+        .map(|t| t["id"].as_u64().expect("numeric id"))
+        .collect();
+    assert_eq!(ids, vec![2], "only task 2 is ready within bundle alpha");
 }
 
 #[test]

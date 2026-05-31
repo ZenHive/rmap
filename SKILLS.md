@@ -123,6 +123,23 @@ rmap next-bundle --bundle alpha
 # exit: 0
 ```
 
+`rmap ready` lists the **parallel-safe dispatch set**: every `pending` task whose `depends_on` are all `done`, ranked like `rmap next` (4-tier focus × active-milestone, then Eff desc). The set is mutually independent by construction — a pending task with all deps `done` cannot depend on another pending task — so every returned task is safe to dispatch at once (no `--independent` flag; it would be a no-op). `--bundle <name>` yields the dispatchable layer-0 of that bundle (the parallel batch `next-bundle`'s serial chain can't express); `--phase`, `--marker`, `--milestone` narrow further. Unlike `next`, `--count` is optional and defaults to the entire set. `--json` carries `dep_layer` per task, so one call answers "what can I dispatch now, and which wave each task unlocks."
+
+```bash
+rmap ready
+# exit: 0
+```
+
+```bash
+rmap ready --json
+# exit: 0
+```
+
+```bash
+rmap ready --bundle alpha --json
+# exit: 0
+```
+
 ## Milestones — release-line pinning
 
 `[milestones.<name>]` is a fourth, flat-namespace top-level concept (alongside phases / bundles / markers). Milestones answer "which release ships this?" — they cross phases by design. A task pins to at most one milestone via `milestone = "<name>"`; absent = unpinned (the default).
@@ -424,7 +441,7 @@ Unlike the other commands here, `rmap watch` (with or without `--json`) is shown
 | `render` | success | schema/IO error | — |
 | `watch` | — (runs until Ctrl-C) | watcher setup error | — |
 | `show` | found | unknown id | — |
-| `list`, `next`, `schema`, `delegate`, `stale` | success | schema/IO error | — |
+| `list`, `next`, `ready`, `schema`, `delegate`, `stale` | success | schema/IO error | — |
 | Mutators (`status`, `mark`, `depend`, `new`) | success + re-rendered | mutation rejected by re-validation | — |
 
 For finer health signals, pipe `rmap doctor --json` through `jq`:
