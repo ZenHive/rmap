@@ -116,6 +116,13 @@ pub struct Task {
     pub out_of_scope: Vec<String>,
     #[serde(default)]
     pub files_to_modify: Vec<String>,
+    /// Advisory collision-prediction hint: files this task may read or write —
+    /// typically a superset of `files_to_modify`. Used by an orchestrator to
+    /// predict parallel-dispatch conflicts (two tasks conflict when the union
+    /// of their `touches` + `files_to_modify` overlaps). Free-text, unvalidated
+    /// (posture of `model` / `assignee`); creation-time field.
+    #[serde(default)]
+    pub touches: Vec<String>,
     pub shipped_in: Option<String>,
     pub body: Option<String>,
     pub created_at: Option<String>,

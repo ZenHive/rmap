@@ -509,22 +509,23 @@ fn canonical_task_key_index(key: &str) -> u32 {
         "acceptance_criteria" => 9,
         "out_of_scope" => 10,
         "files_to_modify" => 11,
-        "cross_repo" => 12,
-        "assignee" => 13,
-        "linear_id" => 14,
-        "module" => 15,
-        "model" => 16,
-        "branch" => 17,
-        "blocked_reason" => 18,
-        "body" => 19,
-        "implemented" => 20,
-        "delivered_by" => 21,
-        "verified" => 22,
-        "created_at" => 23,
-        "started_at" => 24,
-        "scored_at" => 25,
-        "done_at" => 26,
-        "shipped_in" => 27,
+        "touches" => 12,
+        "cross_repo" => 13,
+        "assignee" => 14,
+        "linear_id" => 15,
+        "module" => 16,
+        "model" => 17,
+        "branch" => 18,
+        "blocked_reason" => 19,
+        "body" => 20,
+        "implemented" => 21,
+        "delivered_by" => 22,
+        "verified" => 23,
+        "created_at" => 24,
+        "started_at" => 25,
+        "scored_at" => 26,
+        "done_at" => 27,
+        "shipped_in" => 28,
         _ => u32::MAX,
     }
 }
@@ -673,6 +674,9 @@ pub struct NewTaskFields<'a> {
     pub out_of_scope: &'a [&'a str],
     /// Slice of file paths the task is scoped to. Empty slice = skip serialization.
     pub files_to_modify: &'a [String],
+    /// Advisory collision-prediction hint (see `schema::Task::touches`). Empty
+    /// slice = skip serialization.
+    pub touches: &'a [String],
     /// Slice of cross-repo dependencies. Empty slice = skip serialization. Each
     /// entry's `task_id` is written as an integer when parseable, otherwise a
     /// string — mirroring `add_dependency_str`'s shape.
@@ -838,6 +842,14 @@ pub fn add_task_str(
             array.push(path.as_str());
         }
         table["files_to_modify"] = Item::Value(Value::Array(array));
+    }
+
+    if !fields.touches.is_empty() {
+        let mut array = Array::new();
+        for path in fields.touches {
+            array.push(path.as_str());
+        }
+        table["touches"] = Item::Value(Value::Array(array));
     }
 
     if !fields.cross_repo.is_empty() {

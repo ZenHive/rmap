@@ -414,6 +414,7 @@ fn task_changes(
         acceptance_criteria,
         out_of_scope,
         files_to_modify,
+        touches,
         shipped_in,
         body,
         created_at,

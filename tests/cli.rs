@@ -3177,6 +3177,80 @@ files_to_modify = ["src/foo.rs", "tests/foo.rs"]
 }
 
 #[test]
+fn new_from_stdin_round_trips_touches_field() {
+    // `touches` is a creation-time field semantically distinct from
+    // `files_to_modify`: the write target (`files_to_modify`) versus the broader
+    // collision-prediction hint (`touches`, typically a superset). Set both with
+    // different values to prove they round-trip independently.
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Collision-aware task"
+scores = { d = 2, b = 6, u = 6 }
+files_to_modify = ["src/foo.rs"]
+touches = ["src/foo.rs", "src/shared.rs"]
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(
+        tasks.contains("touches = [\"src/foo.rs\", \"src/shared.rs\"]"),
+        "touches should round-trip into tasks.toml; tasks: {tasks}"
+    );
+    // The narrower write-target field stays distinct, not merged into touches.
+    assert!(
+        tasks.contains("files_to_modify = [\"src/foo.rs\"]"),
+        "files_to_modify should remain a separate field; tasks: {tasks}"
+    );
+    // Canonical order: files_to_modify (11) precedes touches (12).
+    let p_ftm = tasks
+        .find("files_to_modify")
+        .expect("files_to_modify present");
+    let p_touches = tasks.find("touches").expect("touches present");
+    assert!(
+        p_ftm < p_touches,
+        "files_to_modify should precede touches in canonical order; tasks: {tasks}"
+    );
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show --json");
+    assert!(json.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    let touches = value["touches"].as_array().expect("touches is an array");
+    assert_eq!(touches.len(), 2);
+    assert_eq!(touches[0], "src/foo.rs");
+    assert_eq!(touches[1], "src/shared.rs");
+    // files_to_modify stays its own (shorter) array in JSON, not unioned.
+    let files = value["files_to_modify"]
+        .as_array()
+        .expect("files_to_modify is an array");
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0], "src/foo.rs");
+}
+
+#[test]
 fn new_from_stdin_round_trips_cross_repo_field() {
     let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
 
@@ -3253,7 +3327,7 @@ cross_repo = [
 fn new_from_stdin_emits_canonical_order_for_creation_fields() {
     // Asserts the writer in add_task_str + canonical_task_key_index produce
     // the expected key ordering when all three Task-25 fields are present:
-    //   out_of_scope (10) < files_to_modify (11) < cross_repo (12) < model (16) < branch (17)
+    //   out_of_scope (10) < files_to_modify (11) < touches (12) < cross_repo (13) < model (17) < branch (18)
     let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
 
     let payload = r#"

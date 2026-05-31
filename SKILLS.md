@@ -247,6 +247,8 @@ rmap new --from-stdin
 
 `rmap new` without `--from-stdin` drops into an interactive `dialoguer` flow (phase → bundle → title → D/B/U → markers → acceptance criteria → assignee → linear_id → module). Requires a TTY — non-interactive contexts must use `--from-stdin`. Bundles cannot be created on the fly; author the `[bundles.<name>]` table in `tasks.toml` first.
 
+Power-user fields are not prompted interactively — set them via `--from-stdin` or by editing `tasks.toml`: `files_to_modify` (the write target), `touches` (an advisory collision-prediction hint — files the task may read or write, typically a superset of `files_to_modify`; free-text, unvalidated), `cross_repo`, and `branch`.
+
 ## Reading change signal
 
 `rmap diff` shows what's changed in `tasks.toml` vs. a git ref (default: `default_branch` from the TOML). Read-only — never mutates working tree or git state.

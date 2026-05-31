@@ -1191,6 +1191,7 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
             acceptance_criteria: &acceptance_criteria,
             out_of_scope: &out_of_scope,
             files_to_modify: &task.files_to_modify,
+            touches: &task.touches,
             cross_repo: &task.cross_repo,
             assignee: task.assignee.as_deref(),
             linear_id: task.linear_id.as_deref(),
@@ -1265,6 +1266,8 @@ struct StdinTask {
     pub out_of_scope: Vec<String>,
     #[serde(default)]
     pub files_to_modify: Vec<String>,
+    #[serde(default)]
+    pub touches: Vec<String>,
     #[serde(default)]
     pub cross_repo: Vec<rmap::schema::CrossRepo>,
     pub branch: Option<String>,
@@ -1448,6 +1451,7 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         // Power-user fields not exposed by the interactive prompt — set via
         // `rmap new --from-stdin` or edit `tasks.toml` directly.
         files_to_modify: Vec::new(),
+        touches: Vec::new(),
         cross_repo: Vec::new(),
         branch: None,
         body: None,
