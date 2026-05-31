@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Imports
 
-Universal includes (per `~/.claude/setup-guide.md`). No Rust-specific template exists; rmap takes the universal baseline only — the Elixir/Phoenix includes don't apply. Delegation includes are intentionally omitted (no `.mcp.json`, no git remote — rmap is not in the Linear/cloud-agent queue).
+Universal includes (per `~/.claude/setup-guide.md`). No Rust-specific template exists; rmap takes the universal baseline only — the Elixir/Phoenix includes don't apply. Delegation includes are intentionally omitted (no `.mcp.json`, no git remote — rmap is not in the Linear/cloud-agent queue). `web-command.md` is intentionally NOT imported: per the setup-guide's "Skills vs Includes" rule, situational tool references auto-load as skills — rmap does no browser work, so the `web-command` skill covers the rare case without paying the token cost every session.
 
 @~/.claude/includes/across-instances.md
 @~/.claude/includes/critical-rules.md
@@ -15,7 +15,6 @@ Universal includes (per `~/.claude/setup-guide.md`). No Rust-specific template e
 @~/.claude/includes/task-writing.md
 @~/.claude/includes/rmap.md
 @~/.claude/includes/workflow-philosophy.md
-@~/.claude/includes/web-command.md
 
 ## Commands
 

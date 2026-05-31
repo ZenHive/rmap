@@ -272,7 +272,7 @@ rmap diff --json
 
 ## Health
 
-`rmap doctor` is the soft-signal aggregator. Findings, in severity order: validate findings + render drift + stale (>30d in-progress) + score-decay (>30d `scored_at` or missing) + milestone-status-drift (a milestone's `status` contradicts its tasks) + degenerate-bundle + missing-`acceptance_criteria` + claimed-not-graded (a `done` task without `verified` set — "claimed, not graded"). **Always exits 0** on success; only fails when input is unparseable. CI gates should pipe through `jq`:
+`rmap doctor` is the soft-signal aggregator. Findings, in severity order: validate findings + render drift + stale (>30d in-progress) + score-decay (>30d `scored_at` or missing) + degenerate-bundle + missing-`acceptance_criteria` + claimed-not-graded (a `done` task without `verified` set — "claimed, not graded"). **Always exits 0** on success; only fails when input is unparseable. CI gates should pipe through `jq`:
 
 ```bash
 rmap doctor --json
