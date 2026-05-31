@@ -19,6 +19,16 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 15 — Schema extensions
 
+### Phase 15 Tasks 35–38: agent-dispatch ergonomics — `rmap ready` + `dep_layer` + `touches` + `handbuild`/`--dispatchable`/`--fields` (agent_dispatch bundle)
+
+**What was done:**
+- Makes "the set of tasks I can dispatch in parallel right now" a first-class server-side query instead of a client-side reconstruction from `list --json`. Five surfaces, four commits:
+- **`rmap ready`** (Task 35): all `pending` tasks whose every `depends_on` is `done`, ranked by the same 4-tier key as `rmap next` (now shared via `next::rank_tasks`). The set is **mutually independent by construction** — a pending task with all deps done can't depend on another pending task — so there is no `--independent` flag. `--bundle B` yields a bundle's dispatchable layer-0 (the parallel batch `next-bundle`'s serial chain can't express); `--count` is optional (default = whole set); `--phase` filters the pool. `list`-shaped `--json` envelope.
+- **`dep_layer`** (Task 36): longest-path layering extracted from `render_html` into a shared pure `src/topo.rs`; exposed as a computed `ExportedTask` field (like `eff`, never persisted) on every `--json` payload. Always computed over the full `tasks.task` graph, so the slice-taking export fns now take `&Tasks`. Within a result set the lowest `dep_layer` present is the current parallel wave. Additive — no `schema_version` bump.
+- **`touches`** (Task 37): optional creation-time `Vec<String>` field, semantically distinct from `files_to_modify` (the write target) — the broader *involvement hint*, typically a superset. Consumers union both fields to predict parallel-dispatch conflicts (`rmap` documents the rule but does not enforce it). All six creation-time mirror surfaces + `diff_fields!` (deliberately not in `TASK_VERBOSE_WHITELIST`). Unvalidated free-text; additive.
+- **`handbuild` + `--dispatchable` + `--fields`** (Task 38): `handbuild` ∈ `VALID_MARKERS` flags human-driven-browser work (LiveView/UI/DOM); `--dispatchable` (on `ready`/`list`) excludes it so everything else is headless-dispatchable by default. `--fields a,b,c` projects `--json` to a token-cheap bare array of just the named `ExportedTask` keys (validated against `EXPORTED_TASK_FIELDS`, drift-guarded); implies `--json`, unknown name exits 1.
+- No `schema_version` bump (all additive). `SKILLS.md`, `~/.claude/includes/rmap.md`, and repo `CLAUDE.md` updated; new tests in `tests/cli.rs` + unit tests in `src/topo.rs` / `src/export.rs`.
+
 ### Phase 15 Task 34: `--reason` flag on `rmap status` — settable, rendered, auto-cleared `blocked_reason` (schema_outcome bundle)
 
 **What was done:**
