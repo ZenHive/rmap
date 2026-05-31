@@ -1,7 +1,9 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
-use crate::query::{TaskFilter, matches_bundle, matches_marker, matches_milestone, matches_phase};
+use crate::query::{
+    TaskFilter, is_dispatchable, matches_bundle, matches_marker, matches_milestone, matches_phase,
+};
 use crate::schema::{Task, Tasks};
 use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 
@@ -56,11 +58,14 @@ pub fn next_tasks<'a>(tasks: &'a Tasks, filter: &TaskFilter, count: usize) -> Ve
 /// is `None` (default-all). The result is mutually independent by
 /// construction: a pending task whose deps are all `done` cannot depend on
 /// another pending task (that dep would have to be `done`), so there is no
-/// `--independent` flag — it would always be a no-op.
+/// `--independent` flag — it would always be a no-op. When `dispatchable` is
+/// set, tasks carrying the `handbuild` marker are excluded (before ranking and
+/// `count`, so the cap counts only dispatchable tasks).
 pub fn ready_tasks<'a>(
     tasks: &'a Tasks,
     filter: &TaskFilter,
     count: Option<usize>,
+    dispatchable: bool,
 ) -> Vec<&'a Task> {
     let mut candidates: Vec<&Task> = tasks
         .task
@@ -70,6 +75,7 @@ pub fn ready_tasks<'a>(
         .filter(|task| matches_phase(task, filter.phase))
         .filter(|task| matches_bundle(task, filter.bundle.as_deref()))
         .filter(|task| matches_milestone(task, filter.milestone.as_deref()))
+        .filter(|task| !dispatchable || is_dispatchable(task))
         .filter(|task| is_unblocked(task, tasks))
         .collect();
 

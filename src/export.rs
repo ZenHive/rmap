@@ -84,8 +84,90 @@ struct ExportedTask<'a> {
     cross_repo: &'a [CrossRepo],
 }
 
+/// Every JSON key an `ExportedTask` can carry — the validation set for the
+/// `--fields` projection (`rmap list` / `rmap ready`). Includes the computed
+/// `eff` / `dep_layer`. MIRROR SURFACE: adding an `ExportedTask` field means
+/// adding it here; `exported_task_fields_cover_serialized_keys` guards drift.
+pub const EXPORTED_TASK_FIELDS: &[&str] = &[
+    "id",
+    "phase",
+    "bundle",
+    "milestone",
+    "status",
+    "title",
+    "scores",
+    "eff",
+    "dep_layer",
+    "markers",
+    "depends_on",
+    "linear_id",
+    "assignee",
+    "module",
+    "branch",
+    "model",
+    "acceptance_criteria",
+    "out_of_scope",
+    "files_to_modify",
+    "touches",
+    "shipped_in",
+    "body",
+    "created_at",
+    "started_at",
+    "done_at",
+    "scored_at",
+    "blocked_reason",
+    "implemented",
+    "delivered_by",
+    "verified",
+    "cross_repo",
+];
+
 pub fn export_json_str(tasks: &Tasks) -> serde_json::Result<String> {
     serde_json::to_string_pretty(&exported_tasks(tasks))
+}
+
+/// Token-cheap projection backing `--fields` on `rmap list` / `rmap ready`:
+/// emits a JSON **array** of objects, each carrying only the requested
+/// `fields` (the bulky `phases` / `bundles` / `milestones` envelope is dropped
+/// on purpose). Keys absent on a given task (skipped optionals) simply don't
+/// appear for that task. Every requested name is validated against
+/// [`EXPORTED_TASK_FIELDS`]; the first unknown name is returned as `Err(name)`
+/// so the caller can exit non-zero with the offending field. `all` supplies
+/// the full graph for the computed `dep_layer`.
+pub fn project_fields_json_str(
+    all: &Tasks,
+    task: &[&Task],
+    fields: &[String],
+) -> Result<String, String> {
+    for field in fields {
+        if !EXPORTED_TASK_FIELDS.contains(&field.as_str()) {
+            return Err(field.clone());
+        }
+    }
+    let requested: std::collections::HashSet<&str> = fields.iter().map(String::as_str).collect();
+    let layers = graph_layers(all);
+    let projected: Vec<serde_json::Value> = task
+        .iter()
+        .copied()
+        .map(|t| {
+            let value =
+                serde_json::to_value(exported_task(t, &layers)).unwrap_or(serde_json::Value::Null);
+            match value {
+                serde_json::Value::Object(map) => serde_json::Value::Object(
+                    map.into_iter()
+                        .filter(|(key, _)| requested.contains(key.as_str()))
+                        .collect(),
+                ),
+                other => other,
+            }
+        })
+        .collect();
+    // Serializing an in-memory Value of finite numbers + strings cannot fail;
+    // fall back to "[]" rather than panicking if that ever changes.
+    Ok(
+        serde_json::to_string_pretty(&serde_json::Value::Array(projected))
+            .unwrap_or_else(|_| "[]".to_string()),
+    )
 }
 
 /// Compact (single-line) form of `export_json_str`, used for the `rmap-data`
@@ -233,5 +315,82 @@ fn exported_task<'a>(task: &'a Task, layers: &HashMap<String, usize>) -> Exporte
         delivered_by: task.delivered_by.as_ref(),
         verified: task.verified,
         cross_repo: &task.cross_repo,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // A task with every ExportedTask-bearing field populated, so serialization
+    // emits all keys (the `skip_serializing_if` optionals are present). Used to
+    // guard `EXPORTED_TASK_FIELDS` against drift in either direction.
+    const FULLY_POPULATED: &str = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase One"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "alpha"
+
+[milestones.v0_1]
+name = "v0.1"
+order = 1
+status = "active"
+target_version = "0.1.0"
+
+[[task]]
+id = 7
+phase = 1
+bundle = "alpha"
+milestone = "v0_1"
+status = "done"
+title = "fully populated"
+scores = { d = 2, b = 8, u = 8 }
+markers = ["parallel"]
+depends_on = [1]
+linear_id = "ENG-7"
+assignee = "claude"
+module = "core"
+branch = "feat/x"
+model = "opus"
+acceptance_criteria = ["ac"]
+out_of_scope = ["oos"]
+files_to_modify = ["src/a.rs"]
+touches = ["src/b.rs"]
+shipped_in = "abc123"
+body = "intent"
+created_at = "2026-01-01"
+started_at = "2026-01-02"
+done_at = "2026-01-03"
+scored_at = "2026-01-01"
+blocked_reason = "was blocked"
+implemented = "what shipped"
+delivered_by = "codex"
+verified = true
+cross_repo = [{ repo = "other", task_id = 5, relation = "blocks" }]
+"#;
+
+    #[test]
+    fn exported_task_fields_cover_serialized_keys() {
+        let tasks: Tasks = toml::from_str(FULLY_POPULATED).expect("valid toml");
+        let layers = graph_layers(&tasks);
+        let value =
+            serde_json::to_value(exported_task(&tasks.task[0], &layers)).expect("serialize task");
+        let serialized: std::collections::BTreeSet<String> =
+            value.as_object().expect("object").keys().cloned().collect();
+        let declared: std::collections::BTreeSet<String> =
+            EXPORTED_TASK_FIELDS.iter().map(|s| s.to_string()).collect();
+        assert_eq!(
+            serialized, declared,
+            "EXPORTED_TASK_FIELDS must exactly match the keys a fully-populated ExportedTask serializes"
+        );
     }
 }

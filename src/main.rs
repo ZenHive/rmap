@@ -11,7 +11,7 @@ use rmap::diff::{diff_toml, format_diff};
 use rmap::doctor::{DoctorReport, DoctorThresholds};
 use rmap::export::{
     export_bundle_pick_json_str, export_filtered_json_str, export_json_str, export_task_json_str,
-    export_tasks_array_json_str,
+    export_tasks_array_json_str, project_fields_json_str,
 };
 use rmap::import::format_import_prompt;
 use rmap::milestones::{
@@ -24,10 +24,12 @@ use rmap::mutate::{
 use rmap::next::{format_next_task, next_tasks, ready_tasks};
 use rmap::next_bundle::{BundlePick, NextBundleFilter, pick as pick_next_bundle};
 use rmap::paths::{ResolvedPaths, resolve_paths};
-use rmap::query::{TaskFilter, find_task, format_task, format_task_row, list_tasks};
+use rmap::query::{
+    TaskFilter, find_task, format_task, format_task_row, is_dispatchable, list_tasks,
+};
 use rmap::render::render_roadmap_str;
 use rmap::render_html::render_html_str;
-use rmap::schema::{Scores, TaskId};
+use rmap::schema::{Scores, Task, TaskId, Tasks};
 use rmap::schema_json::schema_json_str;
 use rmap::stale::{find_stale, parse_duration};
 use rmap::today_iso;
@@ -162,6 +164,12 @@ enum Commands {
         /// Filter to tasks whose `delivered_by` matches this agent id.
         #[arg(long)]
         delivered_by: Option<String>,
+        /// Exclude tasks carrying the `handbuild` marker (headless-dispatchable only).
+        #[arg(long)]
+        dispatchable: bool,
+        /// Project --json to these comma-separated ExportedTask fields. Implies --json.
+        #[arg(long, value_delimiter = ',')]
+        fields: Vec<String>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -190,6 +198,12 @@ enum Commands {
         /// Cap the result to the top N (default: the entire ready set).
         #[arg(long)]
         count: Option<NonZeroUsize>,
+        /// Exclude tasks carrying the `handbuild` marker (headless-dispatchable only).
+        #[arg(long)]
+        dispatchable: bool,
+        /// Project --json to these comma-separated ExportedTask fields. Implies --json.
+        #[arg(long, value_delimiter = ',')]
+        fields: Vec<String>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -412,6 +426,14 @@ fn main() -> ExitCode {
     }
 }
 
+/// `--fields` projection for `list` / `ready`, mapping the unknown-field error
+/// to a CLI failure (exit 1) naming the offending field.
+fn project_fields(tasks: &Tasks, selection: &[&Task], fields: &[String]) -> Result<String> {
+    project_fields_json_str(tasks, selection, fields).map_err(|name| {
+        anyhow::anyhow!("unknown --fields name: '{name}' (run `rmap schema` for valid fields)")
+    })
+}
+
 fn run() -> Result<ExitCode> {
     let cli = Cli::parse();
 
@@ -536,6 +558,8 @@ fn run() -> Result<ExitCode> {
             bundle,
             milestone,
             delivered_by,
+            dispatchable,
+            fields,
             json,
             tasks_path,
         } => {
@@ -549,9 +573,14 @@ fn run() -> Result<ExitCode> {
                 milestone,
                 delivered_by,
             };
-            let listed = list_tasks(&tasks, &filter);
+            let mut listed = list_tasks(&tasks, &filter);
+            if dispatchable {
+                listed.retain(|task| is_dispatchable(task));
+            }
 
-            if json {
+            if !fields.is_empty() {
+                println!("{}", project_fields(&tasks, &listed, &fields)?);
+            } else if json {
                 println!("{}", export_filtered_json_str(&tasks, &listed)?);
             } else {
                 for task in listed {
@@ -565,6 +594,8 @@ fn run() -> Result<ExitCode> {
             phase,
             milestone,
             count,
+            dispatchable,
+            fields,
             json,
             tasks_path,
         } => {
@@ -578,9 +609,11 @@ fn run() -> Result<ExitCode> {
                 milestone,
                 delivered_by: None,
             };
-            let selected = ready_tasks(&tasks, &filter, count.map(NonZeroUsize::get));
+            let selected = ready_tasks(&tasks, &filter, count.map(NonZeroUsize::get), dispatchable);
 
-            if json {
+            if !fields.is_empty() {
+                println!("{}", project_fields(&tasks, &selected, &fields)?);
+            } else if json {
                 println!("{}", export_filtered_json_str(&tasks, &selected)?);
             } else {
                 for task in &selected {

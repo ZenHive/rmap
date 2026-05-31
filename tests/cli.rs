@@ -142,6 +142,41 @@ title = "ready: no deps"
 scores = { d = 2, b = 5, u = 5 }
 "#;
 
+// Two dep-free ready tasks; task 2 carries the `handbuild` marker. `rmap ready`
+// returns both (Eff 4.0 then 3.0); `--dispatchable` drops the handbuild one.
+const HANDBUILD_TASKS: &str = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase One"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "alpha tasks"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "dispatchable"
+scores = { d = 2, b = 8, u = 8 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "must hand-build"
+scores = { d = 2, b = 6, u = 6 }
+markers = ["handbuild"]
+"#;
+
 #[test]
 fn validate_command_accepts_valid_tasks_file() {
     let path = write_temp_tasks("valid_tasks.toml", VALID_TASKS);
@@ -1280,6 +1315,130 @@ fn ready_bundle_filters_to_dispatchable_layer_zero_of_bundle() {
         .map(|t| t["id"].as_u64().expect("numeric id"))
         .collect();
     assert_eq!(ids, vec![2], "only task 2 is ready within bundle alpha");
+}
+
+#[test]
+fn ready_dispatchable_excludes_handbuild_tasks() {
+    let path = write_temp_tasks("handbuild_tasks.toml", HANDBUILD_TASKS);
+
+    let ids = |dispatchable: bool| -> Vec<u64> {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rmap"));
+        cmd.arg("ready")
+            .arg("--json")
+            .arg("--tasks-path")
+            .arg(&path);
+        if dispatchable {
+            cmd.arg("--dispatchable");
+        }
+        let out = cmd.output().expect("run rmap ready");
+        assert!(
+            out.status.success(),
+            "expected success, stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let value: serde_json::Value =
+            serde_json::from_slice(&out.stdout).expect("stdout is valid json");
+        value["task"]
+            .as_array()
+            .expect("task array")
+            .iter()
+            .map(|t| t["id"].as_u64().expect("numeric id"))
+            .collect()
+    };
+
+    assert_eq!(ids(false), vec![1, 2], "both tasks are ready");
+    assert_eq!(
+        ids(true),
+        vec![1],
+        "--dispatchable drops the handbuild-marked task"
+    );
+}
+
+#[test]
+fn list_fields_projects_to_named_keys_only() {
+    // --fields emits a bare JSON array of objects carrying only the requested
+    // keys (and implies --json — no --json flag is passed here).
+    let path = write_temp_tasks("fields_tasks.toml", HANDBUILD_TASKS);
+
+    let out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("list")
+        .arg("--fields")
+        .arg("id,status,eff")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap list --fields");
+    assert!(
+        out.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&out.stdout).expect("stdout is a json array");
+    let rows = value.as_array().expect("top-level array");
+    assert_eq!(rows.len(), 2);
+    for row in rows {
+        let obj = row.as_object().expect("each row is an object");
+        let keys: std::collections::BTreeSet<&str> = obj.keys().map(String::as_str).collect();
+        assert_eq!(
+            keys,
+            ["eff", "id", "status"].into_iter().collect(),
+            "only requested keys are projected; got {keys:?}"
+        );
+    }
+}
+
+#[test]
+fn fields_unknown_name_errors_with_offending_field() {
+    let path = write_temp_tasks("fields_bad.toml", HANDBUILD_TASKS);
+
+    let out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("list")
+        .arg("--fields")
+        .arg("id,bogus")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap list --fields id,bogus");
+    assert!(
+        !out.status.success(),
+        "unknown field name must exit non-zero"
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("bogus"),
+        "error should name the offending field; stderr: {stderr}"
+    );
+}
+
+#[test]
+fn ready_fields_projection_includes_dep_layer() {
+    // --fields works on `ready` too, and dep_layer is a projectable key.
+    let path = write_temp_tasks("ready_fields.toml", HANDBUILD_TASKS);
+
+    let out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("ready")
+        .arg("--fields")
+        .arg("id,dep_layer")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap ready --fields id,dep_layer");
+    assert!(
+        out.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&out.stdout).expect("stdout is a json array");
+    let rows = value.as_array().expect("top-level array");
+    assert!(!rows.is_empty());
+    for row in rows {
+        let obj = row.as_object().expect("object row");
+        assert!(obj.contains_key("id"), "id projected");
+        assert!(obj.contains_key("dep_layer"), "dep_layer projected");
+        assert_eq!(obj.len(), 2, "exactly the two requested keys");
+    }
 }
 
 #[test]

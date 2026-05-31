@@ -123,7 +123,7 @@ rmap next-bundle --bundle alpha
 # exit: 0
 ```
 
-`rmap ready` lists the **parallel-safe dispatch set**: every `pending` task whose `depends_on` are all `done`, ranked like `rmap next` (4-tier focus × active-milestone, then Eff desc). The set is mutually independent by construction — a pending task with all deps `done` cannot depend on another pending task — so every returned task is safe to dispatch at once (no `--independent` flag; it would be a no-op). `--bundle <name>` yields the dispatchable layer-0 of that bundle (the parallel batch `next-bundle`'s serial chain can't express); `--phase`, `--marker`, `--milestone` narrow further. Unlike `next`, `--count` is optional and defaults to the entire set. `--json` carries `dep_layer` per task, so one call answers "what can I dispatch now, and which wave each task unlocks."
+`rmap ready` lists the **parallel-safe dispatch set**: every `pending` task whose `depends_on` are all `done`, ranked like `rmap next` (4-tier focus × active-milestone, then Eff desc). The set is mutually independent by construction — a pending task with all deps `done` cannot depend on another pending task — so every returned task is safe to dispatch at once (no `--independent` flag; it would be a no-op). `--bundle <name>` yields the dispatchable layer-0 of that bundle (the parallel batch `next-bundle`'s serial chain can't express); `--phase`, `--marker`, `--milestone` narrow further. `--dispatchable` excludes `handbuild`-marked tasks (headless-only). Unlike `next`, `--count` is optional and defaults to the entire set. `--json` carries `dep_layer` per task, so one call answers "what can I dispatch now, and which wave each task unlocks."
 
 ```bash
 rmap ready
@@ -137,6 +137,23 @@ rmap ready --json
 
 ```bash
 rmap ready --bundle alpha --json
+# exit: 0
+```
+
+```bash
+rmap ready --dispatchable
+# exit: 0
+```
+
+`--fields <a,b,c>` (on `rmap ready` and `rmap list`) projects the JSON to a bare array carrying only the named [`ExportedTask`] keys per task — token-cheap for orchestrators. It implies `--json`; an unknown field name exits 1 naming the offender. `dep_layer` and `eff` (computed) are projectable.
+
+```bash
+rmap ready --fields id,status,eff,depends_on,dep_layer
+# exit: 0
+```
+
+```bash
+rmap list --fields id,title,touches
 # exit: 0
 ```
 
@@ -212,10 +229,15 @@ rmap status 3 blocked --reason vendor-approval-pending
 # exit: 0
 ```
 
-`rmap mark <id> +marker -marker …` toggles markers. Adds are idempotent; removes are idempotent. Token tier: `parallel | cx | csr`.
+`rmap mark <id> +marker -marker …` toggles markers. Adds are idempotent; removes are idempotent. Valid markers: `parallel | cx | csr | bug | security | docs | handbuild`. `handbuild` flags work that needs a human-driven browser (LiveView / UI / DOM) — the minority exception that `rmap ready --dispatchable` / `rmap list --dispatchable` exclude, so everything else is headless-dispatchable by default.
 
 ```bash
 rmap mark 3 +parallel
+# exit: 0
+```
+
+```bash
+rmap mark 3 +handbuild
 # exit: 0
 ```
 

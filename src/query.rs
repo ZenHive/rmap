@@ -44,6 +44,14 @@ pub(crate) fn matches_delivered_by(task: &Task, agent: Option<&str>) -> bool {
     agent.is_none_or(|name| task.delivered_by.as_deref() == Some(name))
 }
 
+/// A task is headless-dispatchable to a cloud agent unless it carries the
+/// `handbuild` marker — the minority exception for LiveView / UI / DOM work
+/// that needs a human-driven browser. Backs the `--dispatchable` filter on
+/// `rmap ready` / `rmap list`.
+pub fn is_dispatchable(task: &Task) -> bool {
+    !task.markers.iter().any(|marker| marker == "handbuild")
+}
+
 pub fn format_task(task: &Task) -> String {
     let eff = efficiency(task);
     let mut lines = vec![
