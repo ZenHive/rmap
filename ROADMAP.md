@@ -114,4 +114,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 36 | ✅ | 🎁 **agent_dispatch** · dep_layer — topo depth as a computed --json field [D:3/B:6/U:7 → Eff:2.17] 🎯 |
 | Task 37 | ✅ | 🎁 **agent_dispatch** · touches — advisory collision-prediction field [D:3/B:6/U:8 → Eff:2.33] 🎯 |
 | Task 38 | ✅ | 🎁 **agent_dispatch** · handbuild marker + --dispatchable + --fields JSON projection [D:3/B:6/U:7 → Eff:2.17] 🎯 |
+| Task 39 | ✅ | 🎁 **delegate_targets** · Widen delegate targets + assignee set: add grok, antigravity, pi, droid [D:3/B:6/U:7 → Eff:2.17] 🎯 |
 <!-- TASKS:END -->

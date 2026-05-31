@@ -55,6 +55,11 @@
       "order": 2,
       "description": "Phase 13c: delegate prompt parity with task-writing.md"
     },
+    "delegate_targets": {
+      "phase": 15,
+      "order": 8,
+      "description": "Widen delegate/assignee agent set beyond claude|codex|cursor — add the local-CLI targets (grok, antigravity, pi, droid) so rmap can route to them and harness can drop its ingest two-step dance"
+    },
     "deps_schemars": {
       "phase": 15,
       "order": 4,
@@ -1377,6 +1382,44 @@
       "done_at": "2026-05-31",
       "scored_at": "2026-05-31",
       "implemented": "handbuild added to VALID_MARKERS; query::is_dispatchable predicate; --dispatchable on ready/list excludes it (on ready, before rank+count). --fields projects --json to a bare array of named ExportedTask keys via export::project_fields_json_str, validated against EXPORTED_TASK_FIELDS (drift-guarded); implies --json, unknown name exits 1.",
+      "delivered_by": "claude",
+      "cross_repo": []
+    },
+    {
+      "id": 39,
+      "phase": 15,
+      "bundle": "delegate_targets",
+      "status": "done",
+      "title": "Widen delegate targets + assignee set: add grok, antigravity, pi, droid",
+      "scores": {
+        "d": 3,
+        "b": 6,
+        "u": 7
+      },
+      "eff": 2.17,
+      "dep_layer": 0,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "rmap delegate --to grok|antigravity|pi|droid accepts and emits the right ## Environment notes footer",
+        "Antigravity footer carries the git-common-dir / cwd-isolation caveat",
+        "grok|antigravity|pi|droid are valid assignee values (rmap validate passes)",
+        "interactive rmap new offers the four new assignees",
+        "--to <unknown> still rejected by clap; SKILLS.md skills_smoke green"
+      ],
+      "touches": [
+        "src/delegate.rs",
+        "src/validate.rs",
+        "src/main.rs",
+        "tests/cli.rs",
+        "SKILLS.md",
+        "DESIGN.md"
+      ],
+      "body": "Add four local-CLI agents (Grok, Antigravity, Pi, Droid) to rmap's delegate/assignee surface, widening DelegateTarget + VALID_ASSIGNEES from claude|codex|cursor to 8 total. Each gets a grounded ## Environment notes footer (local execution; Antigravity carries the agy git-common-dir cwd-isolation caveat; Pi notes free/unmetered local LLM; Droid notes it is rmap-only, not yet a harness executor). Footers mirror ~/.claude/includes/cloud-agent-environments.md. Unblocks harness widening its ingest @valid_agents to drop the two-step dance (separate follow-up).",
+      "created_at": "2026-05-31",
+      "done_at": "2026-05-31",
+      "scored_at": "2026-05-31",
+      "implemented": "DelegateTarget enum + as_str widened to 7 (added Grok/Antigravity/Pi/Droid); each gets a grounded ## Environment notes footer in append_agent_notes (Antigravity carries the agy git-common-dir cwd-isolation caveat; Pi notes free/unmetered local LLM; Droid notes rmap-only/not-yet-harness-executor). VALID_ASSIGNEES + interactive assignee_choices widened to match. Tests: delegate_accepts_new_local_agents_with_footers + validate_accepts_new_agent_assignees; skills_smoke green on new SKILLS.md blocks. Docs synced: SKILLS.md, DESIGN.md, ~/.claude/includes/rmap.md + cloud-agent-environments.md (canonical footer mirror, new Local CLI agents section).",
       "delivered_by": "claude",
       "cross_repo": []
     }

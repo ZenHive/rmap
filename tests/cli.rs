@@ -1162,6 +1162,102 @@ fn delegate_rejects_unknown_target() {
 }
 
 #[test]
+fn delegate_accepts_new_local_agents_with_footers() {
+    // Each of the four added targets (grok, antigravity, pi, droid) must be
+    // accepted by clap, surface its `## Environment notes` footer, and carry the
+    // distinguishing line the plan grounds in the harness docs.
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let cases: &[(&str, &str)] = &[
+        ("grok", "Reads AGENTS.md for project conventions."),
+        (
+            "antigravity",
+            "resolves its workspace via git-common-dir and ignores the invocation cwd",
+        ),
+        ("pi", "Runs a local LLM (free/unmetered)"),
+        ("droid", "Not yet a harness executor"),
+    ];
+
+    for (agent, distinguishing) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+            .arg("delegate")
+            .arg("75")
+            .arg("--to")
+            .arg(agent)
+            .arg("--tasks-path")
+            .arg(&path)
+            .output()
+            .expect("run rmap delegate");
+
+        assert!(
+            output.status.success(),
+            "expected success for --to {agent}, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains(&format!("- Target: {agent}")),
+            "{agent}: missing target line; stdout: {stdout}"
+        );
+        assert!(
+            stdout.contains("## Environment notes"),
+            "{agent}: missing environment notes; stdout: {stdout}"
+        );
+        assert!(
+            stdout.contains(distinguishing),
+            "{agent}: missing distinguishing footer line; stdout: {stdout}"
+        );
+    }
+}
+
+#[test]
+fn validate_accepts_new_agent_assignees() {
+    // The four added agents are now valid `assignee` values.
+    for agent in ["grok", "antigravity", "pi", "droid"] {
+        let tasks = format!(
+            r#"
+schema_version = 2
+project = "rmap"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.foundation]
+phase = 1
+order = 1
+description = "Foundation tasks"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "foundation"
+status = "pending"
+title = "Assigned task"
+assignee = "{agent}"
+scores = {{ d = 2, b = 5, u = 5 }}
+"#
+        );
+        let path = write_temp_tasks("assignee_tasks.toml", &tasks);
+
+        let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+            .arg("validate")
+            .arg("--tasks-path")
+            .arg(&path)
+            .output()
+            .expect("run rmap validate");
+
+        assert!(
+            output.status.success(),
+            "expected assignee \"{agent}\" to validate, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
 fn list_command_filters_tasks_and_prints_json_envelope() {
     let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
 

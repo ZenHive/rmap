@@ -1481,7 +1481,17 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         }
     }
 
-    let assignee_choices = ["(skip)", "human", "claude", "codex", "cursor"];
+    let assignee_choices = [
+        "(skip)",
+        "human",
+        "claude",
+        "codex",
+        "cursor",
+        "grok",
+        "antigravity",
+        "pi",
+        "droid",
+    ];
     let assignee_index = Select::with_theme(&theme)
         .with_prompt("Assignee")
         .items(&assignee_choices)

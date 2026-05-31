@@ -359,7 +359,7 @@ Adding fields to `schema::Task` is additive (safe); renaming or removing a field
 
 ## Delegation
 
-`rmap delegate <id> --to claude|codex|cursor` emits a paste-ready Markdown prompt: title, body, in-repo dep context, acceptance criteria, plus a per-agent environment-notes footer tailored to that agent's runtime constraints (Codex sandbox / Cursor full-network / Claude local). Pure read — never calls Linear/GitHub/Slack.
+`rmap delegate <id> --to claude|codex|cursor|grok|antigravity|pi|droid` emits a paste-ready Markdown prompt: title, body, in-repo dep context, acceptance criteria, plus a per-agent environment-notes footer tailored to that agent's runtime constraints (Codex sandbox / Cursor full-network / Claude·Grok·Pi·Droid local / Antigravity local-with-cwd-caveat). Pure read — never calls Linear/GitHub/Slack.
 
 ```bash
 rmap delegate 3 --to claude
@@ -373,6 +373,26 @@ rmap delegate 3 --to codex
 
 ```bash
 rmap delegate 3 --to cursor
+# exit: 0
+```
+
+```bash
+rmap delegate 3 --to grok
+# exit: 0
+```
+
+```bash
+rmap delegate 3 --to antigravity
+# exit: 0
+```
+
+```bash
+rmap delegate 3 --to pi
+# exit: 0
+```
+
+```bash
+rmap delegate 3 --to droid
 # exit: 0
 ```
 

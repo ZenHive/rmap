@@ -19,6 +19,14 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 15 — Schema extensions
 
+### Phase 15 Task 39: Widen delegate targets + assignee set — add `grok`, `antigravity`, `pi`, `droid` (delegate_targets bundle)
+
+**What was done:**
+- Widened `rmap delegate --to` (`DelegateTarget`) and `assignee` (`VALID_ASSIGNEES`) from `claude|codex|cursor` to **8 total** — added the four local-CLI agents `grok`, `antigravity`, `pi`, `droid`. Unblocks the harness widening its `Harness.Roadmap.ingest/2` `@valid_agents` set and dropping the ingest-under-a-delegatable-agent two-step dance (separate follow-up in `../harness`).
+- Each new target gets a grounded `## Environment notes` footer in `append_agent_notes` (literals mirror `~/.claude/includes/cloud-agent-environments.md`): all four are local execution / full toolchain; **Antigravity** carries the `agy` git-common-dir cwd-isolation caveat (can edit the main checkout even when pointed at a worktree); **Pi** notes free/unmetered local LLM in autonomous mode; **Droid** notes it is rmap-only — not yet a harness executor, prompt is for the Factory Droid CLI or manual paste.
+- Interactive `rmap new` assignee picker offers the four new ids; `--to <unknown>` still rejected by clap.
+- No `schema_version` bump (additive — `DelegateTarget` and `VALID_ASSIGNEES` are closed enums widened, not renamed). Docs synced same-commit: `SKILLS.md` (delegate section + skills_smoke bash blocks), `DESIGN.md`, `~/.claude/includes/rmap.md`, and `~/.claude/includes/cloud-agent-environments.md` (new "Local CLI agents" section — the canonical footer mirror). New tests `delegate_accepts_new_local_agents_with_footers` + `validate_accepts_new_agent_assignees` in `tests/cli.rs`.
+
 ### Phase 15 Tasks 35–38: agent-dispatch ergonomics — `rmap ready` + `dep_layer` + `touches` + `handbuild`/`--dispatchable`/`--fields` (agent_dispatch bundle)
 
 **What was done:**

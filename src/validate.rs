@@ -18,7 +18,16 @@ pub const VALID_MARKERS: &[&str] = &[
     "docs",
     "handbuild",
 ];
-const VALID_ASSIGNEES: &[&str] = &["human", "claude", "codex", "cursor"];
+const VALID_ASSIGNEES: &[&str] = &[
+    "human",
+    "claude",
+    "codex",
+    "cursor",
+    "grok",
+    "antigravity",
+    "pi",
+    "droid",
+];
 const VALID_CROSS_REPO_RELATIONS: &[&str] = &["blocks", "blocked_by", "related"];
 const MIN_SCORE: u32 = 1;
 const MAX_SCORE: u32 = 10;

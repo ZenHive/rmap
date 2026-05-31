@@ -22,6 +22,10 @@ pub enum DelegateTarget {
     Claude,
     Codex,
     Cursor,
+    Grok,
+    Antigravity,
+    Pi,
+    Droid,
 }
 
 impl DelegateTarget {
@@ -30,6 +34,10 @@ impl DelegateTarget {
             Self::Claude => "claude",
             Self::Codex => "codex",
             Self::Cursor => "cursor",
+            Self::Grok => "grok",
+            Self::Antigravity => "antigravity",
+            Self::Pi => "pi",
+            Self::Droid => "droid",
         }
     }
 }
@@ -282,6 +290,58 @@ fn append_agent_notes(prompt: &mut String, target: DelegateTarget) {
             line!(
                 prompt,
                 "- Local execution: full toolchain, internet, and project state available."
+            );
+            line!(
+                prompt,
+                "- Run verification commands and report the actual output, not a summary."
+            );
+        }
+        DelegateTarget::Grok => {
+            line!(
+                prompt,
+                "- Local execution: full toolchain, internet, and project state available. Reads AGENTS.md for project conventions."
+            );
+            line!(
+                prompt,
+                "- Run verification commands and report the actual output, not a summary."
+            );
+        }
+        DelegateTarget::Antigravity => {
+            line!(
+                prompt,
+                "- Local execution: full toolchain, internet, and project state available. Reads AGENTS.md (and GEMINI.md) for project conventions."
+            );
+            line!(
+                prompt,
+                "- `agy` resolves its workspace via git-common-dir and ignores the invocation cwd — it can edit the main checkout even when pointed at a worktree; don't rely on cwd-scoped isolation."
+            );
+            line!(
+                prompt,
+                "- Run verification commands and report the actual output, not a summary."
+            );
+        }
+        DelegateTarget::Pi => {
+            line!(
+                prompt,
+                "- Local execution: full toolchain, internet, and project state available. Reads AGENTS.md for project conventions."
+            );
+            line!(
+                prompt,
+                "- Runs a local LLM (free/unmetered) in autonomous permission mode."
+            );
+            line!(
+                prompt,
+                "- Run verification commands and report the actual output, not a summary."
+            );
+        }
+        DelegateTarget::Droid => {
+            line!(
+                prompt,
+                "- Local execution: full toolchain, internet, and project state available. Reads AGENTS.md for project conventions."
+            );
+            line!(
+                prompt,
+                "- Not yet a harness executor — this prompt is for the Factory Droid CLI or manual paste."
             );
             line!(
                 prompt,
