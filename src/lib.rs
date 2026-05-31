@@ -16,6 +16,7 @@ pub mod schema;
 pub mod schema_json;
 pub mod scoring;
 pub mod stale;
+pub mod topo;
 pub mod validate;
 pub mod watch;
 

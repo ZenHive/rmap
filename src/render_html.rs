@@ -14,7 +14,7 @@
 //! Out of scope here (deliberate): `--multi`/portfolio view is Task 9; this
 //! module is single-project only.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde::Serialize;
 
@@ -210,7 +210,7 @@ fn collect_markers(tasks: &Tasks) -> Vec<String> {
 /// deps are skipped — those only matter in portfolio mode. `validate` already
 /// guarantees the graph is acyclic.
 fn build_dag(tasks: &[&Task]) -> DagView {
-    let layers = compute_layers(tasks);
+    let layers = crate::topo::compute_layers(tasks);
 
     // Group ids by layer, sorted within each layer for deterministic slotting.
     let mut by_layer: BTreeMap<usize, Vec<String>> = BTreeMap::new();
@@ -287,51 +287,6 @@ fn build_dag(tasks: &[&Task]) -> DagView {
     }
 }
 
-/// Longest-path layering: `layer(n) = 0` when `n` has no in-repo dep, else
-/// `max(layer(dep)) + 1`. Memoized; safe because the graph is acyclic.
-fn compute_layers(tasks: &[&Task]) -> HashMap<String, usize> {
-    let by_id: HashMap<String, &Task> = tasks
-        .iter()
-        .map(|task| (task.id.to_string(), *task))
-        .collect();
-    let mut layers: HashMap<String, usize> = HashMap::new();
-    let mut visiting: HashSet<String> = HashSet::new();
-    for task in tasks {
-        layer_of(&task.id.to_string(), &by_id, &mut layers, &mut visiting);
-    }
-    layers
-}
-
-fn layer_of(
-    id: &str,
-    by_id: &HashMap<String, &Task>,
-    layers: &mut HashMap<String, usize>,
-    visiting: &mut HashSet<String>,
-) -> usize {
-    if let Some(&layer) = layers.get(id) {
-        return layer;
-    }
-    let Some(task) = by_id.get(id) else {
-        return 0; // unknown id — treat as a root (validate should prevent this)
-    };
-    // Cycle defense: `validate` already rejects dependency cycles, but
-    // `render_html_str` is a public entry point that may be called on an
-    // unvalidated `Tasks` — without this guard a cycle is infinite recursion.
-    if !visiting.insert(id.to_string()) {
-        return 0;
-    }
-    let mut layer = 0;
-    for dep in &task.depends_on {
-        let dep_id = dep.to_string();
-        if by_id.contains_key(&dep_id) {
-            layer = layer.max(layer_of(&dep_id, by_id, layers, visiting) + 1);
-        }
-    }
-    visiting.remove(id);
-    layers.insert(id.to_string(), layer);
-    layer
-}
-
 /// Truncate a title to fit inside a DAG node box, on a char boundary.
 fn truncate_label(title: &str) -> String {
     if title.chars().count() <= LABEL_MAX {
@@ -378,48 +333,6 @@ mod tests {
 
     fn tasks_from(body: &str) -> Tasks {
         toml::from_str(&format!("{BASE}{body}")).expect("valid tasks toml")
-    }
-
-    fn layers_of(tasks: &Tasks) -> HashMap<String, usize> {
-        let refs: Vec<&Task> = tasks.task.iter().collect();
-        compute_layers(&refs)
-    }
-
-    #[test]
-    fn dag_layer_no_deps_is_zero() {
-        let tasks = tasks_from(&task_toml(1, "pending", &[]));
-        assert_eq!(layers_of(&tasks).get("1"), Some(&0));
-    }
-
-    #[test]
-    fn dag_layer_chain_of_three() {
-        let body = format!(
-            "{}{}{}",
-            task_toml(1, "done", &[]),
-            task_toml(2, "pending", &[1]),
-            task_toml(3, "pending", &[2]),
-        );
-        let layers = layers_of(&tasks_from(&body));
-        assert_eq!(layers.get("1"), Some(&0));
-        assert_eq!(layers.get("2"), Some(&1));
-        assert_eq!(layers.get("3"), Some(&2));
-    }
-
-    #[test]
-    fn dag_layer_diamond_uses_longest_path() {
-        // 1 → 2, 1 → 3, 2 → 4, 3 → 4
-        let body = format!(
-            "{}{}{}{}",
-            task_toml(1, "done", &[]),
-            task_toml(2, "pending", &[1]),
-            task_toml(3, "pending", &[1]),
-            task_toml(4, "pending", &[2, 3]),
-        );
-        let layers = layers_of(&tasks_from(&body));
-        assert_eq!(layers.get("1"), Some(&0));
-        assert_eq!(layers.get("2"), Some(&1));
-        assert_eq!(layers.get("3"), Some(&1));
-        assert_eq!(layers.get("4"), Some(&2));
     }
 
     #[test]

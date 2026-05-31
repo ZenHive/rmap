@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Serialize;
 
 use crate::next_bundle::BundlePick;
@@ -5,6 +7,7 @@ use crate::schema::{
     Bundle, CrossRepo, Focus, Linear, Milestone, Phase, Scores, Task, TaskId, Tasks,
 };
 use crate::scoring::rounded_efficiency;
+use crate::topo::compute_layers;
 
 #[derive(Serialize)]
 struct ExportedTasks<'a> {
@@ -34,6 +37,10 @@ struct ExportedTask<'a> {
     title: &'a str,
     scores: &'a Scores,
     eff: f64,
+    /// Longest-path dependency depth over the whole in-repo graph (computed,
+    /// never persisted — like `eff`). `0` for tasks with no in-repo dep; within
+    /// a result set the lowest `dep_layer` present is the current parallel wave.
+    dep_layer: usize,
     markers: &'a [String],
     depends_on: &'a [TaskId],
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -92,12 +99,18 @@ pub fn export_filtered_json_str(tasks: &Tasks, task: &[&Task]) -> serde_json::Re
     serde_json::to_string_pretty(&exported_tasks_with(tasks, task.iter().copied()))
 }
 
-pub fn export_task_json_str(task: Option<&Task>) -> serde_json::Result<String> {
-    serde_json::to_string_pretty(&task.map(exported_task))
+pub fn export_task_json_str(all: &Tasks, task: Option<&Task>) -> serde_json::Result<String> {
+    let layers = graph_layers(all);
+    serde_json::to_string_pretty(&task.map(|t| exported_task(t, &layers)))
 }
 
-pub fn export_tasks_array_json_str(tasks: &[&Task]) -> serde_json::Result<String> {
-    let exported: Vec<ExportedTask<'_>> = tasks.iter().copied().map(exported_task).collect();
+pub fn export_tasks_array_json_str(all: &Tasks, tasks: &[&Task]) -> serde_json::Result<String> {
+    let layers = graph_layers(all);
+    let exported: Vec<ExportedTask<'_>> = tasks
+        .iter()
+        .copied()
+        .map(|t| exported_task(t, &layers))
+        .collect();
     serde_json::to_string_pretty(&exported)
 }
 
@@ -112,6 +125,7 @@ pub fn export_bundle_pick_json_str(
     effective_focus: Option<u32>,
     pick: Option<&BundlePick<'_>>,
 ) -> serde_json::Result<String> {
+    let layers = graph_layers(tasks);
     let (bundle, exported_tasks) = match pick {
         Some(p) => (
             Some(BundlePickInfo {
@@ -119,7 +133,11 @@ pub fn export_bundle_pick_json_str(
                 phase: p.bundle.phase,
                 description: p.bundle.description.as_str(),
             }),
-            p.tasks.iter().copied().map(exported_task).collect(),
+            p.tasks
+                .iter()
+                .copied()
+                .map(|t| exported_task(t, &layers))
+                .collect(),
         ),
         None => (None, Vec::new()),
     };
@@ -155,6 +173,7 @@ fn exported_tasks_with<'a>(
     tasks: &'a Tasks,
     task: impl IntoIterator<Item = &'a Task>,
 ) -> ExportedTasks<'a> {
+    let layers = graph_layers(tasks);
     ExportedTasks {
         schema_version: tasks.schema_version,
         project: &tasks.project,
@@ -165,11 +184,23 @@ fn exported_tasks_with<'a>(
         phases: &tasks.phases,
         bundles: &tasks.bundles,
         milestones: &tasks.milestones,
-        task: task.into_iter().map(exported_task).collect(),
+        task: task
+            .into_iter()
+            .map(|t| exported_task(t, &layers))
+            .collect(),
     }
 }
 
-fn exported_task(task: &Task) -> ExportedTask<'_> {
+/// Longest-path dependency layers over the full in-repo graph, keyed by
+/// canonical `TaskId` string. Always built from `tasks.task` (the whole graph),
+/// never from a filtered slice — `dep_layer` must reflect global depth even
+/// when only a subset of tasks is being exported.
+fn graph_layers(tasks: &Tasks) -> HashMap<String, usize> {
+    let all: Vec<&Task> = tasks.task.iter().collect();
+    compute_layers(&all)
+}
+
+fn exported_task<'a>(task: &'a Task, layers: &HashMap<String, usize>) -> ExportedTask<'a> {
     ExportedTask {
         id: &task.id,
         phase: task.phase,
@@ -179,6 +210,7 @@ fn exported_task(task: &Task) -> ExportedTask<'_> {
         title: &task.title,
         scores: &task.scores,
         eff: rounded_efficiency(task),
+        dep_layer: layers.get(&task.id.to_string()).copied().unwrap_or(0),
         markers: &task.markers,
         depends_on: &task.depends_on,
         linear_id: task.linear_id.as_ref(),

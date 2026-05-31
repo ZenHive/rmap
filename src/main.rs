@@ -473,12 +473,12 @@ fn run() -> Result<ExitCode> {
             if count == 1 {
                 let first = selected.first().copied();
                 if json {
-                    println!("{}", export_task_json_str(first)?);
+                    println!("{}", export_task_json_str(&tasks, first)?);
                 } else if let Some(task) = first {
                     println!("{}", format_next_task(task));
                 }
             } else if json {
-                println!("{}", export_tasks_array_json_str(&selected)?);
+                println!("{}", export_tasks_array_json_str(&tasks, &selected)?);
             } else {
                 for task in &selected {
                     println!("{}", format_next_task(task));
@@ -496,7 +496,7 @@ fn run() -> Result<ExitCode> {
                 find_task(&tasks, &id).ok_or_else(|| anyhow::anyhow!("task {id} not found"))?;
 
             if json {
-                println!("{}", export_task_json_str(Some(task))?);
+                println!("{}", export_task_json_str(&tasks, Some(task))?);
             } else {
                 println!("{}", format_task(task));
             }

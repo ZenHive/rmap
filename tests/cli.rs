@@ -1119,6 +1119,38 @@ fn list_command_filters_tasks_and_prints_json_envelope() {
 }
 
 #[test]
+fn show_json_includes_dep_layer() {
+    // dep_layer is a computed field (like eff) over the full in-repo graph:
+    // task 74 is a root (layer 0); task 75 depends on 74 (layer 1). `rmap show
+    // --json` exports a single task but must still report the *global* depth.
+    let path = write_temp_tasks("dep_layer_tasks.toml", PHASE4_TASKS);
+
+    let dep_layer = |id: &str| -> u64 {
+        let out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+            .arg("show")
+            .arg(id)
+            .arg("--json")
+            .arg("--tasks-path")
+            .arg(&path)
+            .output()
+            .expect("run rmap show --json");
+        assert!(
+            out.status.success(),
+            "expected success, stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let value: serde_json::Value =
+            serde_json::from_slice(&out.stdout).expect("stdout is valid json");
+        value["dep_layer"]
+            .as_u64()
+            .expect("dep_layer present and numeric")
+    };
+
+    assert_eq!(dep_layer("74"), 0, "root task is layer 0");
+    assert_eq!(dep_layer("75"), 1, "task depending on a root is layer 1");
+}
+
+#[test]
 fn list_command_filters_by_bundle() {
     let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
 
