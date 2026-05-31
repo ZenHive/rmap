@@ -62,6 +62,11 @@ phase = 15
 order = 6
 description = "rmap doctor advisories for phase / focus state drift (read-side, no auto-mutation)"
 
+[bundles.agent_dispatch]
+phase = 15
+order = 7
+description = "Agent-dispatch ergonomics — make 'the set of tasks I can dispatch in parallel right now' a first-class query (rmap ready + dep_layer + handbuild/--dispatchable + touches + --fields)"
+
 [bundles.schema_parity]
 phase = 13
 order = 1
@@ -962,3 +967,72 @@ delivered_by = "claude"
 created_at = "2026-05-30"
 scored_at = "2026-05-30"
 done_at = "2026-05-30"
+
+[[task]]
+id = 35
+phase = 15
+bundle = "agent_dispatch"
+status = "done"
+title = "rmap ready — parallel-safe dep-satisfied dispatch set"
+scores = { d = 3, b = 8, u = 9 }
+acceptance_criteria = ["rmap ready returns only dep-satisfied pending tasks, ranked", "rmap ready --bundle B = dispatchable layer-0 of B", "--count optional (default all); --phase/--marker/--milestone narrow", "--json is a list-shaped envelope carrying dep_layer"]
+touches = ["src/next.rs", "src/query.rs", "src/main.rs", "tests/cli.rs", "SKILLS.md"]
+body = "Add a read subcommand returning every pending task whose deps are all done — the mutually-independent parallel-dispatch set — ranked like rmap next. --bundle yields a bundle's dispatchable layer-0. No --independent flag (no-op by construction)."
+implemented = "rmap ready subcommand: ready_tasks(tasks, filter, count, dispatchable) in next.rs, sharing next::rank_tasks (4-tier). pending ∩ deps-done ∩ filters; --bundle = dispatchable layer-0; --count optional (default all). list-shaped --json via export_filtered_json_str."
+delivered_by = "claude"
+created_at = "2026-05-31"
+scored_at = "2026-05-31"
+done_at = "2026-05-31"
+shipped_in = "d26c16d"
+
+[[task]]
+id = 36
+phase = 15
+bundle = "agent_dispatch"
+status = "done"
+title = "dep_layer — topo depth as a computed --json field"
+scores = { d = 3, b = 6, u = 7 }
+acceptance_criteria = ["compute_layers extracted to src/topo.rs; render_html reuses it", "dep_layer on every --json payload, computed over the full graph", "0 for roots, n for chains, longest-path for diamonds", "additive — no schema_version bump"]
+touches = ["src/topo.rs", "src/render_html.rs", "src/export.rs", "src/main.rs", "tests/cli.rs"]
+body = "Extract the longest-path layering out of render_html into a shared pure module and expose dep_layer on every ExportedTask as a computed field (like eff, never persisted). Within a result set the lowest dep_layer present is the current parallel wave."
+implemented = "Extracted compute_layers/layer_of to src/topo.rs (render_html reuses it); dep_layer: usize computed field on ExportedTask, built from the full tasks.task graph and threaded through every export entry point. Additive, no schema_version bump."
+delivered_by = "claude"
+created_at = "2026-05-31"
+scored_at = "2026-05-31"
+done_at = "2026-05-31"
+shipped_in = "0ca8165"
+
+[[task]]
+id = 37
+phase = 15
+bundle = "agent_dispatch"
+status = "done"
+title = "touches — advisory collision-prediction field"
+scores = { d = 3, b = 6, u = 8 }
+acceptance_criteria = ["touches round-trips via rmap new --from-stdin and survives render", "distinct from files_to_modify (not merged)", "surfaces in --json / data.json / diff --verbose", "no schema_version bump (additive)"]
+touches = ["src/schema.rs", "src/export.rs", "src/mutate.rs", "src/main.rs", "src/diff.rs", "src/stale.rs", "tests/cli.rs"]
+body = "Add an optional creation-time touches: Vec<String> field, semantically distinct from files_to_modify (the write target): touches is the broader involvement hint, typically a superset. Consumers union both to predict parallel-dispatch conflicts. Unvalidated free-text; all six creation-time mirror surfaces."
+implemented = "touches: Vec<String> creation-time field across all six mirror surfaces + diff_fields! (not in TASK_VERBOSE_WHITELIST). Distinct from files_to_modify; consumer unions both for collision prediction. Unvalidated, additive."
+delivered_by = "claude"
+created_at = "2026-05-31"
+scored_at = "2026-05-31"
+done_at = "2026-05-31"
+shipped_in = "9050b96"
+
+[[task]]
+id = 38
+phase = 15
+bundle = "agent_dispatch"
+status = "done"
+title = "handbuild marker + --dispatchable + --fields JSON projection"
+scores = { d = 3, b = 6, u = 7 }
+depends_on = [35]
+acceptance_criteria = ["handbuild in VALID_MARKERS; rmap mark accepts it", "--dispatchable excludes handbuild on ready and list", "--fields projects to named keys only and implies --json", "unknown --fields name exits 1 naming the offender"]
+touches = ["src/validate.rs", "src/query.rs", "src/next.rs", "src/export.rs", "src/main.rs", "tests/cli.rs", "SKILLS.md"]
+body = "Add the handbuild marker (human-driven-browser work) plus a --dispatchable filter (on ready/list) that excludes it — mark the minority, dispatch the rest by default. Add --fields a,b,c to project --json to a token-cheap array of just the named ExportedTask keys; unknown name exits 1."
+implemented = "handbuild added to VALID_MARKERS; query::is_dispatchable predicate; --dispatchable on ready/list excludes it (on ready, before rank+count). --fields projects --json to a bare array of named ExportedTask keys via export::project_fields_json_str, validated against EXPORTED_TASK_FIELDS (drift-guarded); implies --json, unknown name exits 1."
+delivered_by = "claude"
+created_at = "2026-05-31"
+scored_at = "2026-05-31"
+done_at = "2026-05-31"
+shipped_in = "19f3a27"

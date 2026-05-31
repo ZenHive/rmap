@@ -110,4 +110,8 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 32 | ⬜ | 🎁 **doctor_state_drift** · rmap doctor: milestone status drift advisories [D:2/B:5/U:6 → Eff:2.75] 🎯 |
 | Task 33 | ✅ | 🎁 **schema_outcome** · `--shipped-in` flag on `rmap status` — complete the outcome layer [D:2/B:6/U:6 → Eff:3.0] 🎯 |
 | Task 34 | ✅ | 🎁 **schema_outcome** · `--reason` flag on `rmap status` — settable + rendered + auto-cleared blocked_reason [D:3/B:6/U:6 → Eff:2.0] 🎯 |
+| Task 35 | ✅ | 🎁 **agent_dispatch** · rmap ready — parallel-safe dep-satisfied dispatch set [D:3/B:8/U:9 → Eff:2.83] 🎯 |
+| Task 36 | ✅ | 🎁 **agent_dispatch** · dep_layer — topo depth as a computed --json field [D:3/B:6/U:7 → Eff:2.17] 🎯 |
+| Task 37 | ✅ | 🎁 **agent_dispatch** · touches — advisory collision-prediction field [D:3/B:6/U:8 → Eff:2.33] 🎯 |
+| Task 38 | ✅ | 🎁 **agent_dispatch** · handbuild marker + --dispatchable + --fields JSON projection [D:3/B:6/U:7 → Eff:2.17] 🎯 |
 <!-- TASKS:END -->

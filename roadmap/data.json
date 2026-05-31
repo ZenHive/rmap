@@ -30,6 +30,11 @@
     }
   },
   "bundles": {
+    "agent_dispatch": {
+      "phase": 15,
+      "order": 7,
+      "description": "Agent-dispatch ergonomics — make 'the set of tasks I can dispatch in parallel right now' a first-class query (rmap ready + dep_layer + handbuild/--dispatchable + touches + --fields)"
+    },
     "agent_routing": {
       "phase": 15,
       "order": 1,
@@ -125,6 +130,7 @@
         "u": 5
       },
       "eff": 1.83,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -151,6 +157,7 @@
         "u": 4
       },
       "eff": 2.25,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -176,6 +183,7 @@
         "u": 5
       },
       "eff": 1.83,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -201,6 +209,7 @@
         "u": 5
       },
       "eff": 2.5,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -225,6 +234,7 @@
         "u": 5
       },
       "eff": 1.67,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -250,6 +260,7 @@
         "u": 5
       },
       "eff": 2.5,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -280,6 +291,7 @@
         "u": 5
       },
       "eff": 1.83,
+      "dep_layer": 1,
       "markers": [],
       "depends_on": [
         5,
@@ -309,6 +321,7 @@
         "u": 6
       },
       "eff": 1.08,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -338,6 +351,7 @@
         "u": 5
       },
       "eff": 0.92,
+      "dep_layer": 1,
       "markers": [],
       "depends_on": [
         8
@@ -364,6 +378,7 @@
         "u": 4
       },
       "eff": 1.13,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -389,6 +404,7 @@
         "u": 4
       },
       "eff": 1.33,
+      "dep_layer": 1,
       "markers": [],
       "depends_on": [
         10
@@ -415,6 +431,7 @@
         "u": 3
       },
       "eff": 1.5,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -439,6 +456,7 @@
         "u": 3
       },
       "eff": 1.5,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -463,6 +481,7 @@
         "u": 7
       },
       "eff": 3.5,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -492,6 +511,7 @@
         "u": 4
       },
       "eff": 1.5,
+      "dep_layer": 1,
       "markers": [],
       "depends_on": [
         14
@@ -522,6 +542,7 @@
         "u": 5
       },
       "eff": 2.0,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -556,6 +577,7 @@
         "u": 6
       },
       "eff": 2.33,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "module": "src/next_bundle.rs",
@@ -590,6 +612,7 @@
         "u": 8
       },
       "eff": 2.5,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "model": "claude-sonnet-4-6",
@@ -620,6 +643,7 @@
         "u": 5
       },
       "eff": 1.67,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "model": "claude-opus-4-7",
@@ -655,6 +679,7 @@
         "u": 5
       },
       "eff": 2.25,
+      "dep_layer": 0,
       "markers": [
         "bug"
       ],
@@ -686,6 +711,7 @@
         "u": 6
       },
       "eff": 2.75,
+      "dep_layer": 0,
       "markers": [
         "bug"
       ],
@@ -717,6 +743,7 @@
         "u": 7
       },
       "eff": 1.63,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -755,6 +782,7 @@
         "u": 6
       },
       "eff": 2.75,
+      "dep_layer": 0,
       "markers": [
         "bug"
       ],
@@ -789,6 +817,7 @@
         "u": 8
       },
       "eff": 1.33,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -832,6 +861,7 @@
         "u": 6
       },
       "eff": 1.5,
+      "dep_layer": 0,
       "markers": [
         "bug"
       ],
@@ -864,6 +894,7 @@
         "u": 3
       },
       "eff": 1.0,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -904,6 +935,7 @@
         "u": 6
       },
       "eff": 1.83,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -937,6 +969,7 @@
         "u": 6
       },
       "eff": 1.5,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -982,6 +1015,7 @@
         "u": 6
       },
       "eff": 2.17,
+      "dep_layer": 0,
       "markers": [
         "bug"
       ],
@@ -1011,6 +1045,7 @@
         "u": 5
       },
       "eff": 1.83,
+      "dep_layer": 0,
       "markers": [
         "bug"
       ],
@@ -1044,6 +1079,7 @@
         "u": 7
       },
       "eff": 3.25,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "model": "claude-opus-4-7",
@@ -1080,6 +1116,7 @@
         "u": 6
       },
       "eff": 2.75,
+      "dep_layer": 1,
       "markers": [],
       "depends_on": [
         31
@@ -1115,6 +1152,7 @@
         "u": 6
       },
       "eff": 3.0,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -1156,6 +1194,7 @@
         "u": 6
       },
       "eff": 2.0,
+      "dep_layer": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -1184,6 +1223,160 @@
       "done_at": "2026-05-30",
       "scored_at": "2026-05-30",
       "implemented": "Added --reason flag to rmap status (blocked-only, mirrors the outcome-flag path); renamed DoneFields -> TransitionFields with a blocked_reason field gated on the blocked transition. Auto-clears blocked_reason when a task leaves blocked. Renders ⛔ <reason> inline on blocked rows in ROADMAP.md. Tests in mutate.rs + cli.rs; mermaid_block golden updated; SKILLS.md + rmap.md + CLAUDE.md + CHANGELOG docs.",
+      "delivered_by": "claude",
+      "cross_repo": []
+    },
+    {
+      "id": 35,
+      "phase": 15,
+      "bundle": "agent_dispatch",
+      "status": "done",
+      "title": "rmap ready — parallel-safe dep-satisfied dispatch set",
+      "scores": {
+        "d": 3,
+        "b": 8,
+        "u": 9
+      },
+      "eff": 2.83,
+      "dep_layer": 0,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "rmap ready returns only dep-satisfied pending tasks, ranked",
+        "rmap ready --bundle B = dispatchable layer-0 of B",
+        "--count optional (default all); --phase/--marker/--milestone narrow",
+        "--json is a list-shaped envelope carrying dep_layer"
+      ],
+      "touches": [
+        "src/next.rs",
+        "src/query.rs",
+        "src/main.rs",
+        "tests/cli.rs",
+        "SKILLS.md"
+      ],
+      "shipped_in": "d26c16d",
+      "body": "Add a read subcommand returning every pending task whose deps are all done — the mutually-independent parallel-dispatch set — ranked like rmap next. --bundle yields a bundle's dispatchable layer-0. No --independent flag (no-op by construction).",
+      "created_at": "2026-05-31",
+      "done_at": "2026-05-31",
+      "scored_at": "2026-05-31",
+      "implemented": "rmap ready subcommand: ready_tasks(tasks, filter, count, dispatchable) in next.rs, sharing next::rank_tasks (4-tier). pending ∩ deps-done ∩ filters; --bundle = dispatchable layer-0; --count optional (default all). list-shaped --json via export_filtered_json_str.",
+      "delivered_by": "claude",
+      "cross_repo": []
+    },
+    {
+      "id": 36,
+      "phase": 15,
+      "bundle": "agent_dispatch",
+      "status": "done",
+      "title": "dep_layer — topo depth as a computed --json field",
+      "scores": {
+        "d": 3,
+        "b": 6,
+        "u": 7
+      },
+      "eff": 2.17,
+      "dep_layer": 0,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "compute_layers extracted to src/topo.rs; render_html reuses it",
+        "dep_layer on every --json payload, computed over the full graph",
+        "0 for roots, n for chains, longest-path for diamonds",
+        "additive — no schema_version bump"
+      ],
+      "touches": [
+        "src/topo.rs",
+        "src/render_html.rs",
+        "src/export.rs",
+        "src/main.rs",
+        "tests/cli.rs"
+      ],
+      "shipped_in": "0ca8165",
+      "body": "Extract the longest-path layering out of render_html into a shared pure module and expose dep_layer on every ExportedTask as a computed field (like eff, never persisted). Within a result set the lowest dep_layer present is the current parallel wave.",
+      "created_at": "2026-05-31",
+      "done_at": "2026-05-31",
+      "scored_at": "2026-05-31",
+      "implemented": "Extracted compute_layers/layer_of to src/topo.rs (render_html reuses it); dep_layer: usize computed field on ExportedTask, built from the full tasks.task graph and threaded through every export entry point. Additive, no schema_version bump.",
+      "delivered_by": "claude",
+      "cross_repo": []
+    },
+    {
+      "id": 37,
+      "phase": 15,
+      "bundle": "agent_dispatch",
+      "status": "done",
+      "title": "touches — advisory collision-prediction field",
+      "scores": {
+        "d": 3,
+        "b": 6,
+        "u": 8
+      },
+      "eff": 2.33,
+      "dep_layer": 0,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "touches round-trips via rmap new --from-stdin and survives render",
+        "distinct from files_to_modify (not merged)",
+        "surfaces in --json / data.json / diff --verbose",
+        "no schema_version bump (additive)"
+      ],
+      "touches": [
+        "src/schema.rs",
+        "src/export.rs",
+        "src/mutate.rs",
+        "src/main.rs",
+        "src/diff.rs",
+        "src/stale.rs",
+        "tests/cli.rs"
+      ],
+      "shipped_in": "9050b96",
+      "body": "Add an optional creation-time touches: Vec<String> field, semantically distinct from files_to_modify (the write target): touches is the broader involvement hint, typically a superset. Consumers union both to predict parallel-dispatch conflicts. Unvalidated free-text; all six creation-time mirror surfaces.",
+      "created_at": "2026-05-31",
+      "done_at": "2026-05-31",
+      "scored_at": "2026-05-31",
+      "implemented": "touches: Vec<String> creation-time field across all six mirror surfaces + diff_fields! (not in TASK_VERBOSE_WHITELIST). Distinct from files_to_modify; consumer unions both for collision prediction. Unvalidated, additive.",
+      "delivered_by": "claude",
+      "cross_repo": []
+    },
+    {
+      "id": 38,
+      "phase": 15,
+      "bundle": "agent_dispatch",
+      "status": "done",
+      "title": "handbuild marker + --dispatchable + --fields JSON projection",
+      "scores": {
+        "d": 3,
+        "b": 6,
+        "u": 7
+      },
+      "eff": 2.17,
+      "dep_layer": 1,
+      "markers": [],
+      "depends_on": [
+        35
+      ],
+      "acceptance_criteria": [
+        "handbuild in VALID_MARKERS; rmap mark accepts it",
+        "--dispatchable excludes handbuild on ready and list",
+        "--fields projects to named keys only and implies --json",
+        "unknown --fields name exits 1 naming the offender"
+      ],
+      "touches": [
+        "src/validate.rs",
+        "src/query.rs",
+        "src/next.rs",
+        "src/export.rs",
+        "src/main.rs",
+        "tests/cli.rs",
+        "SKILLS.md"
+      ],
+      "shipped_in": "19f3a27",
+      "body": "Add the handbuild marker (human-driven-browser work) plus a --dispatchable filter (on ready/list) that excludes it — mark the minority, dispatch the rest by default. Add --fields a,b,c to project --json to a token-cheap array of just the named ExportedTask keys; unknown name exits 1.",
+      "created_at": "2026-05-31",
+      "done_at": "2026-05-31",
+      "scored_at": "2026-05-31",
+      "implemented": "handbuild added to VALID_MARKERS; query::is_dispatchable predicate; --dispatchable on ready/list excludes it (on ready, before rank+count). --fields projects --json to a bare array of named ExportedTask keys via export::project_fields_json_str, validated against EXPORTED_TASK_FIELDS (drift-guarded); implies --json, unknown name exits 1.",
       "delivered_by": "claude",
       "cross_repo": []
     }
