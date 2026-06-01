@@ -145,6 +145,29 @@ When adding a field to `schema::Task`, decide whether it is a **creation-time** 
 **Exit codes**
 - **`rmap doctor` always exits 0 on success** (informational only). Strict gates: `validate` (exit 1 on schema error), `validate --check-render` (exit 2 on render drift).
 
+## Downstream consumer: harness (`../harness/`)
+
+The "consumers" the agent contract above protects are not hypothetical — the primary one is **harness**, a sibling Elixir/OTP project at `../harness/` (`/Users/efries/_DATA/code/harness/`). Harness is an AI-orchestrator-driven task-execution engine: it pulls tasks from rmap roadmaps, dispatches each to a headless coding agent (Claude Code, Codex, Cursor, Grok, Antigravity, Pi) in an isolated git worktree, grades the result with the target project's own check stack, and writes the verified outcome back via `rmap status`. Harness's CLAUDE.md § "rmap is ours" sends roadmap-CLI gaps *here* to be fixed, never worked around in harness — this section is the reciprocal pointer.
+
+**The shell-out surface (`../harness/lib/harness/roadmap.ex`, `Harness.Roadmap`).** Harness never parses `tasks.toml` itself; it shells out to the installed `rmap` binary and treats stdout as API. Every call passes an explicit `--tasks-path`; success is gated on JSON-decode (or non-empty delegate output), not exit 0. Commands consumed:
+
+- `rmap next --json` · `rmap show <id> --json` · `rmap list --json [--status S]` · `rmap next-bundle --json` — browse/ingest
+- `rmap ready --dispatchable --fields id,model,markers` — the cron poller's autonomous selection surface (MCP tool `roadmap__ready`)
+- `rmap delegate <id> --to <agent>` — the verbatim output IS the prompt dispatched to the agent
+- Write-backs: `rmap status <id> in_progress` (on dispatch), `rmap status <id> done --verified --shipped-in <sha>` (lander, after a green verdict + push), `rmap status <id> blocked --reason "..."` (terminal sink)
+
+Changing any of these — JSON shapes, `--fields` projection, `delegate` section format, status flags, the `handbuild` semantics of `--dispatchable` — means checking `Harness.Roadmap` (and `Harness.Dispatch` / `Harness.Lander` / `Harness.Cron.RoadmapPoller`) in the same change, plus the consumer-side docs below.
+
+**Renderable ≠ executable (the two-sided executor contract).** `rmap delegate --to` renders for **seven** agents (`claude` / `codex` / `cursor` / `grok` / `antigravity` / `pi` / `droid`); harness has `AgentAdapter`s for only **six** — `droid` is renderable but rejected at harness's dispatch boundary (`{:unknown_adapter, "droid"}`). Adding a new `--to` target in rmap is half the job: the agent only becomes dispatchable once harness grows a matching `AgentAdapter` + `@valid_agents` entry. When widening rmap's delegate/assignee set, note the harness-side gap explicitly (a task in harness's roadmap, or a line in the commit) rather than implying end-to-end support.
+
+**Consumer-side contract docs (update when rmap's surface changes underneath them):**
+
+- `../harness/skills/harness-driver/SKILL.md` — the AI-orchestrator contract for driving harness (dispatch patterns, MCP tool surface `dispatch__*` / `roadmap__*`, result shapes). It documents rmap-derived behavior (the `ready --dispatchable` set, delegate-rendered prompts, the renderable-vs-executable split) and carries an explicit anti-staleness contract.
+- `../harness/CLAUDE.md` — § "Agent Headless Entry Points" and § "Dogfooding" reference rmap's delegate targets and selection commands.
+- `../harness/docs/dogfooding-workflow.md` — the operator runbook; verdict table references rmap status write-backs.
+
+Harness registers projects (including itself) with a `roadmap_path` and drives them through this surface unattended (`Oban.Plugins.Cron`) — a silent break in rmap's JSON or prompt output surfaces as failed autonomous dispatches there, not as an rmap test failure here. The `skills_smoke` test and the additive-only invariants above are the local proxies for that contract; treat them as guarding harness specifically.
+
 ## Tests
 
 - `tests/cli.rs` — black-box CLI tests via `Command::new(env!("CARGO_BIN_EXE_rmap"))`. Each test gets a unique temp dir from a per-test atomic counter. Date-sensitive tests set `RMAP_TODAY` on the `Command` env.
