@@ -1122,7 +1122,7 @@
       "id": 32,
       "phase": 15,
       "bundle": "doctor_state_drift",
-      "status": "pending",
+      "status": "done",
       "title": "rmap doctor: milestone status drift advisories",
       "scores": {
         "d": 2,
@@ -1149,10 +1149,14 @@
         "Auto-flipping milestone status on the last pinned-task done transition (milestone status stays user-curated, per the precedent Task 31 set for phase status)",
         "Hypothesis-quality advisories on milestone descriptions (would need NLP heuristics; out of scope for a read-side lint)"
       ],
+      "shipped_in": "5781367",
       "body": "Companion to Task 31 (phase / focus state drift advisories). Task 31 explicitly deferred milestone-status drift; this is the deferred follow-up.\n\nSurfaced on the harness roadmap on 2026-05-27: milestones v0_2 (5/5 pinned tasks done) and v0_4 (3/3 pinned tasks done) carried `status = \"pending\"` for weeks despite being materially complete. `rmap milestones` rendered them inline with active work; nothing flagged the drift. The user caught it via a manual roadmap review, not via tooling.\n\nTwo advisories, both exit 0 like the existing read-side checks:\n\n1. **MilestoneFullyDoneButOpen** — every task pinned to a milestone has `status='done'` but the milestone's own status is `'pending'` or `'active'`. Mirrors Task 31's `PhaseFullyDoneButOpen` shape against the milestone surface.\n\n2. **MultipleActiveMilestones** — more than one milestone has `status='active'`. rmap.md explicitly says \"Keep exactly one milestone at `status='active'`\" — the auto-bias on `rmap next` only makes sense with a single active milestone. Today nothing enforces this.\n\nPure read-side checks against existing fields. Same shape as the advisories doctor already emits — no schema changes, no auto-mutation. Phase status is user-curated by Task 31's precedent; milestone status follows the same rule.\n",
       "created_at": "2026-05-26",
       "started_at": "2026-06-02",
+      "done_at": "2026-06-02",
       "scored_at": "2026-05-26",
+      "implemented": "Two soft doctor advisories in src/doctor.rs (section 8): MilestoneFullyDoneButOpen (all pinned tasks done but milestone pending/active) and MultipleActiveMilestones (>1 active); messages cite slug + pinned counts, exit 0, 5 tests/cli.rs fixtures. Shipped in 5781367 on development; independently re-verified green via cargo test (all suites ok, 0 failures) from the harness operator lane.",
+      "verified": true,
       "cross_repo": []
     },
     {

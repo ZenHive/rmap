@@ -914,7 +914,7 @@ shipped_in = "64cbf17"
 id = 32
 phase = 15
 bundle = "doctor_state_drift"
-status = "pending"
+status = "done"
 title = "rmap doctor: milestone status drift advisories"
 scores = { d = 2, b = 5, u = 6 }
 depends_on = [31]
@@ -934,9 +934,13 @@ Two advisories, both exit 0 like the existing read-side checks:
 
 Pure read-side checks against existing fields. Same shape as the advisories doctor already emits — no schema changes, no auto-mutation. Phase status is user-curated by Task 31's precedent; milestone status follows the same rule.
 """
+implemented = "Two soft doctor advisories in src/doctor.rs (section 8): MilestoneFullyDoneButOpen (all pinned tasks done but milestone pending/active) and MultipleActiveMilestones (>1 active); messages cite slug + pinned counts, exit 0, 5 tests/cli.rs fixtures. Shipped in 5781367 on development; independently re-verified green via cargo test (all suites ok, 0 failures) from the harness operator lane."
+verified = true
 created_at = "2026-05-26"
 started_at = "2026-06-02"
 scored_at = "2026-05-26"
+done_at = "2026-06-02"
+shipped_in = "5781367"
 
 [[task]]
 id = 33
