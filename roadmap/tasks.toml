@@ -270,10 +270,9 @@ See DESIGN.md (Phase 6 — HTML render design) for the full layout, design invar
 id = 9
 phase = 6
 bundle = "html_portfolio"
-status = "pending"
+status = "in_progress"
 title = "rmap render --html --multi portfolio view"
 scores = { d = 6, b = 6, u = 5 }
-scored_at = "2026-05-13"
 depends_on = [8]
 acceptance_criteria = [
   "rmap render --html --multi P1 P2 … accepts project roots or data.json paths",
@@ -281,7 +280,9 @@ acceptance_criteria = [
   "Repos-as-rows layout with cross-repo blocker arrows from the cross_repo field",
   "Click a repo row expands inline to single-project layout",
 ]
-model = "claude-sonnet-4-6"
+assignee = "grok"
+started_at = "2026-06-02"
+scored_at = "2026-05-13"
 
 [[task]]
 id = 10
@@ -913,13 +914,13 @@ shipped_in = "64cbf17"
 id = 32
 phase = 15
 bundle = "doctor_state_drift"
-status = "pending"
+status = "in_progress"
 title = "rmap doctor: milestone status drift advisories"
 scores = { d = 2, b = 5, u = 6 }
 depends_on = [31]
 acceptance_criteria = ["MilestoneFullyDoneButOpen advisory: every pinned task is done but milestone status is 'pending' or 'active'", "MultipleActiveMilestones advisory: more than one milestone has status='active' (violates rmap.md's 'exactly one active' rule)", "Both advisories exit 0 (same surface as existing ClaimedNotGraded / PhaseFullyDoneButOpen)", "Each message cites the affected milestone slug and pinned-task counts", "tests/cli.rs covers positive + negative fixtures for each check", "Read-side only — no schema changes, no auto-mutation", "CHANGELOG entry under [Unreleased]"]
 out_of_scope = ["Auto-flipping milestone status on the last pinned-task done transition (milestone status stays user-curated, per the precedent Task 31 set for phase status)", "Hypothesis-quality advisories on milestone descriptions (would need NLP heuristics; out of scope for a read-side lint)"]
-model = "claude-opus-4-7"
+assignee = "cursor"
 body = """
 Companion to Task 31 (phase / focus state drift advisories). Task 31 explicitly deferred milestone-status drift; this is the deferred follow-up.
 
@@ -934,6 +935,7 @@ Two advisories, both exit 0 like the existing read-side checks:
 Pure read-side checks against existing fields. Same shape as the advisories doctor already emits — no schema changes, no auto-mutation. Phase status is user-curated by Task 31's precedent; milestone status follows the same rule.
 """
 created_at = "2026-05-26"
+started_at = "2026-06-02"
 scored_at = "2026-05-26"
 
 [[task]]
