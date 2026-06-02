@@ -76,6 +76,20 @@ pub enum DoctorFinding {
     ClaimedNotGraded {
         id: String,
     },
+    PhaseFullyDoneButOpen {
+        phase: u32,
+        status: String,
+        task_count: usize,
+    },
+    PhaseHasInProgressButPending {
+        phase: u32,
+        task_ids: Vec<String>,
+    },
+    FocusPhaseClosed {
+        phase: u32,
+        status: String,
+        task_count: usize,
+    },
     Drift,
 }
 
@@ -184,7 +198,68 @@ impl DoctorReport {
             }
         }
 
-        // 7. render drift — only if a roadmap was provided
+        // 7. phase/focus state drift — soft advisories only; phase/focus state
+        // is intentionally user-curated rather than auto-mutated.
+        for (phase_key, phase) in &tasks.phases {
+            let Ok(phase_id) = phase_key.parse::<u32>() else {
+                continue;
+            };
+            let phase_tasks: Vec<_> = tasks
+                .task
+                .iter()
+                .filter(|task| task.phase == phase_id)
+                .collect();
+            let task_count = phase_tasks.len();
+
+            if task_count > 0
+                && (phase.status == "in_progress" || phase.status == "pending")
+                && phase_tasks.iter().all(|task| task.status == "done")
+            {
+                findings.push(DoctorFinding::PhaseFullyDoneButOpen {
+                    phase: phase_id,
+                    status: phase.status.clone(),
+                    task_count,
+                });
+            }
+
+            if phase.status == "pending" {
+                let task_ids: Vec<String> = phase_tasks
+                    .iter()
+                    .filter(|task| task.status == "in_progress")
+                    .map(|task| task_id_display(&task.id))
+                    .collect();
+
+                if !task_ids.is_empty() {
+                    findings.push(DoctorFinding::PhaseHasInProgressButPending {
+                        phase: phase_id,
+                        task_ids,
+                    });
+                }
+            }
+        }
+
+        if let Some(focus) = &tasks.focus
+            && let Some(phase) = tasks.phases.get(&focus.phase.to_string())
+        {
+            let phase_tasks: Vec<_> = tasks
+                .task
+                .iter()
+                .filter(|task| task.phase == focus.phase)
+                .collect();
+            let task_count = phase_tasks.len();
+            let all_tasks_done =
+                task_count > 0 && phase_tasks.iter().all(|task| task.status == "done");
+
+            if phase.status == "done" || all_tasks_done {
+                findings.push(DoctorFinding::FocusPhaseClosed {
+                    phase: focus.phase,
+                    status: phase.status.clone(),
+                    task_count,
+                });
+            }
+        }
+
+        // 8. render drift — only if a roadmap was provided
         if let Some(roadmap) = roadmap_input
             && let Ok(rendered) = render_roadmap_str_with_today(roadmap, tasks, today)
             && rendered != roadmap
@@ -359,6 +434,83 @@ impl fmt::Display for DoctorReport {
             }
         }
 
+        let phase_done_open_findings: Vec<(u32, &str, usize)> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::PhaseFullyDoneButOpen {
+                    phase,
+                    status,
+                    task_count,
+                } = fi
+                {
+                    Some((*phase, status.as_str(), *task_count))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !phase_done_open_findings.is_empty() {
+            writeln!(f, "\nPhase fully done but open:")?;
+            for (phase, status, count) in phase_done_open_findings {
+                writeln!(
+                    f,
+                    "  - phase {phase} has all {count} tasks done but phase status is `{status}`; advance the phase status when ready"
+                )?;
+            }
+        }
+
+        let phase_pending_started_findings: Vec<(u32, &Vec<String>)> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::PhaseHasInProgressButPending { phase, task_ids } = fi {
+                    Some((*phase, task_ids))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !phase_pending_started_findings.is_empty() {
+            writeln!(f, "\nPhase has in-progress tasks but is pending:")?;
+            for (phase, task_ids) in phase_pending_started_findings {
+                writeln!(
+                    f,
+                    "  - phase {phase} is pending but has in-progress {}; set the phase status when ready",
+                    task_refs(task_ids)
+                )?;
+            }
+        }
+
+        let focus_closed_findings: Vec<(u32, &str, usize)> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::FocusPhaseClosed {
+                    phase,
+                    status,
+                    task_count,
+                } = fi
+                {
+                    Some((*phase, status.as_str(), *task_count))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !focus_closed_findings.is_empty() {
+            writeln!(f, "\nFocus phase closed:")?;
+            for (phase, status, count) in focus_closed_findings {
+                writeln!(
+                    f,
+                    "  - phase {phase} is the focus phase but appears closed (status `{status}`, {count} tasks); move focus.phase when ready"
+                )?;
+            }
+        }
+
         let has_drift = self
             .findings
             .iter()
@@ -374,4 +526,12 @@ impl fmt::Display for DoctorReport {
 
         Ok(())
     }
+}
+
+fn task_refs(task_ids: &[String]) -> String {
+    task_ids
+        .iter()
+        .map(|id| format!("task {id}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }

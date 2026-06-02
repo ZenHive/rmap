@@ -4,6 +4,17 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ---
 
+## [Unreleased]
+
+### Task 31: `rmap doctor` phase / focus state drift advisories
+
+**What was done:**
+- Added three read-side doctor advisories: `PhaseFullyDoneButOpen`, `PhaseHasInProgressButPending`, and `FocusPhaseClosed`.
+- The advisories report phase/focus state drift without mutating phase status or focus; `rmap doctor` continues to exit 0 for soft findings.
+- No schema changes.
+
+---
+
 ## Phase 14 — Migration tooling
 
 ### Phase 14 Task 18: `rmap import` — paste-ready ROADMAP.md→tasks.toml migration prompt (import_command bundle)

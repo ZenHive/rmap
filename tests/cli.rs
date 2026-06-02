@@ -15,7 +15,7 @@ default_branch = "development"
 [phases.1]
 name = "Foundation"
 order = 1
-status = "pending"
+status = "in_progress"
 
 [bundles.foundation]
 phase = 1
@@ -5169,7 +5169,7 @@ default_branch = "main"
 [phases.1]
 name = "Foundation"
 order = 1
-status = "pending"
+status = "in_progress"
 
 [bundles.core]
 phase = 1
@@ -5378,6 +5378,462 @@ fn doctor_command_thresholds_in_json() {
     assert_eq!(override_json["thresholds"]["days"], 45);
     assert_eq!(override_json["thresholds"]["ac_difficulty"], 6);
     assert_eq!(override_json["thresholds"]["ac_benefit"], 6);
+}
+
+// ---------------------------------------------------------------------------
+// doctor phase/focus state-drift fixtures + tests (Task 31)
+// ---------------------------------------------------------------------------
+
+const DOCTOR_PHASE_FULLY_DONE_BUT_OPEN_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_phase_done_open"
+default_branch = "main"
+
+[phases.1]
+name = "Open but complete"
+order = 1
+status = "in_progress"
+
+[phases.2]
+name = "Closed complete"
+order = 2
+status = "done"
+
+[bundles.phase1a]
+phase = 1
+order = 1
+description = "Phase 1 A"
+
+[bundles.phase1b]
+phase = 1
+order = 2
+description = "Phase 1 B"
+
+[bundles.phase2a]
+phase = 2
+order = 1
+description = "Phase 2 A"
+
+[[task]]
+id = 60
+phase = 1
+bundle = "phase1a"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Complete A"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 61
+phase = 1
+bundle = "phase1b"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Complete B"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 62
+phase = 2
+bundle = "phase2a"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Already closed"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+"#;
+
+const DOCTOR_PHASE_IN_PROGRESS_PENDING_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_phase_pending_in_progress"
+default_branch = "main"
+
+[phases.1]
+name = "Pending but started"
+order = 1
+status = "pending"
+
+[phases.2]
+name = "Started and marked"
+order = 2
+status = "in_progress"
+
+[bundles.phase1a]
+phase = 1
+order = 1
+description = "Phase 1 A"
+
+[bundles.phase1b]
+phase = 1
+order = 2
+description = "Phase 1 B"
+
+[bundles.phase2a]
+phase = 2
+order = 1
+description = "Phase 2 A"
+
+[[task]]
+id = 70
+phase = 1
+bundle = "phase1a"
+status = "in_progress"
+started_at = "2026-05-10"
+title = "Started under pending phase"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 71
+phase = 1
+bundle = "phase1b"
+status = "pending"
+title = "Not started yet"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 72
+phase = 2
+bundle = "phase2a"
+status = "in_progress"
+started_at = "2026-05-10"
+title = "Started under active phase"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+"#;
+
+const DOCTOR_FOCUS_PHASE_CLOSED_BY_STATUS_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_focus_closed_status"
+default_branch = "main"
+
+[focus]
+phase = 1
+
+[phases.1]
+name = "Closed focus"
+order = 1
+status = "done"
+
+[phases.2]
+name = "Open next"
+order = 2
+status = "in_progress"
+
+[bundles.closed]
+phase = 1
+order = 1
+description = "Closed focus work"
+
+[bundles.open]
+phase = 2
+order = 1
+description = "Open work"
+
+[[task]]
+id = 80
+phase = 1
+bundle = "closed"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Closed focus task"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 81
+phase = 2
+bundle = "open"
+status = "pending"
+title = "Next open task"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+"#;
+
+const DOCTOR_FOCUS_PHASE_CLOSED_BY_TASKS_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_focus_closed_tasks"
+default_branch = "main"
+
+[focus]
+phase = 1
+
+[phases.1]
+name = "Open but all done"
+order = 1
+status = "in_progress"
+
+[phases.2]
+name = "Open next"
+order = 2
+status = "in_progress"
+
+[bundles.closed_a]
+phase = 1
+order = 1
+description = "Closed focus A"
+
+[bundles.closed_b]
+phase = 1
+order = 2
+description = "Closed focus B"
+
+[bundles.open]
+phase = 2
+order = 1
+description = "Open work"
+
+[[task]]
+id = 90
+phase = 1
+bundle = "closed_a"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Closed focus A"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 91
+phase = 1
+bundle = "closed_b"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Closed focus B"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 92
+phase = 2
+bundle = "open"
+status = "pending"
+title = "Next open task"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+"#;
+
+const DOCTOR_FOCUS_PHASE_OPEN_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_focus_open"
+default_branch = "main"
+
+[focus]
+phase = 1
+
+[phases.1]
+name = "Open focus"
+order = 1
+status = "in_progress"
+
+[bundles.open]
+phase = 1
+order = 1
+description = "Open focus work"
+
+[[task]]
+id = 100
+phase = 1
+bundle = "open"
+status = "pending"
+title = "Still open"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+"#;
+
+#[test]
+fn doctor_command_surfaces_phase_fully_done_but_open() {
+    let path = write_temp_tasks(
+        "doctor_phase_done_open.toml",
+        DOCTOR_PHASE_FULLY_DONE_BUT_OPEN_TASKS,
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor phase done/open");
+
+    assert!(
+        output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Phase fully done but open"),
+        "expected PhaseFullyDoneButOpen section:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("phase 1"),
+        "expected affected phase id in finding:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("phase 2"),
+        "phase 2 is already done and should not be flagged:\n{stdout}"
+    );
+
+    let json_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor phase done/open json");
+    let report: serde_json::Value =
+        serde_json::from_slice(&json_output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    let matches: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|finding| finding["kind"] == "phase_fully_done_but_open")
+        .collect();
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0]["phase"], 1);
+}
+
+#[test]
+fn doctor_command_surfaces_phase_has_in_progress_but_pending() {
+    let path = write_temp_tasks(
+        "doctor_phase_pending_in_progress.toml",
+        DOCTOR_PHASE_IN_PROGRESS_PENDING_TASKS,
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor phase pending/in-progress");
+
+    assert!(
+        output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Phase has in-progress tasks but is pending"),
+        "expected PhaseHasInProgressButPending section:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("phase 1") && stdout.contains("task 70"),
+        "expected affected phase and in-progress task id:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("task 72"),
+        "phase 2 is already in_progress and should not be flagged:\n{stdout}"
+    );
+
+    let json_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor phase pending/in-progress json");
+    let report: serde_json::Value =
+        serde_json::from_slice(&json_output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    let matches: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|finding| finding["kind"] == "phase_has_in_progress_but_pending")
+        .collect();
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0]["phase"], 1);
+    assert_eq!(matches[0]["task_ids"], serde_json::json!(["70"]));
+}
+
+#[test]
+fn doctor_command_surfaces_focus_phase_closed() {
+    let status_path = write_temp_tasks(
+        "doctor_focus_closed_status.toml",
+        DOCTOR_FOCUS_PHASE_CLOSED_BY_STATUS_TASKS,
+    );
+    let status_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&status_path)
+        .output()
+        .expect("run rmap doctor focus closed by status");
+
+    assert!(
+        status_output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&status_output.stderr)
+    );
+    let status_stdout = String::from_utf8_lossy(&status_output.stdout);
+    assert!(
+        status_stdout.contains("Focus phase closed") && status_stdout.contains("phase 1"),
+        "expected FocusPhaseClosed status-based finding:\n{status_stdout}"
+    );
+
+    let tasks_path = write_temp_tasks(
+        "doctor_focus_closed_tasks.toml",
+        DOCTOR_FOCUS_PHASE_CLOSED_BY_TASKS_TASKS,
+    );
+    let tasks_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap doctor focus closed by tasks");
+
+    assert!(
+        tasks_output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&tasks_output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&tasks_output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    let matches: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|finding| finding["kind"] == "focus_phase_closed")
+        .collect();
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0]["phase"], 1);
+
+    let open_path = write_temp_tasks("doctor_focus_open.toml", DOCTOR_FOCUS_PHASE_OPEN_TASKS);
+    let open_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&open_path)
+        .output()
+        .expect("run rmap doctor focus open");
+    let open_report: serde_json::Value =
+        serde_json::from_slice(&open_output.stdout).expect("valid doctor json");
+    let open_findings = open_report["findings"].as_array().expect("findings array");
+    assert!(
+        open_findings
+            .iter()
+            .all(|finding| finding["kind"] != "focus_phase_closed"),
+        "open focus phase should not be flagged:\n{open_report}"
+    );
 }
 
 // ---------------------------------------------------------------------------
