@@ -348,7 +348,7 @@
       "id": 9,
       "phase": 6,
       "bundle": "html_portfolio",
-      "status": "in_progress",
+      "status": "pending",
       "title": "rmap render --html --multi portfolio view",
       "scores": {
         "d": 6,
@@ -1122,7 +1122,7 @@
       "id": 32,
       "phase": 15,
       "bundle": "doctor_state_drift",
-      "status": "in_progress",
+      "status": "pending",
       "title": "rmap doctor: milestone status drift advisories",
       "scores": {
         "d": 2,
