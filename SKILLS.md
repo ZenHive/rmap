@@ -359,7 +359,19 @@ Adding fields to `schema::Task` is additive (safe); renaming or removing a field
 
 ## Delegation
 
-`rmap delegate <id> --to claude|codex|cursor|grok|antigravity|pi|droid` emits a paste-ready Markdown prompt: title, body, in-repo dep context, acceptance criteria, plus a per-agent environment-notes footer tailored to that agent's runtime constraints (Codex sandbox / Cursor full-network / Claude·Grok·Pi·Droid local / Antigravity local-with-cwd-caveat). Pure read — never calls Linear/GitHub/Slack.
+`rmap delegate <id> [--to claude|codex|cursor|grok|antigravity|pi|droid]` emits a paste-ready Markdown prompt: title, body, in-repo dep context, acceptance criteria, plus a per-agent environment-notes footer tailored to that agent's runtime constraints (Codex sandbox / Cursor full-network / Claude·Grok·Pi·Droid local / Antigravity local-with-cwd-caveat). Pure read — never calls Linear/GitHub/Slack.
+
+`--to` is optional. Without it, the prompt targets the task's stored `assignee` — the agent-routing field; explicit `--to` is the render-time override (the prompt then carries a `Stored assignee: ... (overridden)` bullet). A task with no `assignee`, or with `assignee = "human"`, requires an explicit `--to` — exit 1 otherwise.
+
+```bash
+rmap delegate 3
+# exit: 0
+```
+
+```bash
+rmap delegate 4
+# exit: 1
+```
 
 ```bash
 rmap delegate 3 --to claude

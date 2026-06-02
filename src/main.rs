@@ -6,7 +6,7 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use notify::Watcher;
 use rmap::bundles::{BundleFilter, bundles_json, format_bundles_human, list_bundles};
-use rmap::delegate::{DelegateTarget, format_delegate_prompt};
+use rmap::delegate::{DelegateTarget, format_delegate_prompt, resolve_target};
 use rmap::diff::{diff_toml, format_diff};
 use rmap::doctor::{DoctorReport, DoctorThresholds};
 use rmap::export::{
@@ -223,8 +223,9 @@ enum Commands {
     },
     Delegate {
         id: String,
+        /// Target agent. Optional — defaults to the task's stored `assignee`.
         #[arg(long)]
-        to: DelegateTarget,
+        to: Option<DelegateTarget>,
         #[arg(long)]
         tasks_path: Option<PathBuf>,
     },
@@ -649,7 +650,10 @@ fn run() -> Result<ExitCode> {
         Commands::Delegate { id, to, tasks_path } => {
             let paths = resolve_paths(tasks_path, None, None)?;
             let tasks = validate_tasks_file(&paths.tasks_path)?;
-            let prompt = format_delegate_prompt(&tasks, &id, to)
+            let task =
+                find_task(&tasks, &id).ok_or_else(|| anyhow::anyhow!("task {id} not found"))?;
+            let target = resolve_target(task, to).map_err(anyhow::Error::msg)?;
+            let prompt = format_delegate_prompt(&tasks, &id, target)
                 .ok_or_else(|| anyhow::anyhow!("task {id} not found"))?;
 
             print!("{prompt}");

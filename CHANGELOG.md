@@ -19,6 +19,13 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## Phase 15 — Schema extensions
 
+### Phase 15 Task 40: Formalize `assignee` as the agent-routing field — `delegate --to` defaults to it (agent_routing bundle)
+
+**What was done:**
+- `rmap delegate <id> --to` is now optional. New pure resolver `delegate::resolve_target`: explicit `--to` always wins (override bullet unchanged); without it, the prompt targets the task's stored `assignee` — the validated agent-routing field. A task with no `assignee` (or `assignee = "human"`, which is valid but not delegatable) exits 1 with pass-`--to` guidance; both error strings are agent-grep contract.
+- This formalizes the field split consumers route on: **`assignee`** = which agent executes (validated), **`model`** = which LLM that agent runs (free-text pin), **`delegate --to`** = explicit render-time override. Closes the harness workaround of overloading `model` with agent names (`"codex"`/`"cursor"`) for cron-poller routing — harness's `RoadmapPoller` switches to `--fields id,assignee,markers` + assignee-based routing as the first consumer (companion change in `../harness`).
+- Docs synced same-commit: `SKILLS.md` (delegate section + no-`--to` / exit-1 examples gated by `skills_smoke`), repo `CLAUDE.md` (delegate invariant + harness consumer section), `~/.claude/includes/rmap.md` (assignee as orchestration fact, three-way field split, command table). New tests `delegate_without_to_defaults_to_assignee`, `delegate_without_to_and_no_assignee_exits_one`, `delegate_without_to_and_human_assignee_exits_one` in `tests/cli.rs`.
+
 ### Phase 15 Task 39: Widen delegate targets + assignee set — add `grok`, `antigravity`, `pi`, `droid` (delegate_targets bundle)
 
 **What was done:**

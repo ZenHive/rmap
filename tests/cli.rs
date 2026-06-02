@@ -1211,6 +1211,103 @@ fn delegate_accepts_new_local_agents_with_footers() {
 }
 
 #[test]
+fn delegate_without_to_defaults_to_assignee() {
+    // `--to` is optional: the task's stored `assignee` is the routing intent.
+    // Task 75 carries `assignee = "codex"`, so the prompt targets codex and the
+    // override bullet must NOT appear (target and assignee agree).
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("75")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap delegate without --to");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("- Target: codex"), "{stdout}");
+    assert!(
+        !stdout.contains("Stored assignee"),
+        "no override bullet when target comes from assignee; stdout: {stdout}"
+    );
+}
+
+#[test]
+fn delegate_without_to_and_no_assignee_exits_one() {
+    // Task 74 has no `assignee` — there is no routing intent to honor.
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("74")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap delegate without --to or assignee");
+
+    assert_eq!(output.status.code(), Some(1), "expected resolver error");
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("task 74 has no assignee; pass --to <agent>"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn delegate_without_to_and_human_assignee_exits_one() {
+    // `human` is a valid assignee but not a delegatable target — delegating
+    // human-assigned work requires an explicit `--to` override.
+    let tasks = r#"
+schema_version = 2
+project = "ccxt_extract"
+default_branch = "development"
+
+[phases.12]
+name = "Response parsing contract"
+order = 12
+status = "pending"
+
+[bundles.orders]
+phase = 12
+order = 1
+description = "Order normalization tasks"
+
+[[task]]
+id = 75
+phase = 12
+bundle = "orders"
+status = "pending"
+title = "parseOrder field map"
+scores = { d = 5, b = 9, u = 9 }
+assignee = "human"
+"#;
+    let path = write_temp_tasks("human_assignee_tasks.toml", tasks);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("75")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap delegate on human-assigned task");
+
+    assert_eq!(output.status.code(), Some(1), "expected resolver error");
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("task 75 is assigned to human; pass --to <agent> to delegate anyway"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn validate_accepts_new_agent_assignees() {
     // The four added agents are now valid `assignee` values.
     for agent in ["grok", "antigravity", "pi", "droid"] {

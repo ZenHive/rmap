@@ -48,6 +48,35 @@ impl std::fmt::Display for DelegateTarget {
     }
 }
 
+/// Resolve which agent a delegate prompt targets.
+///
+/// Explicit `--to` always wins. Without it, the task's stored `assignee` is the
+/// routing intent — `assignee` is THE agent-routing field; `--to` is the
+/// render-time override. Errors guide the caller to pass `--to`: a task with no
+/// assignee carries no routing intent to honor, and `human` is not a delegatable
+/// target (delegating human-assigned work needs an explicit override).
+pub fn resolve_target(task: &Task, to: Option<DelegateTarget>) -> Result<DelegateTarget, String> {
+    if let Some(target) = to {
+        return Ok(target);
+    }
+    match task.assignee.as_deref() {
+        None => Err(format!(
+            "task {} has no assignee; pass --to <agent>",
+            task.id
+        )),
+        Some("human") => Err(format!(
+            "task {} is assigned to human; pass --to <agent> to delegate anyway",
+            task.id
+        )),
+        Some(assignee) => DelegateTarget::from_str(assignee, true).map_err(|_| {
+            format!(
+                "task {} assignee {assignee:?} is not a delegate target; pass --to <agent>",
+                task.id
+            )
+        }),
+    }
+}
+
 pub fn format_delegate_prompt(tasks: &Tasks, id: &str, target: DelegateTarget) -> Option<String> {
     let task = find_task(tasks, id)?;
     Some(format_prompt(tasks, task, target))

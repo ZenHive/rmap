@@ -114,6 +114,7 @@ Easy to violate without breaking tests immediately. The "why" lives in source do
 - **Render-row `⛔ {blocked_reason}` segment is conditional + trailing**: appended after the tier glyph, emitted only when `task.status == "blocked"` and `blocked_reason` is non-empty. Non-blocked rows (and blocked rows are the only ones affected) render byte-identically otherwise — additive, golden-guarded by `tests/golden/mermaid_block`.
 - **Eff tier glyph is centralized in `scoring::tier_glyph`** (`>=2.0 🎯 / >=1.5 🚀 / >=1.0 📋 / else ⚠️`). NEVER fold into `format_efficiency` — JSON payloads must stay numeric.
 - **`rmap delegate`'s seven canonical `##` sections** (`Context` → `Task` → `Acceptance criteria` → `Out of scope` → `Files to modify` → `Scoring` → `Environment notes`) and the `[D:_/B:_/U:_ → Eff:_] <glyph>` Scoring shape are locked by `emits_canonical_section_order_with_distinguishing_line`.
+- **`rmap delegate --to` is optional; `assignee` is the routing default.** `delegate::resolve_target` resolves the target: explicit `--to` always wins (and renders the `Stored assignee: ... (overridden)` bullet when it differs); without it the task's `assignee` IS the target. No assignee → exit 1 `has no assignee; pass --to <agent>`; `assignee = "human"` → exit 1 `is assigned to human; pass --to <agent> to delegate anyway`. Both error strings are agent-grep contract. `assignee` is THE agent-routing field — consumers route on it, never on `model` (free-text LLM id) or the `cx`/`csr` markers (filter tags).
 - **`rmap delegate`'s per-agent footer mirrors `~/.claude/includes/cloud-agent-environments.md`** — sync manually when the skill changes.
 - **`rmap diff --against` defaults to `current.default_branch`** — never hardcode `"main"`.
 - **`rmap diff --verbose` is additive.** Non-verbose output stays byte-identical to pre-11b. Whitelist members in `TASK_VERBOSE_WHITELIST` / `METADATA_VERBOSE_WHITELIST` are part of the contract.
@@ -152,7 +153,7 @@ The "consumers" the agent contract above protects are not hypothetical — the p
 **The shell-out surface (`../harness/lib/harness/roadmap.ex`, `Harness.Roadmap`).** Harness never parses `tasks.toml` itself; it shells out to the installed `rmap` binary and treats stdout as API. Every call passes an explicit `--tasks-path`; success is gated on JSON-decode (or non-empty delegate output), not exit 0. Commands consumed:
 
 - `rmap next --json` · `rmap show <id> --json` · `rmap list --json [--status S]` · `rmap next-bundle --json` — browse/ingest
-- `rmap ready --dispatchable --fields id,model,markers` — the cron poller's autonomous selection surface (MCP tool `roadmap__ready`)
+- `rmap ready --dispatchable --fields id,assignee,markers` — the cron poller's autonomous selection surface (MCP tool `roadmap__ready`); the poller routes each task on its `assignee`
 - `rmap delegate <id> --to <agent>` — the verbatim output IS the prompt dispatched to the agent
 - Write-backs: `rmap status <id> in_progress` (on dispatch), `rmap status <id> done --verified --shipped-in <sha>` (lander, after a green verdict + push), `rmap status <id> blocked --reason "..."` (terminal sink)
 

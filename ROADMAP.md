@@ -44,6 +44,7 @@ gantt
     Upgrade schemars 0.8 → 0.9+ for JSON Schema draft 2020-12 :done, 2026-05-23, 2026-05-23
     Task outcome layer — delivered_by + verified fields :done, 2026-05-23, 2026-05-23
     rmap validate does not detect duplicate task ids :done, 2026-05-23, 2026-05-23
+    Formalize assignee as the agent-routing field— delegate --to defaults to it :active, 2026-06-02, 2026-06-02
 ```
 <!-- MERMAID:END -->
 
@@ -115,4 +116,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 37 | ✅ | 🎁 **agent_dispatch** · touches — advisory collision-prediction field [D:3/B:6/U:8 → Eff:2.33] 🎯 |
 | Task 38 | ✅ | 🎁 **agent_dispatch** · handbuild marker + --dispatchable + --fields JSON projection [D:3/B:6/U:7 → Eff:2.17] 🎯 |
 | Task 39 | ✅ | 🎁 **delegate_targets** · Widen delegate targets + assignee set: add grok, antigravity, pi, droid [D:3/B:6/U:7 → Eff:2.17] 🎯 |
+| Task 40 | 🔄 | 🎁 **agent_routing** · Formalize assignee as the agent-routing field; delegate --to defaults to it [D:3/B:7/U:8 → Eff:2.5] 🎯 |
 <!-- TASKS:END -->
