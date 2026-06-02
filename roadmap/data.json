@@ -361,13 +361,16 @@
       "depends_on": [
         8
       ],
-      "assignee": "grok",
+      "assignee": "claude",
+      "model": "claude-opus-4-8",
       "acceptance_criteria": [
         "rmap render --html --multi P1 P2 … accepts project roots or data.json paths",
         "Output: roadmap/dist/portfolio.html (or --out <path>)",
         "Repos-as-rows layout with cross-repo blocker arrows from the cross_repo field",
-        "Click a repo row expands inline to single-project layout"
+        "Click a repo row expands inline to single-project layout",
+        "Existing single-project --html view (templates/roadmap.html.j2) restyled with the same frontend-design-skill design system — one coherent visual language across both views"
       ],
+      "body": "Implement the multi-project portfolio HTML view AND restyle the existing single-project --html view in the same pass. The implementing agent (Claude Opus) MUST use the frontend-design skill (frontend-design:frontend-design) for all HTML/CSS layout work — distinctive, production-grade visual design, not generic AI aesthetics. Both views share one design system; the existing data-island and data-* attribute contracts must remain intact.\n",
       "started_at": "2026-06-02",
       "scored_at": "2026-05-13",
       "cross_repo": []
