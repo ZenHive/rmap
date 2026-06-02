@@ -443,6 +443,13 @@ rmap render --html
 # exit: 0
 ```
 
+`--html --multi P1 P2 …` renders a multi-project portfolio view instead — each value is a project root, a `tasks.toml` path, or a `data.json` path. Output goes to `roadmap/dist/portfolio.html` under the current project (override with `--out <path>`, print with `--stdout`). Repos render as expandable rows; cross-repo `blocks` / `blocked_by` / `related` relations become repo→repo arrows, and an aggregate `rmap-data` island (`{"projects":[…]}`) plus an `rmap-relations` edge island carry the structured data for agents.
+
+```bash
+rmap render --html --multi .
+# exit: 0
+```
+
 ### Marker conventions
 
 Three marker pairs live inside `ROADMAP.md`. Bytes outside these markers are preserved exactly — hand-edited prose, headings, and blank lines all round-trip byte-equal.

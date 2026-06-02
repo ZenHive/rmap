@@ -1,0 +1,81 @@
+{# Shared minijinja macros for both the single-project and portfolio views.
+   Registered in the env as "components.html" and imported by each page. The
+   macros are duck-typed on field names, so they render either a borrowed
+   single-project view struct or an owned portfolio view struct interchangeably,
+   as long as the field names match. #}
+
+{% macro task_card(task) %}
+<article class="task-card status-{{ task.status }}"
+  data-id="{{ task.id }}"
+  data-status="{{ task.status }}"
+  data-eff="{{ task.eff }}"
+  data-markers="{{ task.markers | join(' ') }}"
+  data-depends-on="{{ task.depends_on }}"
+  data-phase="{{ task.phase }}">
+  <span class="task-eff">{{ task.tier_glyph }} Eff:{{ task.eff_fmt }}</span>
+  <span class="task-id">#{{ task.id }}</span>
+  <span class="task-title">{{ task.title }}</span>
+  {% if task.markers %}
+  <div class="task-markers">
+    {% for m in task.markers %}<span class="marker-chip">{{ m }}</span>{% endfor %}
+  </div>
+  {% endif %}
+</article>
+{% endmacro %}
+
+{% macro phase_section(phase) %}
+<section class="phase" id="phase-{{ phase.number }}" data-phase-status="{{ phase.status }}">
+  <h2 class="phase-header">
+    <span>Phase {{ phase.number }}: {{ phase.name }}</span>
+    <span class="phase-status phase-status-{{ phase.status }}">{{ phase.status | replace("_", " ") }}</span>
+    <span class="phase-progress-text">{{ phase.done }}/{{ phase.total }} done</span>
+    <span class="phase-progress-bar" aria-hidden="true">
+      <span class="phase-progress-fill" style="width:{{ phase.pct }}%"></span>
+    </span>
+  </h2>
+  <div class="status-columns">
+    <div class="col col-pending">
+      <h3>Pending</h3>
+      {% for task in phase.pending %}{{ task_card(task) }}{% endfor %}
+    </div>
+    <div class="col col-in-progress">
+      <h3>In Progress</h3>
+      {% for task in phase.in_progress %}{{ task_card(task) }}{% endfor %}
+    </div>
+    <div class="col col-done">
+      <h3>Done</h3>
+      {% for task in phase.done_tasks %}{{ task_card(task) }}{% endfor %}
+    </div>
+  </div>
+</section>
+{% endmacro %}
+
+{% macro dep_graph(dag, gid) %}
+<section class="dep-graph-section">
+  <details>
+    <summary>Dependency graph ({{ dag.nodes | length }} tasks)</summary>
+    <svg class="dep-graph" width="{{ dag.svg_width }}" height="{{ dag.svg_height }}"
+      viewBox="0 0 {{ dag.svg_width }} {{ dag.svg_height }}" role="img"
+      aria-label="Task dependency graph">
+      <defs>
+        <marker id="arrow-{{ gid }}" markerWidth="8" markerHeight="8" refX="7" refY="3"
+          orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L8,3 z" fill="currentColor"></path>
+        </marker>
+      </defs>
+      {% for edge in dag.edges %}
+      <line class="dag-edge" x1="{{ edge.x1 }}" y1="{{ edge.y1 }}" x2="{{ edge.x2 }}" y2="{{ edge.y2 }}"
+        marker-end="url(#arrow-{{ gid }})"></line>
+      {% endfor %}
+      {% for node in dag.nodes %}
+      <g class="dag-node status-{{ node.status }}" data-id="{{ node.id }}">
+        <rect class="dag-rect" x="{{ node.x }}" y="{{ node.y }}"
+          width="{{ node.w }}" height="{{ node.h }}" rx="5"></rect>
+        <text class="dag-label" x="{{ node.label_x }}" y="{{ node.label_y }}"
+          text-anchor="middle">#{{ node.id }} {{ node.label }}</text>
+      </g>
+      {% endfor %}
+    </svg>
+  </details>
+</section>
+{% endmacro %}

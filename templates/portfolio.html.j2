@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<!--
+  rmap render --html --multi — self-contained static portfolio view.
+  Repos-as-rows; click a row to expand its full single-project layout inline.
+  Cross-repo relations (from each task's cross_repo field) are drawn as arrows
+  in the left gutter, recomputed by JS after layout/expansion.
+  Agents: parse the rmap-data JSON island near the end (an array of every
+  project's exported envelope); do not scrape the DOM.
+-->
+<html lang="en">
+{% import "components.html" as c %}
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portfolio — {{ repos | length }} repos</title>
+<style>{{ styles | safe }}</style>
+</head>
+<body>
+
+<header class="toolbar">
+  <span class="brand">rmap portfolio</span>
+  <input id="repo-search" type="search" placeholder="filter repos…"
+    style="font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--ink-700);color:var(--text);">
+  <span class="filter-label">status</span>
+  <button class="status-toggle active" data-toggle-status="pending">⏸ pending</button>
+  <button class="status-toggle active" data-toggle-status="in_progress">→ in progress</button>
+  <button class="status-toggle active" data-toggle-status="blocked">⛔ blocked</button>
+  <button class="status-toggle active" data-toggle-status="done">✓ done</button>
+  <button id="expand-all" class="chip">expand all</button>
+</header>
+
+<div class="portfolio-head">
+  <h1 class="portfolio-title">roadmap <span class="accent">portfolio</span></h1>
+  <p class="portfolio-sub">{{ repos | length }} repos · cross-repo relations drawn in the gutter · click a row to expand</p>
+  <div class="portfolio-metrics">
+    <div class="metric"><span class="num">{{ metrics.repo_count }}</span><span class="lbl">repos</span></div>
+    <div class="metric"><span class="num">{{ metrics.total_tasks }}</span><span class="lbl">tasks</span></div>
+    <div class="metric"><span class="num">{{ metrics.done }}</span><span class="lbl">done</span></div>
+    <div class="metric"><span class="num">{{ metrics.in_progress }}</span><span class="lbl">in progress</span></div>
+    <div class="metric"><span class="num">{{ metrics.blocked }}</span><span class="lbl">blocked</span></div>
+    <div class="metric"><span class="num">{{ metrics.pct }}%</span><span class="lbl">complete</span></div>
+  </div>
+</div>
+
+<div class="repos" id="repos">
+  <svg class="relations-overlay" id="relations-overlay" aria-hidden="true">
+    <defs>
+      <marker id="rel-arrow" markerWidth="9" markerHeight="9" refX="6" refY="3"
+        orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L0,6 L8,3 z" fill="context-stroke"></path>
+      </marker>
+    </defs>
+  </svg>
+
+  {% for repo in repos %}
+  <section class="repo-row" id="repo-{{ repo.slug }}" data-slug="{{ repo.slug }}"
+    data-name="{{ repo.project }}" data-has-rel="{{ repo.has_rel }}">
+    <span class="repo-anchor" aria-hidden="true"></span>
+    <div class="repo-row-header" role="button" tabindex="0" aria-expanded="false">
+      <span class="repo-caret">▸</span>
+      <span class="repo-name">{{ repo.project }}<span class="repo-path">{{ repo.path }}</span></span>
+      <span class="repo-mini-bar" aria-hidden="true">
+        <span class="seg-done" style="width:{{ repo.pct_done }}%"></span>
+        <span class="seg-in_progress" style="width:{{ repo.pct_in_progress }}%"></span>
+        <span class="seg-blocked" style="width:{{ repo.pct_blocked }}%"></span>
+        <span class="seg-pending" style="width:{{ repo.pct_pending }}%"></span>
+      </span>
+      <span class="repo-counts">
+        <span><b>{{ repo.done }}</b>/{{ repo.total }} done</span>
+        <span><b>{{ repo.in_progress }}</b> wip</span>
+        <span><b>{{ repo.blocked }}</b> blocked</span>
+      </span>
+    </div>
+    {% if repo.rel_tags %}
+    <div class="repo-rel-tags">
+      {% for tag in repo.rel_tags %}
+      <span class="rel-tag {{ tag.relation }}">{{ tag.relation }} #{{ tag.task_id }} @{{ tag.repo }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="repo-detail">
+      {% for phase in repo.phases %}{{ c.phase_section(phase) }}{% endfor %}
+      {% if repo.phases %}{{ c.dep_graph(repo.dag, repo.slug) }}{% else %}<div class="repo-empty">no phases declared</div>{% endif %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+
+<footer>Rendered by rmap on {{ today }} — static portfolio snapshot, not live. Each project's tasks.toml stays canonical.</footer>
+
+<script id="rmap-data" type="application/json">{{ data_island | safe }}</script>
+<script id="rmap-relations" type="application/json">{{ relations_json | safe }}</script>
+
+<script>
+(function () {
+  var repos = document.getElementById("repos");
+  var overlay = document.getElementById("relations-overlay");
+  var edges = JSON.parse(document.getElementById("rmap-relations").textContent || "[]");
+  var activeStatuses = { pending: true, in_progress: true, blocked: true, done: true };
+
+  // Status filter — toggles task cards across every expanded repo.
+  function applyStatus() {
+    document.querySelectorAll(".task-card").forEach(function (card) {
+      card.classList.toggle("hidden", !activeStatuses[card.dataset.status]);
+    });
+  }
+  document.querySelectorAll(".status-toggle").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var st = btn.dataset.toggleStatus;
+      activeStatuses[st] = !activeStatuses[st];
+      btn.classList.toggle("active", activeStatuses[st]);
+      applyStatus();
+    });
+  });
+
+  // Repo search.
+  document.getElementById("repo-search").addEventListener("input", function (e) {
+    var q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll(".repo-row").forEach(function (row) {
+      var name = (row.dataset.name || "").toLowerCase();
+      row.style.display = (!q || name.indexOf(q) !== -1) ? "" : "none";
+    });
+    drawEdges();
+  });
+
+  // Expand / collapse a row.
+  function toggleRow(row) {
+    row.classList.toggle("open");
+    var hdr = row.querySelector(".repo-row-header");
+    if (hdr) hdr.setAttribute("aria-expanded", row.classList.contains("open"));
+    applyStatus();
+    drawEdges();
+  }
+  document.querySelectorAll(".repo-row-header").forEach(function (hdr) {
+    var row = hdr.closest(".repo-row");
+    hdr.addEventListener("click", function () { toggleRow(row); });
+    hdr.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleRow(row); }
+    });
+  });
+
+  var allOpen = false;
+  var expandBtn = document.getElementById("expand-all");
+  if (expandBtn) {
+    expandBtn.addEventListener("click", function () {
+      allOpen = !allOpen;
+      document.querySelectorAll(".repo-row").forEach(function (row) {
+        row.classList.toggle("open", allOpen);
+        var hdr = row.querySelector(".repo-row-header");
+        if (hdr) hdr.setAttribute("aria-expanded", allOpen);
+      });
+      expandBtn.textContent = allOpen ? "collapse all" : "expand all";
+      expandBtn.classList.toggle("active", allOpen);
+      applyStatus();
+      drawEdges();
+    });
+  }
+
+  // Draw cross-repo relation arrows in the left gutter. Anchors are the
+  // per-row connector dots; positions are read after layout so expansion is
+  // handled correctly.
+  function anchorPoint(slug) {
+    var row = document.getElementById("repo-" + slug);
+    if (!row || row.style.display === "none") return null;
+    var a = row.querySelector(".repo-anchor");
+    if (!a) return null;
+    var box = a.getBoundingClientRect();
+    var origin = repos.getBoundingClientRect();
+    return { x: box.left - origin.left, y: box.top - origin.top + box.height / 2 };
+  }
+  function drawEdges() {
+    while (overlay.lastChild && overlay.lastChild.tagName !== "defs") {
+      overlay.removeChild(overlay.lastChild);
+    }
+    overlay.setAttribute("width", repos.scrollWidth);
+    overlay.setAttribute("height", repos.scrollHeight);
+    edges.forEach(function (e) {
+      var s = anchorPoint(e.source), t = anchorPoint(e.target);
+      if (!s || !t) return;
+      var bend = Math.max(18, Math.abs(t.y - s.y) * 0.18);
+      var cx = Math.min(s.x, t.x) - bend;
+      var d = "M" + s.x + "," + s.y + " C" + cx + "," + s.y + " " + cx + "," + t.y + " " + t.x + "," + t.y;
+      var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", d);
+      path.setAttribute("class", "rel-edge " + e.relation);
+      path.setAttribute("marker-end", "url(#rel-arrow)");
+      overlay.appendChild(path);
+    });
+  }
+
+  window.addEventListener("resize", drawEdges);
+  drawEdges();
+})();
+</script>
+
+</body>
+</html>

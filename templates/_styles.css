@@ -1,0 +1,567 @@
+/* rmap static HTML — shared "engineering blueprint console" design system.
+   Injected verbatim (not template-parsed) into both roadmap.html.j2 (single
+   project) and portfolio.html.j2 (multi-project) so the two views speak one
+   visual language. Self-contained: no CDN, no web fonts, offline-clean.
+   Dark on screen, forced light under @media print. */
+
+:root {
+  /* Ink scale — deep cool charcoal, blueprint-paper feel. */
+  --ink-900: #0a0e16;
+  --ink-850: #0e131d;
+  --ink-800: #121826;
+  --ink-750: #161d2d;
+  --ink-700: #1b2435;
+  --ink-600: #243049;
+  --line: rgba(110, 231, 255, 0.07);
+  --line-strong: rgba(148, 163, 184, 0.16);
+
+  --text: #e8eef6;
+  --muted: #8a98ad;
+  --faint: #5c6b80;
+
+  /* Signature accent — phosphor cyan. Deliberately NOT a status colour. */
+  --accent: #5eead4;
+  --accent-dim: #2dd4bf;
+  --accent-glow: rgba(94, 234, 212, 0.18);
+
+  /* Status palette — vivid against ink, kept on the historic var names so the
+     template class hooks (.status-done, --status-done, …) don't churn. */
+  --status-done: #34d399;
+  --status-in_progress: #fbbf24;
+  --status-pending: #94a3b8;
+  --status-blocked: #fb7185;
+
+  --bg: var(--ink-900);
+  --card-bg: var(--ink-750);
+  --panel-bg: var(--ink-800);
+  --border: var(--line-strong);
+  --radius: 10px;
+
+  --font-mono: "JetBrains Mono", "SFMono-Regular", "SF Mono", "Fira Code",
+    "Cascadia Code", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-sans: ui-sans-serif, "SF Pro Text", "Segoe UI", system-ui,
+    -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
+    0 8px 24px -16px rgba(0, 0, 0, 0.8);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+/* Blueprint grid + a single soft glow anchored top-centre. The grid fades out
+   toward the bottom via a mask so long pages don't read as graph paper. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 34px 34px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 80%);
+  mask-image: linear-gradient(180deg, #000 0%, transparent 80%);
+  pointer-events: none;
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    900px 420px at 50% -120px,
+    var(--accent-glow),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+a { color: var(--accent); text-decoration: none; }
+
+/* ── Control bar (single-project filter bar + portfolio toolbar) ─────────── */
+#filter-bar,
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 20px;
+  background: color-mix(in srgb, var(--ink-850) 86%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.brand {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+.filter-label {
+  color: var(--faint);
+  margin-left: 12px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.chip, .status-toggle {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--ink-700);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.14s, border-color 0.14s, background 0.14s, box-shadow 0.14s;
+}
+.chip:hover, .status-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent-dim);
+}
+.chip.active, .status-toggle.active {
+  background: var(--accent);
+  color: var(--ink-900);
+  border-color: var(--accent);
+  box-shadow: 0 0 14px -2px var(--accent-glow);
+  font-weight: 600;
+}
+
+main { padding: 28px 22px 64px; max-width: 1320px; margin: 0 auto; }
+
+/* ── Phase section ──────────────────────────────────────────────────────── */
+.phase { margin-bottom: 36px; }
+.phase[data-phase-status="done"] { opacity: 0.55; transition: opacity 0.2s; }
+.phase[data-phase-status="done"]:hover { opacity: 1; }
+.phase-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.phase-header > span:first-child::before {
+  content: "//";
+  color: var(--accent);
+  font-family: var(--font-mono);
+  margin-right: 8px;
+  opacity: 0.6;
+}
+.phase-status {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: var(--ink-900);
+  background: var(--status-pending);
+}
+.phase-status-done { background: var(--status-done); }
+.phase-status-in_progress { background: var(--status-in_progress); }
+.phase-status-pending { background: var(--status-pending); color: var(--ink-900); }
+.phase-status-blocked { background: var(--status-blocked); }
+.phase-progress-text {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  font-family: var(--font-mono);
+}
+.phase-progress-bar {
+  flex: 1;
+  max-width: 220px;
+  height: 6px;
+  background: var(--ink-700);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.phase-progress-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-dim), var(--status-done));
+  box-shadow: 0 0 10px -2px var(--accent-glow);
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.status-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.col h3 {
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--faint);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.col h3::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.col-pending h3::before { background: var(--status-pending); }
+.col-in-progress h3::before {
+  background: var(--status-in_progress);
+  box-shadow: 0 0 8px var(--status-in_progress);
+}
+.col-done h3::before { background: var(--status-done); }
+
+/* ── Task card ──────────────────────────────────────────────────────────── */
+.task-card {
+  position: relative;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-pending);
+  border-radius: var(--radius);
+  padding: 11px 13px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+  animation: card-rise 0.5s both cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* Stagger the first dozen cards per column for a calm load cascade. */
+.col .task-card:nth-child(2) { animation-delay: 0.03s; }
+.col .task-card:nth-child(3) { animation-delay: 0.06s; }
+.col .task-card:nth-child(4) { animation-delay: 0.09s; }
+.col .task-card:nth-child(5) { animation-delay: 0.12s; }
+.col .task-card:nth-child(6) { animation-delay: 0.15s; }
+.col .task-card:nth-child(n+7) { animation-delay: 0.18s; }
+.task-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-dim);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 14px 30px -18px rgba(0, 0, 0, 0.9);
+}
+.task-card.status-done { border-left-color: var(--status-done); }
+.task-card.status-in_progress { border-left-color: var(--status-in_progress); }
+.task-card.status-pending { border-left-color: var(--status-pending); }
+.task-card.status-blocked { border-left-color: var(--status-blocked); }
+.task-card.hidden { display: none; }
+.task-id {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: 6px;
+  font-size: 12px;
+}
+.task-eff {
+  float: right;
+  color: var(--muted);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  background: var(--ink-800);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.task-title { font-size: 13.5px; }
+.task-markers { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 5px; }
+.marker-chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--ink-800));
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+
+/* ── Dependency graph ───────────────────────────────────────────────────── */
+.dep-graph-section { margin-top: 18px; }
+.dep-graph-section summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 8px 0;
+  list-style: none;
+}
+.dep-graph-section summary::before {
+  content: "▸ ";
+  color: var(--accent);
+}
+.dep-graph-section details[open] summary::before { content: "▾ "; }
+.dep-graph {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 8px;
+  max-width: 100%;
+  color: var(--faint); /* arrowhead markers resolve currentColor from here */
+}
+.dag-rect { fill: var(--ink-700); stroke: var(--status-pending); stroke-width: 1.5; }
+.dag-node.status-done .dag-rect { stroke: var(--status-done); }
+.dag-node.status-in_progress .dag-rect { stroke: var(--status-in_progress); }
+.dag-node.status-pending .dag-rect { stroke: var(--status-pending); }
+.dag-node.status-blocked .dag-rect { stroke: var(--status-blocked); }
+.dag-label { font-family: var(--font-mono); font-size: 11px; fill: var(--text); }
+.dag-edge { stroke: var(--faint); stroke-width: 1.5; }
+
+footer {
+  padding: 22px;
+  color: var(--faint);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  text-align: center;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Portfolio: page head ───────────────────────────────────────────────── */
+.portfolio-head {
+  padding: 40px 22px 24px;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+.portfolio-title {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+.portfolio-title .accent { color: var(--accent); }
+.portfolio-sub {
+  color: var(--muted);
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+.portfolio-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 22px;
+}
+.metric {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 18px;
+  min-width: 96px;
+}
+.metric .num {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  display: block;
+  line-height: 1.1;
+}
+.metric .lbl {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--faint);
+}
+
+/* ── Portfolio: repos-as-rows ───────────────────────────────────────────── */
+.repos {
+  position: relative;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 8px 22px 64px;
+}
+/* SVG overlay that draws cross-repo relation arrows between rows. Sits in the
+   left gutter, pointer-transparent, recomputed by JS after layout/expansion. */
+.relations-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+  overflow: visible;
+}
+.rel-edge { fill: none; stroke-width: 1.6; opacity: 0.85; }
+.rel-edge.blocks { stroke: var(--status-blocked); }
+.rel-edge.related { stroke: var(--faint); stroke-dasharray: 4 4; }
+
+.repo-row {
+  position: relative;
+  margin: 0 0 12px 40px; /* 40px gutter reserved for the relations overlay */
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: border-color 0.14s;
+}
+.repo-row.open { border-color: var(--accent-dim); }
+.repo-row-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  cursor: pointer;
+  user-select: none;
+}
+.repo-row-header:hover { background: var(--ink-750); }
+/* Gutter connector anchor — the arrow endpoint for cross-repo relations. */
+.repo-anchor {
+  position: absolute;
+  left: -40px;
+  top: 28px;
+  width: 40px;
+  height: 2px;
+}
+.repo-anchor::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-600);
+  border: 1px solid var(--faint);
+}
+.repo-row[data-has-rel="1"] .repo-anchor::after {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+.repo-caret {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  transition: transform 0.2s;
+}
+.repo-row.open .repo-caret { transform: rotate(90deg); }
+.repo-name {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.repo-name .repo-path {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--faint);
+  letter-spacing: 0;
+}
+.repo-mini-bar {
+  display: flex;
+  height: 8px;
+  width: 200px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--ink-700);
+}
+.repo-mini-bar span { display: block; height: 100%; }
+.repo-mini-bar .seg-done { background: var(--status-done); }
+.repo-mini-bar .seg-in_progress { background: var(--status-in_progress); }
+.repo-mini-bar .seg-blocked { background: var(--status-blocked); }
+.repo-mini-bar .seg-pending { background: var(--ink-600); }
+.repo-counts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  gap: 12px;
+  white-space: nowrap;
+}
+.repo-counts b { color: var(--text); }
+.repo-rel-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 18px 14px;
+}
+.rel-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.rel-tag.blocks { color: var(--status-blocked); border-color: color-mix(in srgb, var(--status-blocked) 36%, transparent); }
+.rel-tag.blocked_by { color: var(--status-in_progress); border-color: color-mix(in srgb, var(--status-in_progress) 36%, transparent); }
+.rel-tag.related { color: var(--faint); }
+/* Expanding detail — collapsed by max-height, the single-project layout lives
+   inside. */
+.repo-detail {
+  display: none;
+  border-top: 1px solid var(--border);
+  padding: 8px 18px 18px;
+  background: var(--ink-850);
+}
+.repo-row.open .repo-detail { display: block; }
+.repo-detail .phase { margin-bottom: 22px; }
+.repo-detail .phase-header { font-size: 14px; }
+.repo-empty { color: var(--faint); font-family: var(--font-mono); font-size: 12px; padding: 8px 0; }
+
+@keyframes card-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto; }
+}
+
+/* ── Print: force a clean light document, drop the chrome ───────────────── */
+@media print {
+  body { background: #fff; color: #111; font-size: 11px; }
+  body::before, body::after { display: none; }
+  #filter-bar, .toolbar, .dep-graph-section, .relations-overlay { display: none; }
+  .phase-progress-bar, .repo-mini-bar { display: none; }
+  .phase[data-phase-status="done"] { opacity: 1; }
+  .portfolio-title, .brand, .repo-name, .task-id { color: #111; }
+  .metric, .repo-row, .repo-detail, .task-card {
+    background: #fff;
+    border: 1px solid #999;
+    box-shadow: none;
+  }
+  .task-card { border-left: 1px solid #999; break-inside: avoid; }
+  .repo-detail { display: block !important; }
+  .marker-chip { border-color: #999; color: #333; background: #fff; }
+  .task-card[data-status="done"] .task-title::before { content: "✓ "; }
+  .task-card[data-status="in_progress"] .task-title::before { content: "→ "; }
+  .task-card[data-status="pending"] .task-title::before { content: "⏸ "; }
+  .task-card[data-status="blocked"] .task-title::before { content: "⛔ "; }
+}

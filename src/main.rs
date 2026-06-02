@@ -28,7 +28,7 @@ use rmap::query::{
     TaskFilter, find_task, format_task, format_task_row, is_dispatchable, list_tasks,
 };
 use rmap::render::render_roadmap_str;
-use rmap::render_html::render_html_str;
+use rmap::render_html::{ProjectInput, render_html_str, render_portfolio_str};
 use rmap::schema::{Scores, Task, TaskId, Tasks};
 use rmap::schema_json::schema_json_str;
 use rmap::stale::{find_stale, parse_duration};
@@ -68,6 +68,16 @@ enum Commands {
         /// HTML instead of writing it.
         #[arg(long)]
         html: bool,
+        /// Render the multi-project portfolio view instead. Each value is a
+        /// project root or a `data.json` path; requires `--html`. Writes
+        /// `roadmap/dist/portfolio.html` (or `--out`). With `--stdout`, prints
+        /// the portfolio HTML.
+        #[arg(long, num_args = 1.., value_name = "PATH")]
+        multi: Vec<PathBuf>,
+        /// Output path for the portfolio HTML (default
+        /// `roadmap/dist/portfolio.html` under the current project root).
+        #[arg(long, value_name = "PATH")]
+        out: Option<PathBuf>,
     },
     /// Watch `roadmap/tasks.toml` and re-render `ROADMAP.md` + `roadmap/data.json`
     /// on every change. Foreground and blocking; stop with Ctrl-C.
@@ -461,9 +471,15 @@ fn run() -> Result<ExitCode> {
             dry,
             stdout,
             html,
+            multi,
+            out,
         } => {
-            let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
-            render(paths, dry, stdout, html)?;
+            if !multi.is_empty() {
+                render_portfolio_cmd(&multi, html, dry, stdout, out)?;
+            } else {
+                let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
+                render(paths, dry, stdout, html)?;
+            }
         }
         Commands::Watch {
             tasks_path,
@@ -906,6 +922,118 @@ fn write_html(paths: &ResolvedPaths, rendered_html: String) -> Result<()> {
     std::fs::write(&paths.html_path, rendered_html)
         .with_context(|| format!("write {}", paths.html_path.display()))?;
     Ok(())
+}
+
+/// `rmap render --multi P1 P2 …` — the portfolio view. Each path is a project
+/// root or a `data.json` path; both are normalized to the exported JSON
+/// envelope. Requires `--html`; default output is `roadmap/dist/portfolio.html`
+/// under the current project root (overridable with `--out`).
+fn render_portfolio_cmd(
+    inputs: &[PathBuf],
+    html: bool,
+    dry: bool,
+    stdout: bool,
+    out: Option<PathBuf>,
+) -> Result<()> {
+    if !html && !stdout {
+        bail!("--multi renders the portfolio HTML view; pass --html (or --stdout)");
+    }
+
+    let projects: Vec<ProjectInput> = inputs
+        .iter()
+        .map(|path| load_project_input(path))
+        .collect::<Result<_>>()?;
+
+    let rendered = render_portfolio_str(&projects, &today_iso())?;
+
+    if stdout {
+        print!("{rendered}");
+        return Ok(());
+    }
+
+    let out_path = match out {
+        Some(path) => path,
+        None => default_portfolio_path()?,
+    };
+
+    if dry {
+        println!("would write {}", out_path.display());
+        return Ok(());
+    }
+
+    if let Some(dir) = out_path.parent()
+        && !dir.as_os_str().is_empty()
+    {
+        std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
+    }
+    std::fs::write(&out_path, rendered).with_context(|| format!("write {}", out_path.display()))?;
+    println!("rendered {}", out_path.display());
+    Ok(())
+}
+
+/// Resolve one `--multi` argument to a project envelope. A directory or a
+/// `tasks.toml` path is validated and exported (canonical); a `data.json` path
+/// is read verbatim; a directory with no `tasks.toml` falls back to its
+/// `roadmap/data.json`.
+fn load_project_input(path: &std::path::Path) -> Result<ProjectInput> {
+    let display = path.display().to_string();
+
+    let from_tasks = |tasks_path: &std::path::Path| -> Result<ProjectInput> {
+        let tasks = validate_tasks_file(tasks_path)?;
+        let json = rmap::export::export_compact_json_str(&tasks)
+            .with_context(|| format!("export {}", tasks_path.display()))?;
+        Ok(ProjectInput {
+            label: tasks.project.clone(),
+            path_display: display.clone(),
+            data_json: json,
+        })
+    };
+    let from_data_json = |data_path: &std::path::Path| -> Result<ProjectInput> {
+        let json = std::fs::read_to_string(data_path)
+            .with_context(|| format!("read {}", data_path.display()))?;
+        Ok(ProjectInput {
+            label: display.clone(),
+            path_display: display.clone(),
+            data_json: json,
+        })
+    };
+
+    if path.is_dir() {
+        let tasks_path = path.join("roadmap/tasks.toml");
+        if tasks_path.is_file() {
+            return from_tasks(&tasks_path);
+        }
+        let data_path = path.join("roadmap/data.json");
+        if data_path.is_file() {
+            return from_data_json(&data_path);
+        }
+        bail!(
+            "no roadmap/tasks.toml or roadmap/data.json under {}",
+            display
+        );
+    }
+
+    match path.file_name().and_then(|n| n.to_str()) {
+        Some("tasks.toml") => from_tasks(path),
+        _ if path.extension().and_then(|e| e.to_str()) == Some("json") => from_data_json(path),
+        _ => bail!(
+            "{} is not a project root, tasks.toml, or data.json path",
+            display
+        ),
+    }
+}
+
+/// Default portfolio output: `roadmap/dist/portfolio.html` under the current
+/// project root, falling back to a cwd-relative path when not inside a project.
+fn default_portfolio_path() -> Result<PathBuf> {
+    match resolve_paths(None, None, None) {
+        Ok(paths) => Ok(paths
+            .html_path
+            .parent()
+            .unwrap_or(std::path::Path::new("roadmap/dist"))
+            .join("portfolio.html")),
+        Err(_) => Ok(PathBuf::from("roadmap/dist/portfolio.html")),
+    }
 }
 
 /// Which outputs one `rerender_if_changed` pass wrote. `report_render` turns

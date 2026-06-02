@@ -6,6 +6,14 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Task 9: `rmap render --html --multi` portfolio view + single-view restyle
+
+**What was done:**
+- New `--multi <PATH>...` flag on `rmap render` (requires `--html`): renders a multi-project portfolio HTML view. Each input is a project root, a `tasks.toml` path, or a `data.json` path; output defaults to `roadmap/dist/portfolio.html` (override with `--out`, print with `--stdout`).
+- Repos render as expandable rows (click to expand inline to the full single-project layout); cross-repo `blocks` / `blocked_by` / `related` relations resolve into repo→repo edges carried in an `rmap-relations` JSON island and drawn as gutter arrows.
+- The existing single-project `--html` view was restyled onto a shared design system: templates split into `roadmap.html.j2` / `portfolio.html.j2` over shared `_components.html.j2` macros and one `_styles.css`. The `rmap-data` island and all `data-*` selector contracts are unchanged.
+- `topo.rs` grew `compute_layers_from_edges` so the portfolio's JSON-loaded tasks reuse the same longest-path DAG layering.
+
 ### Task 32: `rmap doctor` milestone status drift advisories
 
 **What was done:**

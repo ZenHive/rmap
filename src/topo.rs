@@ -17,34 +17,49 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::schema::Task;
+use crate::schema::{Task, TaskId};
 
 /// Longest-path layering: `layer(n) = 0` when `n` has no in-repo dep, else
 /// `max(layer(dep)) + 1`. Memoized; safe on an acyclic graph and cycle-guarded
 /// otherwise. Keyed by `task.id.to_string()` (canonical `TaskId` form).
 pub fn compute_layers(tasks: &[&Task]) -> HashMap<String, usize> {
-    let by_id: HashMap<String, &Task> = tasks
+    let edges: Vec<(String, Vec<String>)> = tasks
         .iter()
-        .map(|task| (task.id.to_string(), *task))
+        .map(|task| {
+            (
+                task.id.to_string(),
+                task.depends_on.iter().map(TaskId::to_string).collect(),
+            )
+        })
         .collect();
+    compute_layers_from_edges(&edges)
+}
+
+/// Layering over a pre-extracted `(id, depends_on)` edge list — the source-of-
+/// truth shared by [`compute_layers`] (over `schema::Task`) and the portfolio
+/// HTML view (over JSON-loaded tasks). Ids are canonical strings; deps naming
+/// unknown ids are ignored, exactly like the in-repo `depends_on` walk.
+pub fn compute_layers_from_edges(nodes: &[(String, Vec<String>)]) -> HashMap<String, usize> {
+    let by_id: HashMap<&str, &Vec<String>> =
+        nodes.iter().map(|(id, deps)| (id.as_str(), deps)).collect();
     let mut layers: HashMap<String, usize> = HashMap::new();
     let mut visiting: HashSet<String> = HashSet::new();
-    for task in tasks {
-        layer_of(&task.id.to_string(), &by_id, &mut layers, &mut visiting);
+    for (id, _) in nodes {
+        layer_of(id, &by_id, &mut layers, &mut visiting);
     }
     layers
 }
 
 fn layer_of(
     id: &str,
-    by_id: &HashMap<String, &Task>,
+    by_id: &HashMap<&str, &Vec<String>>,
     layers: &mut HashMap<String, usize>,
     visiting: &mut HashSet<String>,
 ) -> usize {
     if let Some(&layer) = layers.get(id) {
         return layer;
     }
-    let Some(task) = by_id.get(id) else {
+    let Some(deps) = by_id.get(id) else {
         return 0; // unknown id — treat as a root (validate should prevent this)
     };
     // Cycle defense: `validate` already rejects dependency cycles, but the
@@ -54,10 +69,9 @@ fn layer_of(
         return 0;
     }
     let mut layer = 0;
-    for dep in &task.depends_on {
-        let dep_id = dep.to_string();
-        if by_id.contains_key(&dep_id) {
-            layer = layer.max(layer_of(&dep_id, by_id, layers, visiting) + 1);
+    for dep_id in deps.iter() {
+        if by_id.contains_key(dep_id.as_str()) {
+            layer = layer.max(layer_of(dep_id, by_id, layers, visiting) + 1);
         }
     }
     visiting.remove(id);

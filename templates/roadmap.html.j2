@@ -4,196 +4,28 @@
   Ships inside the rmap binary via include_str!. Single file: inline CSS + JS,
   no CDN, no framework, no build step. Size target <50KB per page.
   Agents: parse the rmap-data JSON island near the end, do not scrape the DOM.
+  Styling is the shared "engineering blueprint console" design system
+  (templates/_styles.css), injected verbatim so this and the portfolio view
+  speak one visual language.
 -->
 <html lang="en">
+{% import "components.html" as c %}
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ project }} — Roadmap</title>
-<style>
-:root {
-  --status-done: #16a34a;
-  --status-in_progress: #2563eb;
-  --status-pending: #64748b;
-  --status-blocked: #d97706;
-  --bg: #f8fafc;
-  --card-bg: #ffffff;
-  --border: #e2e8f0;
-  --text: #1e293b;
-  --muted: #64748b;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.45;
-}
-#filter-bar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  background: var(--card-bg);
-  border-bottom: 1px solid var(--border);
-}
-#filter-bar .brand { font-weight: 700; margin-right: 12px; }
-#filter-bar .filter-label { color: var(--muted); margin-left: 10px; font-size: 12px; }
-.chip, .status-toggle {
-  font: inherit;
-  font-size: 12px;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg);
-  color: var(--muted);
-  cursor: pointer;
-}
-.chip.active, .status-toggle.active {
-  background: var(--text);
-  color: #fff;
-  border-color: var(--text);
-}
-main { padding: 16px; }
-.phase { margin-bottom: 28px; }
-/* A `done` phase is archived — dim it so it reads as distinct from an active
-   phase at a glance; hover (and print) restore full opacity for reading. */
-.phase[data-phase-status="done"] { opacity: 0.6; transition: opacity 0.12s; }
-.phase[data-phase-status="done"]:hover { opacity: 1; }
-.phase-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 16px;
-  margin: 0 0 10px;
-}
-.phase-status {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 1px 8px;
-  border-radius: 10px;
-  color: #fff;
-  background: var(--status-pending);
-}
-.phase-status-done { background: var(--status-done); }
-.phase-status-in_progress { background: var(--status-in_progress); }
-.phase-status-pending { background: var(--status-pending); }
-.phase-status-blocked { background: var(--status-blocked); }
-.phase-progress-text { color: var(--muted); font-size: 13px; font-weight: 400; }
-.phase-progress-bar {
-  flex: 1;
-  max-width: 240px;
-  height: 8px;
-  background: var(--border);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.phase-progress-fill { display: block; height: 100%; background: var(--status-done); }
-.status-columns {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-.col h3 {
-  margin: 0 0 8px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-}
-.task-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--status-pending);
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin-bottom: 8px;
-}
-.task-card.status-done { border-left-color: var(--status-done); }
-.task-card.status-in_progress { border-left-color: var(--status-in_progress); }
-.task-card.status-pending { border-left-color: var(--status-pending); }
-.task-card.status-blocked { border-left-color: var(--status-blocked); }
-.task-card.hidden { display: none; }
-.task-id { font-weight: 700; color: var(--muted); margin-right: 4px; }
-.task-eff { float: right; color: var(--muted); font-size: 12px; }
-.task-markers { margin-top: 6px; }
-.marker-chip {
-  display: inline-block;
-  font-size: 11px;
-  color: var(--muted);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0 6px;
-  margin-right: 4px;
-}
-#dep-graph-section { margin-top: 8px; }
-#dep-graph-section summary { cursor: pointer; font-weight: 600; }
-#dep-graph { background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
-.dag-rect { fill: var(--card-bg); stroke: var(--status-pending); stroke-width: 1.5; }
-.dag-node.status-done .dag-rect { stroke: var(--status-done); }
-.dag-node.status-in_progress .dag-rect { stroke: var(--status-in_progress); }
-.dag-node.status-pending .dag-rect { stroke: var(--status-pending); }
-.dag-node.status-blocked .dag-rect { stroke: var(--status-blocked); }
-.dag-label { font-size: 11px; fill: var(--text); }
-footer { padding: 16px; color: var(--muted); font-size: 12px; }
-
-@media print {
-  body { background: #fff; font-size: 11px; }
-  #filter-bar, #dep-graph-section { display: none; }
-  .phase-progress-bar { display: none; }
-  .phase[data-phase-status="done"] { opacity: 1; }
-  .task-card {
-    border: 1px solid #999;
-    border-left: 1px solid #999;
-    break-inside: avoid;
-  }
-  .task-id::before { font-weight: 400; }
-  .task-card[data-status="done"] .task-title::before { content: "✓ "; }
-  .task-card[data-status="in_progress"] .task-title::before { content: "→ "; }
-  .task-card[data-status="pending"] .task-title::before { content: "⏸ "; }
-  .task-card[data-status="blocked"] .task-title::before { content: "⛔ "; }
-  .marker-chip { border-color: #999; }
-}
-</style>
+<style>{{ styles | safe }}</style>
 </head>
 <body>
 
-{% macro task_card(task) %}
-<article class="task-card status-{{ task.status }}"
-  data-id="{{ task.id }}"
-  data-status="{{ task.status }}"
-  data-eff="{{ task.eff }}"
-  data-markers="{{ task.markers | join(' ') }}"
-  data-depends-on="{{ task.depends_on }}"
-  data-phase="{{ task.phase }}">
-  <span class="task-eff">{{ task.tier_glyph }} Eff:{{ task.eff_fmt }}</span>
-  <span class="task-id">#{{ task.id }}</span>
-  <span class="task-title">{{ task.title }}</span>
-  {% if task.markers %}
-  <div class="task-markers">
-    {% for m in task.markers %}<span class="marker-chip">{{ m }}</span>{% endfor %}
-  </div>
-  {% endif %}
-</article>
-{% endmacro %}
-
 <header id="filter-bar">
   <span class="brand">{{ project }}</span>
-  <span class="filter-label">markers:</span>
+  <span class="filter-label">markers</span>
   <button class="chip active" data-marker="all">all</button>
   {% for marker in all_markers %}
   <button class="chip" data-marker="{{ marker }}">{{ marker }}</button>
   {% endfor %}
-  <span class="filter-label">status:</span>
+  <span class="filter-label">status</span>
   <button class="status-toggle active" data-toggle-status="pending">⏸ pending</button>
   <button class="status-toggle active" data-toggle-status="in_progress">→ in progress</button>
   <button class="status-toggle active" data-toggle-status="blocked">⛔ blocked</button>
@@ -201,60 +33,8 @@ footer { padding: 16px; color: var(--muted); font-size: 12px; }
 </header>
 
 <main>
-{% for phase in phases %}
-<section class="phase" id="phase-{{ phase.number }}" data-phase-status="{{ phase.status }}">
-  <h2 class="phase-header">
-    <span>Phase {{ phase.number }}: {{ phase.name }}</span>
-    <span class="phase-status phase-status-{{ phase.status }}">{{ phase.status | replace("_", " ") }}</span>
-    <span class="phase-progress-text">{{ phase.done }}/{{ phase.total }} done</span>
-    <span class="phase-progress-bar" aria-hidden="true">
-      <span class="phase-progress-fill" style="width:{{ phase.pct }}%"></span>
-    </span>
-  </h2>
-  <div class="status-columns">
-    <div class="col col-pending">
-      <h3>Pending</h3>
-      {% for task in phase.pending %}{{ task_card(task) }}{% endfor %}
-    </div>
-    <div class="col col-in-progress">
-      <h3>In Progress</h3>
-      {% for task in phase.in_progress %}{{ task_card(task) }}{% endfor %}
-    </div>
-    <div class="col col-done">
-      <h3>Done</h3>
-      {% for task in phase.done_tasks %}{{ task_card(task) }}{% endfor %}
-    </div>
-  </div>
-</section>
-{% endfor %}
-
-<section id="dep-graph-section">
-  <details>
-    <summary>Dependency graph ({{ dag.nodes | length }} tasks)</summary>
-    <svg id="dep-graph" width="{{ dag.svg_width }}" height="{{ dag.svg_height }}"
-      viewBox="0 0 {{ dag.svg_width }} {{ dag.svg_height }}" role="img"
-      aria-label="Task dependency graph">
-      <defs>
-        <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3"
-          orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L0,6 L8,3 z" fill="#64748b"></path>
-        </marker>
-      </defs>
-      {% for edge in dag.edges %}
-      <line x1="{{ edge.x1 }}" y1="{{ edge.y1 }}" x2="{{ edge.x2 }}" y2="{{ edge.y2 }}"
-        stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"></line>
-      {% endfor %}
-      {% for node in dag.nodes %}
-      <g class="dag-node status-{{ node.status }}" data-id="{{ node.id }}">
-        <rect class="dag-rect" x="{{ node.x }}" y="{{ node.y }}"
-          width="{{ node.w }}" height="{{ node.h }}" rx="4"></rect>
-        <text class="dag-label" x="{{ node.label_x }}" y="{{ node.label_y }}"
-          text-anchor="middle">#{{ node.id }} {{ node.label }}</text>
-      </g>
-      {% endfor %}
-    </svg>
-  </details>
-</section>
+{% for phase in phases %}{{ c.phase_section(phase) }}{% endfor %}
+{{ c.dep_graph(dag, "main") }}
 </main>
 
 <footer>Rendered by rmap on {{ today }} — static snapshot, not live. ROADMAP.md stays canonical.</footer>

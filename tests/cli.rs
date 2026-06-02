@@ -673,6 +673,245 @@ fn render_html_carries_data_attrs_and_is_idempotent() {
     assert_eq!(first, second, "render --html should be idempotent");
 }
 
+// Two-project fixture pair for `render --html --multi`: alpha's pending task
+// declares a `blocks` cross-repo relation against beta, so the portfolio view
+// has a resolved repo→repo edge to draw.
+const PORTFOLIO_ALPHA: &str = r#"
+schema_version = 2
+project = "alpha_proj"
+default_branch = "main"
+
+[phases.1]
+name = "Phase One"
+order = 1
+status = "in_progress"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "core tasks"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "done"
+implemented = "fixture"
+title = "alpha done task"
+scores = { d = 2, b = 6, u = 6 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "pending"
+title = "alpha pending task"
+scores = { d = 2, b = 8, u = 8 }
+depends_on = [1]
+cross_repo = [{ repo = "beta_proj", task_id = 1, relation = "blocks" }]
+"#;
+
+const PORTFOLIO_BETA: &str = r#"
+schema_version = 2
+project = "beta_proj"
+default_branch = "main"
+
+[phases.1]
+name = "Phase One"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "core tasks"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "pending"
+title = "beta pending task"
+scores = { d = 3, b = 6, u = 6 }
+"#;
+
+/// Create a project root with only `roadmap/tasks.toml` — the minimal shape
+/// `--multi` accepts as a project-root input.
+fn write_project(tasks: &str) -> PathBuf {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(&dir.join("roadmap"), "tasks.toml", tasks);
+    dir
+}
+
+#[test]
+fn render_html_multi_writes_portfolio_from_project_roots() {
+    let alpha = write_project(PORTFOLIO_ALPHA);
+    let beta = write_project(PORTFOLIO_BETA);
+    let hub = temp_dir();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--html")
+        .arg("--multi")
+        .arg(&alpha)
+        .arg(&beta)
+        .current_dir(&hub)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap render --html --multi");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let html_path = hub.join("roadmap/dist/portfolio.html");
+    let html = fs::read_to_string(&html_path).expect("read rendered portfolio");
+    assert!(html.contains("<!DOCTYPE html>"));
+    assert!(html.contains("id=\"rmap-data\""));
+    assert!(html.contains("id=\"rmap-relations\""));
+    assert!(html.contains("class=\"repo-row\""));
+    assert!(html.contains("alpha_proj"));
+    assert!(html.contains("beta_proj"));
+}
+
+#[test]
+fn render_html_multi_accepts_data_json_paths() {
+    // Pre-render alpha's data.json, then feed the JSON path (not the root) to --multi.
+    let alpha = write_project(PORTFOLIO_ALPHA);
+    write_file(&alpha, "ROADMAP.md", ROADMAP);
+    let render = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .current_dir(&alpha)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap render");
+    assert!(
+        render.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&render.stderr)
+    );
+
+    let hub = temp_dir();
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--html")
+        .arg("--multi")
+        .arg(alpha.join("roadmap/data.json"))
+        .current_dir(&hub)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap render --html --multi <data.json>");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let html = fs::read_to_string(hub.join("roadmap/dist/portfolio.html"))
+        .expect("read rendered portfolio");
+    assert!(html.contains("alpha_proj"));
+}
+
+#[test]
+fn render_html_multi_honors_out_override_and_stdout() {
+    let alpha = write_project(PORTFOLIO_ALPHA);
+    let hub = temp_dir();
+    let out_path = hub.join("custom/portfolio.html");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--html")
+        .arg("--multi")
+        .arg(&alpha)
+        .arg("--out")
+        .arg(&out_path)
+        .current_dir(&hub)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap render --html --multi --out");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(out_path.exists());
+    assert!(!hub.join("roadmap/dist/portfolio.html").exists());
+
+    // --stdout prints the portfolio HTML without writing anything.
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--html")
+        .arg("--multi")
+        .arg(&alpha)
+        .arg("--stdout")
+        .current_dir(&hub)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap render --html --multi --stdout");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("<!DOCTYPE html>"));
+    assert!(!hub.join("roadmap/dist/portfolio.html").exists());
+}
+
+#[test]
+fn render_html_multi_requires_html_flag() {
+    let alpha = write_project(PORTFOLIO_ALPHA);
+    let hub = temp_dir();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--multi")
+        .arg(&alpha)
+        .current_dir(&hub)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap render --multi without --html");
+
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("pass --html"));
+    assert!(!hub.join("roadmap/dist/portfolio.html").exists());
+}
+
+#[test]
+fn render_html_multi_draws_cross_repo_blocker_edges() {
+    let alpha = write_project(PORTFOLIO_ALPHA);
+    let beta = write_project(PORTFOLIO_BETA);
+    let hub = temp_dir();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--html")
+        .arg("--multi")
+        .arg(&alpha)
+        .arg(&beta)
+        .current_dir(&hub)
+        .env("RMAP_TODAY", "2026-05-14")
+        .output()
+        .expect("run rmap render --html --multi");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let html = fs::read_to_string(hub.join("roadmap/dist/portfolio.html"))
+        .expect("read rendered portfolio");
+    // Alpha's `blocks` relation against beta resolves to a repo→repo edge in
+    // the `rmap-relations` island, and the involved rows carry has-rel flags.
+    assert!(html.contains("\"relation\":\"blocks\""));
+    assert!(html.contains("data-has-rel=\"1\""));
+}
+
 #[test]
 fn status_command_updates_tasks_and_rerenders_outputs() {
     let dir = temp_dir();
