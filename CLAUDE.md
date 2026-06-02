@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Imports
 
-Universal includes (per `~/.claude/setup-guide.md`). No Rust-specific template exists; rmap takes the universal baseline only — the Elixir/Phoenix includes don't apply. Delegation includes are intentionally omitted (no `.mcp.json`, no git remote — rmap is not in the Linear/cloud-agent queue). `web-command.md` is intentionally NOT imported: per the setup-guide's "Skills vs Includes" rule, situational tool references auto-load as skills — rmap does no browser work, so the `web-command` skill covers the rare case without paying the token cost every session.
+Universal includes (per `~/.claude/setup-guide.md`). No Rust-specific template exists; rmap takes the universal baseline only — the Elixir/Phoenix includes don't apply. Delegation includes (Linear/cloud-agent) are intentionally omitted — rmap has no git remote and is not in the Linear/cloud-agent queue. The harness MCP IS wired (`.mcp.json` — see § "Driving harness from this repo"). `web-command.md` is intentionally NOT imported: per the setup-guide's "Skills vs Includes" rule, situational tool references auto-load as skills — rmap does no browser work, so the `web-command` skill covers the rare case without paying the token cost every session.
 
 @~/.claude/includes/across-instances.md
 @~/.claude/includes/critical-rules.md
@@ -168,6 +168,14 @@ Changing any of these — JSON shapes, `--fields` projection, `delegate` section
 - `../harness/docs/dogfooding-workflow.md` — the operator runbook; verdict table references rmap status write-backs.
 
 Harness registers projects (including itself) with a `roadmap_path` and drives them through this surface unattended (`Oban.Plugins.Cron`) — a silent break in rmap's JSON or prompt output surfaces as failed autonomous dispatches there, not as an rmap test failure here. The `skills_smoke` test and the additive-only invariants above are the local proxies for that contract; treat them as guarding harness specifically.
+
+### Driving harness from this repo
+
+The relationship also runs the other way: rmap's own roadmap tasks can be dispatched *through* harness (Context A of the harness-driver skill — consuming repo drives the harness BEAM). The wiring:
+
+- **`.mcp.json`** registers two HTTP servers against the harness BEAM (user-started `iex -S mix` in `../harness/`; never boot it yourself): `harness` → `mcp__harness__*` (the native flat driver tools — `dispatch__task`, `dispatch__await`, `dispatch__status`, `dispatch__verdict_detail`, `roadmap__*`; **primary surface**) and `harness_eval` → `mcp__harness_eval__project_eval` (arbitrary-Elixir escape hatch into harness's BEAM, for struct-level ops the flat tools omit).
+- **rmap is registered as a harness project** in harness's gitignored `config/dev.local.exs` (`:rust` preset, `roadmap_path` = this repo). Registration changes need a harness BEAM restart (the user does that). Per-project cron autonomy defaults OFF — registration alone does not start autonomous dispatch.
+- **Load on demand when driving** (not eager-imported, per the selective-load philosophy): the `dev-lifecycle:harness-workflow` skill (the delegate → verify → repair → land loop) and `../harness/skills/harness-driver/SKILL.md` (MCP tool shapes, dispatch patterns, sharp edges).
 
 ## Tests
 

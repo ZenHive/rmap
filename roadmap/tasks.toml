@@ -882,9 +882,10 @@ done_at = "2026-05-23"
 id = 31
 phase = 15
 bundle = "doctor_state_drift"
-status = "pending"
+status = "done"
 title = "rmap doctor: advisories for phase / focus state drift"
 scores = { d = 2, b = 6, u = 7 }
+markers = ["cx"]
 acceptance_criteria = ["Three new advisories implemented with stable class names: PhaseFullyDoneButOpen, PhaseHasInProgressButPending, FocusPhaseClosed", "All three exit 0 (advisory, not gate) — same surface as existing ClaimedNotGraded / DegenerateBundle / MissingAcceptanceCriteria checks", "PhaseFullyDoneButOpen fires when every task in a phase has status='done' but the phase status is 'in_progress' or 'pending'", "PhaseHasInProgressButPending fires when phase status is 'pending' but the phase holds at least one task with status='in_progress'", "FocusPhaseClosed fires when focus.phase points at a phase whose status is 'done' OR whose tasks are all done", "Each message cites the affected phase id (and task ids where relevant) following the existing `phase <id> ...` / `task <id> ...` shape", "tests/cli.rs covers positive + negative fixtures for each check", "No schema changes (read-side only, no schema_version bump)", "CHANGELOG entry under [Unreleased]"]
 out_of_scope = ["Auto-mutating phase status on the last task-done transition (too opinionated; phases are user-curated containers — see milestone status precedent)", "Auto-advancing focus.phase", "Milestone status drift advisories (separate concern; defer)"]
 model = "claude-opus-4-7"
@@ -899,8 +900,14 @@ Add three pure read-side advisories to `rmap doctor` covering phase / focus stat
 
 Pure read-side checks against existing fields — same shape as the advisories doctor already emits, no schema changes needed.
 """
+implemented = "Three doctor advisories (PhaseFullyDoneButOpen, PhaseHasInProgressButPending, FocusPhaseClosed) as pure read-side checks in src/doctor.rs, with positive/negative CLI test fixtures and CHANGELOG entry"
+delivered_by = "codex"
+verified = true
 created_at = "2026-05-25"
+started_at = "2026-06-02"
 scored_at = "2026-05-25"
+done_at = "2026-06-02"
+shipped_in = "64cbf17"
 
 [[task]]
 id = 32

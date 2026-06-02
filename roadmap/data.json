@@ -1076,7 +1076,7 @@
       "id": 31,
       "phase": 15,
       "bundle": "doctor_state_drift",
-      "status": "pending",
+      "status": "done",
       "title": "rmap doctor: advisories for phase / focus state drift",
       "scores": {
         "d": 2,
@@ -1085,7 +1085,9 @@
       },
       "eff": 3.25,
       "dep_layer": 0,
-      "markers": [],
+      "markers": [
+        "cx"
+      ],
       "depends_on": [],
       "model": "claude-opus-4-7",
       "acceptance_criteria": [
@@ -1104,9 +1106,15 @@
         "Auto-advancing focus.phase",
         "Milestone status drift advisories (separate concern; defer)"
       ],
+      "shipped_in": "64cbf17",
       "body": "Add three pure read-side advisories to `rmap doctor` covering phase / focus state drift not caught today. All three are advisories (exit 0, like existing ClaimedNotGraded / DegenerateBundle / MissingAcceptanceCriteria checks); do not auto-mutate — phase status is intentionally user-curated.\n\n1. PhaseFullyDoneButOpen — every task in a phase has status='done' but the phase status is 'in_progress' or 'pending'. Surfaced today on the harness roadmap: Phases 2 (10/10 done) and 3 (11/11 done) both rendered full tables in ROADMAP.md instead of collapsing, because their phase status hadn't been advanced. ~22% context bloat on the rendered file (149 → 127 lines after manual fix).\n\n2. PhaseHasInProgressButPending — phase status is 'pending' but the phase holds at least one task with status='in_progress'. Surfaced on harness Phase 7 / Task 44.\n\n3. FocusPhaseClosed — focus.phase points at a phase whose status is 'done' OR whose tasks are all done. Surfaced on harness focus.phase = 3 after Phase 3 closed out (rendered ROADMAP said `Focus phase: 3 (11 of 11 done · 0 in progress)` with the Up next task in Phase 4).\n\nPure read-side checks against existing fields — same shape as the advisories doctor already emits, no schema changes needed.\n",
       "created_at": "2026-05-25",
+      "started_at": "2026-06-02",
+      "done_at": "2026-06-02",
       "scored_at": "2026-05-25",
+      "implemented": "Three doctor advisories (PhaseFullyDoneButOpen, PhaseHasInProgressButPending, FocusPhaseClosed) as pure read-side checks in src/doctor.rs, with positive/negative CLI test fixtures and CHANGELOG entry",
+      "delivered_by": "codex",
+      "verified": true,
       "cross_repo": []
     },
     {

@@ -44,6 +44,7 @@ gantt
     Upgrade schemars 0.8 → 0.9+ for JSON Schema draft 2020-12 :done, 2026-05-23, 2026-05-23
     Task outcome layer — delivered_by + verified fields :done, 2026-05-23, 2026-05-23
     rmap validate does not detect duplicate task ids :done, 2026-05-23, 2026-05-23
+    rmap doctor— advisories for phase / focus state drift :done, 2026-06-02, 2026-06-02
     Formalize assignee as the agent-routing field— delegate --to defaults to it :done, 2026-06-02, 2026-06-02
 ```
 <!-- MERMAID:END -->
@@ -107,7 +108,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 28 | ✅ | 🎁 **schema_outcome** · Task outcome layer — delivered_by + verified fields [D:4/B:6/U:6 → Eff:1.5] 🚀 |
 | Task 29 | ✅ | 🎁 **schema_milestones** · 🐛 rmap new allocates a colliding task id on a string-id roadmap [D:3/B:7/U:6 → Eff:2.17] 🎯 |
 | Task 30 | ✅ | 🎁 **schema_milestones** · 🐛 rmap validate does not detect duplicate task ids [D:3/B:6/U:5 → Eff:1.83] 🚀 |
-| Task 31 | ⬜ | 🎁 **doctor_state_drift** · rmap doctor: advisories for phase / focus state drift [D:2/B:6/U:7 → Eff:3.25] 🎯 |
+| Task 31 `[CX]` | ✅ | 🎁 **doctor_state_drift** · rmap doctor: advisories for phase / focus state drift [D:2/B:6/U:7 → Eff:3.25] 🎯 |
 | Task 32 | ⬜ | 🎁 **doctor_state_drift** · rmap doctor: milestone status drift advisories [D:2/B:5/U:6 → Eff:2.75] 🎯 |
 | Task 33 | ✅ | 🎁 **schema_outcome** · `--shipped-in` flag on `rmap status` — complete the outcome layer [D:2/B:6/U:6 → Eff:3.0] 🎯 |
 | Task 34 | ✅ | 🎁 **schema_outcome** · `--reason` flag on `rmap status` — settable + rendered + auto-cleared blocked_reason [D:3/B:6/U:6 → Eff:2.0] 🎯 |
