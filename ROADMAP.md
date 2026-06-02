@@ -17,7 +17,6 @@ gantt
     dateFormat YYYY-MM-DD
     section Phase 6 — HTML render
     rmap render --html single-project view :done, 2026-05-14, 2026-05-14
-    rmap render --html --multi portfolio view :active, 2026-06-02, 2026-06-02
     section Phase 7 — rmap watch (optional)
     rmap watch FS watcher :done, 2026-05-14, 2026-05-14
     rmap watch --json event stream :done, 2026-05-14, 2026-05-14
@@ -46,7 +45,6 @@ gantt
     Task outcome layer — delivered_by + verified fields :done, 2026-05-23, 2026-05-23
     rmap validate does not detect duplicate task ids :done, 2026-05-23, 2026-05-23
     rmap doctor— advisories for phase / focus state drift :done, 2026-06-02, 2026-06-02
-    rmap doctor— milestone status drift advisories :active, 2026-06-02, 2026-06-02
     Formalize assignee as the agent-routing field— delegate --to defaults to it :done, 2026-06-02, 2026-06-02
 ```
 <!-- MERMAID:END -->
@@ -74,7 +72,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task | Status | Notes |
 |------|--------|-------|
 | Task 8 | ✅ | 🎁 **html_single** · rmap render --html single-project view [D:6/B:7/U:6 → Eff:1.08] 📋 |
-| Task 9 | 🔄 | 🎁 **html_portfolio** · rmap render --html --multi portfolio view [D:6/B:6/U:5 → Eff:0.92] ⚠️ |
+| Task 9 | ⬜ | 🎁 **html_portfolio** · rmap render --html --multi portfolio view [D:6/B:6/U:5 → Eff:0.92] ⚠️ |
 <!-- TASKS:END -->
 
 ## Phase 7 — `rmap watch` (done)
@@ -111,7 +109,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 29 | ✅ | 🎁 **schema_milestones** · 🐛 rmap new allocates a colliding task id on a string-id roadmap [D:3/B:7/U:6 → Eff:2.17] 🎯 |
 | Task 30 | ✅ | 🎁 **schema_milestones** · 🐛 rmap validate does not detect duplicate task ids [D:3/B:6/U:5 → Eff:1.83] 🚀 |
 | Task 31 `[CX]` | ✅ | 🎁 **doctor_state_drift** · rmap doctor: advisories for phase / focus state drift [D:2/B:6/U:7 → Eff:3.25] 🎯 |
-| Task 32 | 🔄 | 🎁 **doctor_state_drift** · rmap doctor: milestone status drift advisories [D:2/B:5/U:6 → Eff:2.75] 🎯 |
+| Task 32 | ⬜ | 🎁 **doctor_state_drift** · rmap doctor: milestone status drift advisories [D:2/B:5/U:6 → Eff:2.75] 🎯 |
 | Task 33 | ✅ | 🎁 **schema_outcome** · `--shipped-in` flag on `rmap status` — complete the outcome layer [D:2/B:6/U:6 → Eff:3.0] 🎯 |
 | Task 34 | ✅ | 🎁 **schema_outcome** · `--reason` flag on `rmap status` — settable + rendered + auto-cleared blocked_reason [D:3/B:6/U:6 → Eff:2.0] 🎯 |
 | Task 35 | ✅ | 🎁 **agent_dispatch** · rmap ready — parallel-safe dep-satisfied dispatch set [D:3/B:8/U:9 → Eff:2.83] 🎯 |

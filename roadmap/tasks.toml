@@ -270,7 +270,7 @@ See DESIGN.md (Phase 6 — HTML render design) for the full layout, design invar
 id = 9
 phase = 6
 bundle = "html_portfolio"
-status = "in_progress"
+status = "pending"
 title = "rmap render --html --multi portfolio view"
 scores = { d = 6, b = 6, u = 5 }
 depends_on = [8]
@@ -914,7 +914,7 @@ shipped_in = "64cbf17"
 id = 32
 phase = 15
 bundle = "doctor_state_drift"
-status = "in_progress"
+status = "pending"
 title = "rmap doctor: milestone status drift advisories"
 scores = { d = 2, b = 5, u = 6 }
 depends_on = [31]
