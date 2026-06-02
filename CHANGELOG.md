@@ -6,6 +6,13 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Task 32: `rmap doctor` milestone status drift advisories
+
+**What was done:**
+- Added two read-side doctor advisories: `MilestoneFullyDoneButOpen` and `MultipleActiveMilestones`.
+- The advisories report milestone state drift (all pinned tasks done but milestone still `pending`/`active`; more than one `active` milestone) without mutating milestone status; messages cite milestone slug and pinned-task counts; `rmap doctor` continues to exit 0 for soft findings.
+- No schema changes.
+
 ### Task 31: `rmap doctor` phase / focus state drift advisories
 
 **What was done:**

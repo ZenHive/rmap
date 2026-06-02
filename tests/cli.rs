@@ -5837,6 +5837,561 @@ fn doctor_command_surfaces_focus_phase_closed() {
 }
 
 // ---------------------------------------------------------------------------
+// `rmap doctor` — Task 32 / doctor_state_drift (milestone status drift)
+// ---------------------------------------------------------------------------
+
+// Harness-shaped drift: v0_2 (5/5 pinned done) and v0_4 (3/3 pinned done) both
+// still `pending`, plus a closed milestone control.
+const DOCTOR_MILESTONE_FULLY_DONE_BUT_OPEN_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_milestone_done_open"
+default_branch = "main"
+
+[phases.1]
+name = "Milestone drift"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[bundles.beta]
+phase = 1
+order = 2
+description = "Beta"
+
+[milestones.v0_2]
+name = "v0.2 — complete but open"
+order = 1
+status = "pending"
+
+[milestones.v0_4]
+name = "v0.4 — complete but open"
+order = 2
+status = "pending"
+
+[milestones.v1_0]
+name = "v1.0 — closed complete"
+order = 3
+status = "done"
+
+[[task]]
+id = 80
+phase = 1
+bundle = "alpha"
+milestone = "v0_2"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "v0_2 done 1"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 81
+phase = 1
+bundle = "beta"
+milestone = "v0_2"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "v0_2 done 2"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 82
+phase = 1
+bundle = "alpha"
+milestone = "v0_2"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "v0_2 done 3"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 83
+phase = 1
+bundle = "beta"
+milestone = "v0_2"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "v0_2 done 4"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 84
+phase = 1
+bundle = "alpha"
+milestone = "v0_2"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "v0_2 done 5"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 85
+phase = 1
+bundle = "alpha"
+milestone = "v0_4"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "v0_4 done 1"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 86
+phase = 1
+bundle = "beta"
+milestone = "v0_4"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "v0_4 done 2"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 87
+phase = 1
+bundle = "beta"
+milestone = "v0_4"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "v0_4 done 3"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 88
+phase = 1
+bundle = "beta"
+milestone = "v1_0"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "v1_0 already closed"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+"#;
+
+const DOCTOR_MILESTONE_ACTIVE_FULLY_DONE_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_milestone_active_open"
+default_branch = "main"
+
+[phases.1]
+name = "Active milestone drift"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[milestones.v0_3]
+name = "v0.3 — active but complete"
+order = 1
+status = "active"
+
+[[task]]
+id = 89
+phase = 1
+bundle = "alpha"
+milestone = "v0_3"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "v0_3 done"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+"#;
+
+const DOCTOR_MILESTONE_FULLY_DONE_NEGATIVE_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_milestone_done_negative"
+default_branch = "main"
+
+[phases.1]
+name = "Milestone drift negative"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[milestones.v0_open]
+name = "v0 — still has pending work"
+order = 1
+status = "pending"
+
+[milestones.v0_empty]
+name = "v0 — no pinned tasks"
+order = 2
+status = "pending"
+
+[[task]]
+id = 84
+phase = 1
+bundle = "alpha"
+milestone = "v0_open"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Done but sibling pending"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 85
+phase = 1
+bundle = "alpha"
+milestone = "v0_open"
+status = "pending"
+title = "Still pending"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+"#;
+
+const DOCTOR_MULTIPLE_ACTIVE_MILESTONES_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_multiple_active_milestones"
+default_branch = "main"
+
+[phases.1]
+name = "Multiple active"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[bundles.beta]
+phase = 1
+order = 2
+description = "Beta"
+
+[milestones.v0_1]
+name = "v0.1"
+order = 1
+status = "active"
+
+[milestones.v0_2]
+name = "v0.2"
+order = 2
+status = "active"
+
+[milestones.v1_0]
+name = "v1.0"
+order = 3
+status = "pending"
+
+[[task]]
+id = 90
+phase = 1
+bundle = "alpha"
+milestone = "v0_1"
+status = "pending"
+title = "Under first active"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 91
+phase = 1
+bundle = "beta"
+milestone = "v0_2"
+status = "pending"
+title = "Under second active"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+"#;
+
+const DOCTOR_SINGLE_ACTIVE_MILESTONE_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_single_active_milestone"
+default_branch = "main"
+
+[phases.1]
+name = "Single active"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[milestones.v0_1]
+name = "v0.1"
+order = 1
+status = "active"
+
+[milestones.v1_0]
+name = "v1.0"
+order = 2
+status = "pending"
+
+[[task]]
+id = 87
+phase = 1
+bundle = "alpha"
+milestone = "v0_1"
+status = "pending"
+title = "Under only active"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+"#;
+
+#[test]
+fn doctor_command_surfaces_milestone_fully_done_but_open() {
+    let path = write_temp_tasks(
+        "doctor_milestone_done_open.toml",
+        DOCTOR_MILESTONE_FULLY_DONE_BUT_OPEN_TASKS,
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor milestone done/open");
+
+    assert!(
+        output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Milestone fully done but open"),
+        "expected MilestoneFullyDoneButOpen section:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("milestone v0_2") && stdout.contains("5 pinned tasks"),
+        "expected v0_2 slug and 5/5 pinned count:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("milestone v0_4") && stdout.contains("3 pinned tasks"),
+        "expected v0_4 slug and 3/3 pinned count:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("milestone v1_0"),
+        "v1_0 is already done and should not be flagged:\n{stdout}"
+    );
+
+    let json_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor milestone done/open json");
+    let report: serde_json::Value =
+        serde_json::from_slice(&json_output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    let matches: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|finding| finding["kind"] == "milestone_fully_done_but_open")
+        .collect();
+    assert_eq!(matches.len(), 2);
+    assert!(
+        matches
+            .iter()
+            .any(|finding| finding["milestone"] == "v0_2" && finding["task_count"] == 5)
+    );
+    assert!(
+        matches
+            .iter()
+            .any(|finding| finding["milestone"] == "v0_4" && finding["task_count"] == 3)
+    );
+}
+
+#[test]
+fn doctor_command_surfaces_milestone_fully_done_when_active() {
+    let path = write_temp_tasks(
+        "doctor_milestone_active_open.toml",
+        DOCTOR_MILESTONE_ACTIVE_FULLY_DONE_TASKS,
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor milestone active/open");
+
+    assert!(
+        output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    let matches: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|finding| finding["kind"] == "milestone_fully_done_but_open")
+        .collect();
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0]["milestone"], "v0_3");
+    assert_eq!(matches[0]["status"], "active");
+    assert_eq!(matches[0]["task_count"], 1);
+}
+
+#[test]
+fn doctor_command_skips_milestone_fully_done_when_open_work_remains() {
+    let path = write_temp_tasks(
+        "doctor_milestone_done_negative.toml",
+        DOCTOR_MILESTONE_FULLY_DONE_NEGATIVE_TASKS,
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor milestone done/open negative");
+
+    assert!(
+        output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    assert!(
+        findings
+            .iter()
+            .all(|finding| finding["kind"] != "milestone_fully_done_but_open"),
+        "pending sibling and empty milestones should not be flagged:\n{report}"
+    );
+}
+
+#[test]
+fn doctor_command_surfaces_multiple_active_milestones() {
+    let path = write_temp_tasks(
+        "doctor_multiple_active_milestones.toml",
+        DOCTOR_MULTIPLE_ACTIVE_MILESTONES_TASKS,
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor multiple active milestones");
+
+    assert!(
+        output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Multiple active milestones"),
+        "expected MultipleActiveMilestones section:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("v0_1 (1 pinned)") && stdout.contains("v0_2 (1 pinned)"),
+        "expected both active milestone slugs with pinned counts:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("v1_0"),
+        "pending milestone should not appear in the finding:\n{stdout}"
+    );
+
+    let json_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor multiple active milestones json");
+    let report: serde_json::Value =
+        serde_json::from_slice(&json_output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    let matches: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|finding| finding["kind"] == "multiple_active_milestones")
+        .collect();
+    assert_eq!(matches.len(), 1);
+    assert_eq!(
+        matches[0]["milestones"],
+        serde_json::json!([
+            { "milestone": "v0_1", "task_count": 1 },
+            { "milestone": "v0_2", "task_count": 1 }
+        ])
+    );
+}
+
+#[test]
+fn doctor_command_skips_multiple_active_milestones_when_only_one_active() {
+    let path = write_temp_tasks(
+        "doctor_single_active_milestone.toml",
+        DOCTOR_SINGLE_ACTIVE_MILESTONE_TASKS,
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor single active milestone");
+
+    assert!(
+        output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    assert!(
+        findings
+            .iter()
+            .all(|finding| finding["kind"] != "multiple_active_milestones"),
+        "exactly one active milestone should not be flagged:\n{report}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // `rmap bundles` — Task 16 / batch_selection
 // ---------------------------------------------------------------------------
 

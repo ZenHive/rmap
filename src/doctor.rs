@@ -90,16 +90,36 @@ pub enum DoctorFinding {
         status: String,
         task_count: usize,
     },
+    /// Soft milestone drift: every pinned task is `done` but the milestone
+    /// remains `pending` or `active`. Milestone status is user-curated.
+    MilestoneFullyDoneButOpen {
+        milestone: String,
+        status: String,
+        task_count: usize,
+    },
+    /// Soft milestone drift: more than one milestone is `active` (rmap.md:
+    /// keep exactly one active release line for `rmap next` auto-bias).
+    MultipleActiveMilestones {
+        milestones: Vec<ActiveMilestone>,
+    },
     Drift,
+}
+
+/// One `active` milestone cited by a `MultipleActiveMilestones` finding.
+#[derive(serde::Serialize)]
+pub struct ActiveMilestone {
+    pub milestone: String,
+    pub task_count: usize,
 }
 
 impl DoctorReport {
     /// Builds a composite health report: validation findings (non-short-circuiting),
     /// stale in-progress tasks (>`thresholds.days` via `started_at`), score-decay
-    /// candidates (`scored_at` missing or >`thresholds.days`), and render drift (when
-    /// `roadmap_input` is supplied). Pure — no I/O. `today` is the `YYYY-MM-DD`
-    /// reference date. `thresholds` carries the effective stale/decay and AC cutoffs
-    /// for this invocation (defaults unless overridden on the CLI).
+    /// candidates (`scored_at` missing or >`thresholds.days`), phase/focus/milestone
+    /// state-drift advisories, and render drift (when `roadmap_input` is supplied).
+    /// Pure — no I/O. `today` is the `YYYY-MM-DD` reference date. `thresholds`
+    /// carries the effective stale/decay and AC cutoffs for this invocation (defaults
+    /// unless overridden on the CLI).
     pub fn run(
         tasks: &Tasks,
         path: &str,
@@ -259,7 +279,45 @@ impl DoctorReport {
             }
         }
 
-        // 8. render drift — only if a roadmap was provided
+        // 8. milestone state drift — soft advisories only; milestone status
+        // is intentionally user-curated rather than auto-mutated.
+        for (milestone_key, milestone) in &tasks.milestones {
+            let pinned: Vec<_> = tasks
+                .task
+                .iter()
+                .filter(|task| task.milestone.as_deref() == Some(milestone_key.as_str()))
+                .collect();
+            let task_count = pinned.len();
+
+            if task_count > 0
+                && (milestone.status == "pending" || milestone.status == "active")
+                && pinned.iter().all(|task| task.status == "done")
+            {
+                findings.push(DoctorFinding::MilestoneFullyDoneButOpen {
+                    milestone: milestone_key.clone(),
+                    status: milestone.status.clone(),
+                    task_count,
+                });
+            }
+        }
+
+        let active_milestones: Vec<ActiveMilestone> = tasks
+            .milestones
+            .iter()
+            .filter(|(_, milestone)| milestone.status == "active")
+            .map(|(key, _)| ActiveMilestone {
+                milestone: key.clone(),
+                task_count: pinned_task_count(tasks, key),
+            })
+            .collect();
+
+        if active_milestones.len() > 1 {
+            findings.push(DoctorFinding::MultipleActiveMilestones {
+                milestones: active_milestones,
+            });
+        }
+
+        // 9. render drift — only if a roadmap was provided
         if let Some(roadmap) = roadmap_input
             && let Ok(rendered) = render_roadmap_str_with_today(roadmap, tasks, today)
             && rendered != roadmap
@@ -280,6 +338,14 @@ fn task_id_display(id: &TaskId) -> String {
         TaskId::Number(n) => n.to_string(),
         TaskId::Text(s) => s.clone(),
     }
+}
+
+fn pinned_task_count(tasks: &Tasks, milestone_key: &str) -> usize {
+    tasks
+        .task
+        .iter()
+        .filter(|task| task.milestone.as_deref() == Some(milestone_key))
+        .count()
 }
 
 impl fmt::Display for DoctorReport {
@@ -511,6 +577,56 @@ impl fmt::Display for DoctorReport {
             }
         }
 
+        let milestone_done_open_findings: Vec<(&str, &str, usize)> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::MilestoneFullyDoneButOpen {
+                    milestone,
+                    status,
+                    task_count,
+                } = fi
+                {
+                    Some((milestone.as_str(), status.as_str(), *task_count))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !milestone_done_open_findings.is_empty() {
+            writeln!(f, "\nMilestone fully done but open:")?;
+            for (milestone, status, count) in milestone_done_open_findings {
+                writeln!(
+                    f,
+                    "  - milestone {milestone} has all {count} pinned tasks done but milestone status is `{status}`; advance the milestone status when ready"
+                )?;
+            }
+        }
+
+        let multiple_active_findings: Vec<&[ActiveMilestone]> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::MultipleActiveMilestones { milestones } = fi {
+                    Some(milestones.as_slice())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !multiple_active_findings.is_empty() {
+            writeln!(f, "\nMultiple active milestones:")?;
+            for milestones in multiple_active_findings {
+                writeln!(
+                    f,
+                    "  - milestones {} are all active; keep exactly one milestone at status='active'",
+                    milestone_refs_with_counts(milestones)
+                )?;
+            }
+        }
+
         let has_drift = self
             .findings
             .iter()
@@ -532,6 +648,14 @@ fn task_refs(task_ids: &[String]) -> String {
     task_ids
         .iter()
         .map(|id| format!("task {id}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn milestone_refs_with_counts(milestones: &[ActiveMilestone]) -> String {
+    milestones
+        .iter()
+        .map(|m| format!("{} ({} pinned)", m.milestone, m.task_count))
         .collect::<Vec<_>>()
         .join(", ")
 }
