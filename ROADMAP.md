@@ -17,6 +17,7 @@ gantt
     dateFormat YYYY-MM-DD
     section Phase 6 — HTML render
     rmap render --html single-project view :done, 2026-05-14, 2026-05-14
+    rmap render --html --multi portfolio view :done, 2026-06-02, 2026-06-02
     section Phase 7 — rmap watch (optional)
     rmap watch FS watcher :done, 2026-05-14, 2026-05-14
     rmap watch --json event stream :done, 2026-05-14, 2026-05-14
@@ -73,7 +74,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task | Status | Notes |
 |------|--------|-------|
 | Task 8 | ✅ | 🎁 **html_single** · rmap render --html single-project view [D:6/B:7/U:6 → Eff:1.08] 📋 |
-| Task 9 | ⬜ | 🎁 **html_portfolio** · rmap render --html --multi portfolio view [D:6/B:6/U:5 → Eff:0.92] ⚠️ |
+| Task 9 | ✅ | 🎁 **html_portfolio** · rmap render --html --multi portfolio view [D:6/B:6/U:5 → Eff:0.92] ⚠️ |
 <!-- TASKS:END -->
 
 ## Phase 7 — `rmap watch` (done)
