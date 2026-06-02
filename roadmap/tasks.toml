@@ -1063,12 +1063,16 @@ shipped_in = "ee6f9a6"
 id = 40
 phase = 15
 bundle = "agent_routing"
-status = "in_progress"
+status = "done"
 title = "Formalize assignee as the agent-routing field; delegate --to defaults to it"
 scores = { d = 3, b = 7, u = 8 }
 acceptance_criteria = ["rmap delegate <id> with no --to and assignee set emits the prompt targeting the assignee", "rmap delegate <id> with no --to and no assignee exits 1 naming the task and --to", "rmap delegate <id> with no --to and assignee = human exits 1 with delegate-anyway guidance", "Explicit --to still overrides assignee (override bullet unchanged)", "SKILLS.md documents --to as optional; skills_smoke covers the no---to example", "rmap.md include names assignee as the routing field; CLAUDE.md harness section updated to --fields id,assignee,markers"]
 out_of_scope = ["Extending --dispatchable to exclude assignee = human tasks", "Deprecating cx/csr markers", "Harness-side poller change (separate repo, Part 2)"]
 body = "The harness cron poller routes tasks to agents by overloading the model field (codex/cursor values), contradicting model's documented free-text-LLM-id semantics. The first-class routing field already exists: assignee — validated against the agent set, on every mirror surface, already exported. Formalize it: rmap delegate <id> resolves --to from assignee when the flag is omitted (explicit --to still wins; no assignee or assignee=human errors with guidance), and the docs (SKILLS.md, CLAUDE.md, rmap.md include) name assignee as THE routing field consumers route on. First consumer: harness's RoadmapPoller.task_agent/1 switches from model to assignee in the same change set (Part 2, harness repo)."
+implemented = "rmap delegate --to is now optional: new pure resolver delegate::resolve_target honors the task's stored assignee (explicit --to overrides; no assignee or assignee=human exits 1 with pass---to guidance). Docs formalize assignee as THE agent-routing field: SKILLS.md (+ skills_smoke-gated no---to/exit-1 examples), CLAUDE.md (delegate invariant + harness section now --fields id,assignee,markers), ~/.claude/includes/rmap.md (assignee orchestration fact + three-way assignee/model/--to split). Harness poller switch is the companion Part 2 in ../harness."
+delivered_by = "claude"
 created_at = "2026-06-02"
 started_at = "2026-06-02"
 scored_at = "2026-06-02"
+done_at = "2026-06-02"
+shipped_in = "21cbe65"
