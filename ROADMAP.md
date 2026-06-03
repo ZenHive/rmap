@@ -48,6 +48,8 @@ gantt
     rmap doctor— advisories for phase / focus state drift :done, 2026-06-02, 2026-06-02
     rmap doctor— milestone status drift advisories :done, 2026-06-02, 2026-06-02
     Formalize assignee as the agent-routing field— delegate --to defaults to it :done, 2026-06-02, 2026-06-02
+    MILESTONES marker pair — render a Release Lines section in ROADMAP.md :done, 2026-06-03, 2026-06-03
+    Rejection-report / attempt-history writeback— record why a dispatch attempt failed on a task returning to pending :done, 2026-06-03, 2026-06-03
 ```
 <!-- MERMAID:END -->
 
@@ -120,5 +122,6 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 38 | ✅ | 🎁 **agent_dispatch** · handbuild marker + --dispatchable + --fields JSON projection [D:3/B:6/U:7 → Eff:2.17] 🎯 |
 | Task 39 | ✅ | 🎁 **delegate_targets** · Widen delegate targets + assignee set: add grok, antigravity, pi, droid [D:3/B:6/U:7 → Eff:2.17] 🎯 |
 | Task 40 | ✅ | 🎁 **agent_routing** · Formalize assignee as the agent-routing field; delegate --to defaults to it [D:3/B:7/U:8 → Eff:2.5] 🎯 |
-| Task 41 | ⬜ | 🎁 **schema_milestones** · MILESTONES marker pair — render a Release Lines section in ROADMAP.md [D:3/B:6/U:6 → Eff:2.0] 🎯 |
+| Task 41 | ✅ | 🎁 **schema_milestones** · MILESTONES marker pair — render a Release Lines section in ROADMAP.md [D:3/B:6/U:6 → Eff:2.0] 🎯 |
+| Task 42 | ✅ | 🎁 **attempt_history** · Rejection-report / attempt-history writeback: record why a dispatch attempt failed on a task returning to pending [D:4/B:7/U:6 → Eff:1.62] 🚀 |
 <!-- TASKS:END -->

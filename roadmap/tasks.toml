@@ -72,6 +72,11 @@ phase = 15
 order = 8
 description = "Widen delegate/assignee agent set beyond claude|codex|cursor — add the local-CLI targets (grok, antigravity, pi, droid) so rmap can route to them and harness can drop its ingest two-step dance"
 
+[bundles.attempt_history]
+phase = 15
+order = 9
+description = "Attempt-history / rejection-report writeback — a surface for recording WHY a dispatch attempt failed on a task that returns to pending, so the next dispatcher (possibly a different agent) sees the prior attempt's evidence"
+
 [bundles.schema_parity]
 phase = 13
 order = 1
@@ -1104,16 +1109,47 @@ shipped_in = "21cbe65"
 id = 41
 phase = 15
 bundle = "schema_milestones"
-status = "pending"
+status = "done"
 title = "MILESTONES marker pair — render a Release Lines section in ROADMAP.md"
-assignee = "codex"
 scores = { d = 3, b = 6, u = 6 }
 acceptance_criteria = ["`<!-- MILESTONES:BEGIN --> / <!-- MILESTONES:END -->` marker pair recognized by rmap render, same byte-preservation contract as FOCUS/VISION markers", "Each milestone renders: name, target_version, status glyph, description (the hypothesis), done/total pinned-task counts", "Active milestones sort first, then by order — mirrors `rmap milestones` CLI sort", "Roadmaps without the marker pair render byte-identically to today", "`rmap validate --check-render` covers the new section", "Golden fixture + tests/cli.rs coverage", "SKILLS.md + ~/.claude/includes/rmap.md marker-contract docs updated"]
 out_of_scope = ["Listing member tasks per milestone inside the section (counts only; rows already carry inline tags)", "Auto-inserting the marker pair into roadmaps that lack it (opt-in by adding the markers, like FOCUS/VISION)", "HTML render (--html) milestone section — follow-up if the markdown section proves useful"]
+assignee = "codex"
 body = """
 First consumer: Tapakly's ROADMAP.md — it already carries a hand-written `<!-- MILESTONES:BEGIN --> / <!-- MILESTONES:END -->` marker pair under a "## Release Lines" heading, waiting for rmap to fill it. Tapakly defines 5 milestones whose descriptions are hypothesis statements (required by task-writing.md's milestone-fit gate), and today those hypotheses render NOWHERE in the document — only `rmap milestones` (CLI) shows them. A reader of ROADMAP.md sees 🚀 v0_5 tags on rows but can never learn what v0_5 tests.
 
 This is the deferred option (b) from the original milestones task (open question "ROADMAP.md render placement"): option (a) inline row segments shipped; this task adds the grouped section. Render between MILESTONES:BEGIN/END markers: one block per milestone (active-first, then order) with name, target_version, status, the hypothesis description, and done/total pinned-task counts. Projects without the marker pair render byte-identically to today — same graceful-absence rule as the FOCUS/VISION/MERMAID markers.
 """
+implemented = "Landed by codex via merge-train; verified green post-integration (run run-1780445879568-5820b2e9, 69fc726d1dc64ed4463947fea676d1b67f4187db)."
+delivered_by = "codex"
+verified = true
 created_at = "2026-06-02"
+started_at = "2026-06-03"
 scored_at = "2026-06-02"
+done_at = "2026-06-03"
+shipped_in = "69fc726d1dc64ed4463947fea676d1b67f4187db"
+
+[[task]]
+id = 42
+phase = 15
+bundle = "attempt_history"
+status = "done"
+title = "Rejection-report / attempt-history writeback: record why a dispatch attempt failed on a task returning to pending"
+scores = { d = 4, b = 7, u = 6 }
+acceptance_criteria = ["A task that returns to pending can carry the prior attempt's failure evidence (e.g. a reviewer's rejection report) without mutating body (immutable by convention) or abusing blocked_reason (blocked-only, auto-clears)", "The surface is writable from a status transition (e.g. a flag on the pending transition, or a dedicated mutator) - the writer is an orchestrator (harness), not a human editing TOML", "Multiple attempts accumulate (history, not a single overwritten slot), each attributable (which agent, when, what report)", "The history renders in rmap show, is included in rmap delegate's prompt context (so the next implementer sees why the last attempt was rejected), and appears in --json / data.json", "rmap validate / render round-trip byte-identically for tasks without attempt history"]
+out_of_scope = ["Harness-side changes (harness consumes whatever surface this task designs; until it ships, harness persists rejection reports in its own run_records)", "Auto-deriving anything from git - the caller supplies the report text"]
+touches = ["src/main.rs", "src/mutate.rs", "src/export.rs", "src/diff.rs", "src/render.rs"]
+assignee = "claude"
+body = """
+Named consumer: harness's agent-gate workflow (worktree -> implementer AI -> reviewer AI -> merge -> audit AI). When the cross-family reviewer rejects a run, the task goes back to the queue - but the rejection report (WHY it was rejected) currently has nowhere to live in rmap, so the next dispatch starts blind. The implementer/reviewer 'argument' should happen asynchronously across attempts, with evidence, never synchronously inside one run.
+
+Today's gaps: body is immutable by convention; blocked_reason is blocked-only and auto-clears on transition; mark_pending takes no report. Design the field + CLI surface here (this task is intent - the rmap implementer designs the schema: attempt-history list vs single report field, naming, transition flags), following the existing creation-time vs transition-time field rules in the Task struct docs.
+"""
+implemented = "Landed onto development via cherry-pick of harness run run-1780497009908-f36927b8 (cross-family reviewer-approved, ratings 9/9/9/9)."
+delivered_by = "claude"
+verified = true
+created_at = "2026-06-03"
+started_at = "2026-06-03"
+scored_at = "2026-06-03"
+done_at = "2026-06-03"
+shipped_in = "f589813b0058a68440d38d623dfa13764d9bc784"
