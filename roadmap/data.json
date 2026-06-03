@@ -1483,6 +1483,41 @@
       "implemented": "rmap delegate --to is now optional: new pure resolver delegate::resolve_target honors the task's stored assignee (explicit --to overrides; no assignee or assignee=human exits 1 with pass---to guidance). Docs formalize assignee as THE agent-routing field: SKILLS.md (+ skills_smoke-gated no---to/exit-1 examples), CLAUDE.md (delegate invariant + harness section now --fields id,assignee,markers), ~/.claude/includes/rmap.md (assignee orchestration fact + three-way assignee/model/--to split). Harness poller switch is the companion Part 2 in ../harness.",
       "delivered_by": "claude",
       "cross_repo": []
+    },
+    {
+      "id": 41,
+      "phase": 15,
+      "bundle": "schema_milestones",
+      "status": "pending",
+      "title": "MILESTONES marker pair — render a Release Lines section in ROADMAP.md",
+      "scores": {
+        "d": 3,
+        "b": 6,
+        "u": 6
+      },
+      "eff": 2.0,
+      "dep_layer": 0,
+      "markers": [],
+      "depends_on": [],
+      "assignee": "codex",
+      "acceptance_criteria": [
+        "`<!-- MILESTONES:BEGIN --> / <!-- MILESTONES:END -->` marker pair recognized by rmap render, same byte-preservation contract as FOCUS/VISION markers",
+        "Each milestone renders: name, target_version, status glyph, description (the hypothesis), done/total pinned-task counts",
+        "Active milestones sort first, then by order — mirrors `rmap milestones` CLI sort",
+        "Roadmaps without the marker pair render byte-identically to today",
+        "`rmap validate --check-render` covers the new section",
+        "Golden fixture + tests/cli.rs coverage",
+        "SKILLS.md + ~/.claude/includes/rmap.md marker-contract docs updated"
+      ],
+      "out_of_scope": [
+        "Listing member tasks per milestone inside the section (counts only; rows already carry inline tags)",
+        "Auto-inserting the marker pair into roadmaps that lack it (opt-in by adding the markers, like FOCUS/VISION)",
+        "HTML render (--html) milestone section — follow-up if the markdown section proves useful"
+      ],
+      "body": "First consumer: Tapakly's ROADMAP.md — it already carries a hand-written `<!-- MILESTONES:BEGIN --> / <!-- MILESTONES:END -->` marker pair under a \"## Release Lines\" heading, waiting for rmap to fill it. Tapakly defines 5 milestones whose descriptions are hypothesis statements (required by task-writing.md's milestone-fit gate), and today those hypotheses render NOWHERE in the document — only `rmap milestones` (CLI) shows them. A reader of ROADMAP.md sees 🚀 v0_5 tags on rows but can never learn what v0_5 tests.\n\nThis is the deferred option (b) from the original milestones task (open question \"ROADMAP.md render placement\"): option (a) inline row segments shipped; this task adds the grouped section. Render between MILESTONES:BEGIN/END markers: one block per milestone (active-first, then order) with name, target_version, status, the hypothesis description, and done/total pinned-task counts. Projects without the marker pair render byte-identically to today — same graceful-absence rule as the FOCUS/VISION/MERMAID markers.\n",
+      "created_at": "2026-06-02",
+      "scored_at": "2026-06-02",
+      "cross_repo": []
     }
   ]
 }

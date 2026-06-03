@@ -120,4 +120,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 38 | ✅ | 🎁 **agent_dispatch** · handbuild marker + --dispatchable + --fields JSON projection [D:3/B:6/U:7 → Eff:2.17] 🎯 |
 | Task 39 | ✅ | 🎁 **delegate_targets** · Widen delegate targets + assignee set: add grok, antigravity, pi, droid [D:3/B:6/U:7 → Eff:2.17] 🎯 |
 | Task 40 | ✅ | 🎁 **agent_routing** · Formalize assignee as the agent-routing field; delegate --to defaults to it [D:3/B:7/U:8 → Eff:2.5] 🎯 |
+| Task 41 | ⬜ | 🎁 **schema_milestones** · MILESTONES marker pair — render a Release Lines section in ROADMAP.md [D:3/B:6/U:6 → Eff:2.0] 🎯 |
 <!-- TASKS:END -->
