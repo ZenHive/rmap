@@ -72,7 +72,7 @@ Modules — each file's doc comment is the authoritative reference for its inter
 Easy to violate without breaking tests immediately. The "why" lives in source doc comments and tests; this list is the index.
 
 **Render & markers**
-- **Marker boundaries are byte-preserved** (TASKS / FOCUS / MERMAID / VISION). Don't normalize input bytes outside matched pairs.
+- **Marker boundaries are byte-preserved** (TASKS / FOCUS / MERMAID / VISION / MILESTONES). Don't normalize input bytes outside matched pairs.
 - **FOCUS / MERMAID / VISION line shape and empty-state strings are agent-grep contract.** Changing wording is a `schema_version` bump.
 - **Archive collapse triggers on `phases.N.status = "done"`** and emits the one-line `See [CHANGELOG.md#…]` body. Line shape is locked by `validate --check-render`.
 
@@ -111,6 +111,7 @@ Easy to violate without breaking tests immediately. The "why" lives in source do
 - **`rmap next-bundle` ranking is `(in_focus_phase desc, sum_eff desc, bundle.order asc)`** and the three empty-state stderr spellings are load-bearing.
 - **`rmap bundles` row separator and five-branch glyph ladder** (`✅` / `🚧` / `all-blocked ⛔` / `pending:<n> (deps unmet) ⏸` / `next:<id> [Eff:x.y] <tier_glyph>`) are agent-grep contract.
 - **`rmap milestones` mirrors `rmap bundles`'s five-branch glyph ladder** and adds a trailing `[target=<version>]` segment when `milestone.target_version` is set. Sort key and row shape are agent-grep contract.
+- **MILESTONES marker section is opt-in and grouped**: `<!-- MILESTONES:BEGIN -->` / `<!-- MILESTONES:END -->` renders one block per milestone sorted like `rmap milestones`, including name, target_version, status glyph, hypothesis description, and done/total pinned-task counts. Roadmaps without the marker pair render byte-identically.
 - **Render-row 🚀 segment is conditional + positional**: `🎁 **bundle** · 🚀 **milestone** · {module} · {category} {title}`. Inserted between bundle and module_segment; emitted only when `task.milestone.is_some()`. Rows without a milestone render byte-identically to pre-Task-24 — regression-guarded by golden fixtures.
 - **Render-row `⛔ {blocked_reason}` segment is conditional + trailing**: appended after the tier glyph, emitted only when `task.status == "blocked"` and `blocked_reason` is non-empty. Non-blocked rows (and blocked rows are the only ones affected) render byte-identically otherwise — additive, golden-guarded by `tests/golden/mermaid_block`.
 - **Eff tier glyph is centralized in `scoring::tier_glyph`** (`>=2.0 🎯 / >=1.5 🚀 / >=1.0 📋 / else ⚠️`). NEVER fold into `format_efficiency` — JSON payloads must stay numeric.

@@ -114,6 +114,17 @@ fn render_rejects_unclosed_mermaid_marker() {
     assert!(err.to_string().contains("missing <!-- MERMAID:END -->"));
 }
 
+#[test]
+fn render_rejects_unclosed_milestones_marker() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
+    let roadmap = "<!-- MILESTONES:BEGIN -->\nstale generated content\n";
+
+    let err = render_roadmap_str_with_today(roadmap, &tasks, "2026-05-11")
+        .expect_err("unclosed MILESTONES marker is rejected");
+
+    assert!(err.to_string().contains("missing <!-- MILESTONES:END -->"));
+}
+
 fn golden_cases() -> Vec<std::path::PathBuf> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden");
     let mut cases = fs::read_dir(root)

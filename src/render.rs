@@ -2,6 +2,7 @@ use std::fmt::Write;
 
 use thiserror::Error;
 
+use crate::milestones::{MilestoneFilter, MilestoneSummary, list_milestones};
 use crate::next::next_task;
 use crate::query::TaskFilter;
 use crate::schema::{Task, Tasks};
@@ -18,6 +19,9 @@ const VISION_END_MARKER: &str = "<!-- VISION:END -->";
 
 const MERMAID_BEGIN_MARKER: &str = "<!-- MERMAID:BEGIN -->";
 const MERMAID_END_MARKER: &str = "<!-- MERMAID:END -->";
+
+const MILESTONES_BEGIN_MARKER: &str = "<!-- MILESTONES:BEGIN -->";
+const MILESTONES_END_MARKER: &str = "<!-- MILESTONES:END -->";
 
 /// Tasks whose `done_at` is within this many days of `today` count as "recently
 /// shipped" in the FOCUS block. Older shipments don't appear; the line falls
@@ -36,6 +40,8 @@ pub enum RenderError {
     MissingVisionEndMarker { start: usize },
     #[error("missing <!-- MERMAID:END --> for marker starting at byte {start}")]
     MissingMermaidEndMarker { start: usize },
+    #[error("missing <!-- MILESTONES:END --> for marker starting at byte {start}")]
+    MissingMilestonesEndMarker { start: usize },
 }
 
 /// Render with an explicit `today` date (`YYYY-MM-DD`). Pass `""` only when
@@ -49,7 +55,8 @@ pub fn render_roadmap_str_with_today(
     let after_focus = render_focus_pass(roadmap, tasks, today)?;
     let after_vision = render_vision_pass(&after_focus, tasks)?;
     let after_mermaid = render_mermaid_pass(&after_vision, tasks, today)?;
-    render_tasks_pass(&after_mermaid, tasks, today)
+    let after_milestones = render_milestones_pass(&after_mermaid, tasks)?;
+    render_tasks_pass(&after_milestones, tasks, today)
 }
 
 /// Render using `today_iso()` (reads `RMAP_TODAY` env var or the system clock).
@@ -278,6 +285,86 @@ fn render_mermaid_body(tasks: &Tasks, today: &str) -> String {
 
     body.push_str("```\n");
     body
+}
+
+fn render_milestones_pass(roadmap: &str, tasks: &Tasks) -> Result<String, RenderError> {
+    let Some(begin) = roadmap.find(MILESTONES_BEGIN_MARKER) else {
+        return Ok(roadmap.to_string());
+    };
+    let marker_line_end = roadmap[begin..]
+        .find('\n')
+        .map(|offset| begin + offset + '\n'.len_utf8())
+        .unwrap_or(roadmap.len());
+    let end = roadmap[marker_line_end..]
+        .find(MILESTONES_END_MARKER)
+        .map(|offset| marker_line_end + offset)
+        .ok_or(RenderError::MissingMilestonesEndMarker { start: begin })?;
+    let end_line_end = roadmap[end..]
+        .find('\n')
+        .map(|offset| end + offset + '\n'.len_utf8())
+        .unwrap_or(roadmap.len());
+
+    let mut rendered = String::with_capacity(roadmap.len());
+    rendered.push_str(&roadmap[..marker_line_end]);
+    rendered.push_str(&render_milestones_body(tasks));
+    rendered.push_str(&roadmap[end..end_line_end]);
+    rendered.push_str(&roadmap[end_line_end..]);
+    Ok(rendered)
+}
+
+fn render_milestones_body(tasks: &Tasks) -> String {
+    let summaries = list_milestones(tasks, &MilestoneFilter::default());
+    if summaries.is_empty() {
+        return "(no milestones declared)\n".to_string();
+    }
+
+    let mut body = String::new();
+    for (index, summary) in summaries.iter().enumerate() {
+        if index > 0 {
+            body.push('\n');
+        }
+        render_milestone_block(&mut body, summary);
+    }
+    body
+}
+
+fn render_milestone_block(body: &mut String, summary: &MilestoneSummary<'_>) {
+    writeln!(body, "### {} — {}", summary.key, summary.name).expect("write to string");
+    body.push('\n');
+    writeln!(
+        body,
+        "- **target_version:** {}",
+        summary.target_version.unwrap_or("none")
+    )
+    .expect("write to string");
+    writeln!(
+        body,
+        "- **status:** {} {}",
+        milestone_status_glyph(summary.status),
+        summary.status
+    )
+    .expect("write to string");
+    writeln!(
+        body,
+        "- **hypothesis:** {}",
+        summary.description.unwrap_or("not set")
+    )
+    .expect("write to string");
+    writeln!(
+        body,
+        "- **pinned tasks:** {}/{} done",
+        summary.status_counts.done, summary.task_count
+    )
+    .expect("write to string");
+}
+
+fn milestone_status_glyph(status: &str) -> &str {
+    match status {
+        "active" => "🔄",
+        "pending" => "⬜",
+        "done" => "✅",
+        _ => status,
+    }
 }
 
 fn gantt_row(task: &Task, today: &str) -> Option<String> {

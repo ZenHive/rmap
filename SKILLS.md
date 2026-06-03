@@ -163,7 +163,7 @@ rmap list --fields id,title,touches
 
 Milestone status vocabulary is distinct from task status: `pending | active | done`. The `active` milestone surfaces first in `rmap milestones` and is the load-bearing affordance for the "what release am I cutting next?" daily query.
 
-`rmap milestones` lists every declared `[milestones.*]` with done/total counts and the next-task glyph (same five-branch ladder as `rmap bundles`). Sort order: active first, then pending, then done; ties broken by `milestone.order`.
+`rmap milestones` lists every declared `[milestones.*]` with done/total counts and the next-task glyph (same five-branch ladder as `rmap bundles`). Sort order: active first, then pending, then done; ties broken by `milestone.order`. `rmap render` uses that same order inside an optional `<!-- MILESTONES:BEGIN -->` / `<!-- MILESTONES:END -->` block.
 
 ```bash
 rmap milestones
@@ -452,13 +452,14 @@ rmap render --html --multi .
 
 ### Marker conventions
 
-Three marker pairs live inside `ROADMAP.md`. Bytes outside these markers are preserved exactly — hand-edited prose, headings, and blank lines all round-trip byte-equal.
+Four marker pairs live inside `ROADMAP.md`. Bytes outside these markers are preserved exactly — hand-edited prose, headings, and blank lines all round-trip byte-equal.
 
 - `<!-- TASKS:BEGIN phase=N -->` … `<!-- TASKS:END -->` — one pair per phase. Body is the rendered task table for phase N. The phase number is parsed from the BEGIN line.
 - `<!-- FOCUS:BEGIN -->` … `<!-- FOCUS:END -->` — at most one pair per file. When `[focus]` is set in `tasks.toml`, the body emits three lines: `**Focus phase:** N — <name> (M of K done · J in progress)`, `**Last shipped:** Task A — <title>, Task B — <title> on YYYY-MM-DD` (within 7 days; `"no recent shipments"` otherwise), `**Up next:** Task C — <title> [D/B/U → Eff] <tier_glyph>` (or `"none — focus phase complete or all blocked"`). When `[focus]` is absent, emits a single `**Focus phase:** not set — add [focus] to tasks.toml`.
 - `<!-- MERMAID:BEGIN -->` … `<!-- MERMAID:END -->` — at most one pair per file. Body is a fenced ```` ```mermaid ```` `gantt` diagram, one `section` per phase (in `phases.order` order), one row per task with `started_at`. Rows: `done` → `<title> :done, <started_at>, <done_at>`; `in_progress` → `:active, <started_at>, <today>`; `blocked` → `:crit, <started_at>, <today>`. Pending tasks and tasks without `started_at` are omitted (mermaid gantt requires dates). When no task qualifies, the body collapses to a placeholder gantt with `%% no tasks with started_at yet`. Colons / commas / semicolons (`:`, `,`, `;`) in task titles are rewritten to em-dash (`—`) at render time so mermaid's `task :status, start, end` grammar doesn't get confused.
+- `<!-- MILESTONES:BEGIN -->` … `<!-- MILESTONES:END -->` — at most one pair per file. Body emits one markdown block per declared milestone, sorted exactly like `rmap milestones` (active first, then pending, then done; ties by `milestone.order`). Each block includes `### <key> — <name>`, `target_version` (`none` when absent), status glyph + status (`🔄 active`, `⬜ pending`, `✅ done`), the hypothesis from `milestone.description`, and `<done>/<total> done` pinned-task counts.
 
-If a marker pair isn't present in `ROADMAP.md`, the corresponding block isn't rendered — zero-config default for all three pairs.
+If a marker pair isn't present in `ROADMAP.md`, the corresponding block isn't rendered — zero-config default for all four pairs.
 
 ## Live dev
 

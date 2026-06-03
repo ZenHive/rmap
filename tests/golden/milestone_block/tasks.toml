@@ -1,0 +1,72 @@
+schema_version = 2
+project = "tapakly"
+default_branch = "main"
+
+[phases.1]
+name = "Release foundation"
+order = 1
+status = "in_progress"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Release tasks"
+
+[milestones.v0_4]
+name = "v0.4 — proven retention"
+description = "Tests whether venue operators come back weekly when price intelligence is visible."
+order = 1
+status = "pending"
+target_version = "0.4.0"
+
+[milestones.v0_5]
+name = "v0.5 — paid pilot"
+description = "Tests whether Bali professionals will pay for a Bali-specific material-price tool."
+order = 2
+status = "active"
+target_version = "0.5.0"
+
+[milestones.v1_0]
+name = "v1.0 — durable market"
+description = "Tests whether the workflow sustains a full launch cohort without concierge support."
+order = 3
+status = "done"
+target_version = "1.0.0"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+milestone = "v0_5"
+status = "done"
+implemented = "fixture"
+title = "Ship paid pilot onboarding"
+scores = { d = 2, b = 8, u = 8 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+milestone = "v0_5"
+status = "pending"
+title = "Measure repeat buyer demand"
+scores = { d = 3, b = 8, u = 8 }
+
+[[task]]
+id = 3
+phase = 1
+bundle = "core"
+milestone = "v0_4"
+status = "pending"
+title = "Instrument weekly retention"
+scores = { d = 2, b = 6, u = 6 }
+
+[[task]]
+id = 4
+phase = 1
+bundle = "core"
+milestone = "v1_0"
+status = "done"
+implemented = "fixture"
+title = "Launch cohort readiness"
+scores = { d = 4, b = 8, u = 8 }

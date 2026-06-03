@@ -7100,6 +7100,73 @@ title = "Task three (no milestone)"
 scores = { d = 2, b = 6, u = 6 }
 "#;
 
+const MILESTONE_SECTION_TASKS: &str = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase 1"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[milestones.v0_4]
+name = "v0.4 — retention"
+description = "Tests whether operators return weekly when release-line context is visible."
+order = 1
+status = "pending"
+target_version = "0.4.0"
+
+[milestones.v0_5]
+name = "v0.5 — paid pilot"
+description = "Tests whether readers understand what the active release is proving."
+order = 2
+status = "active"
+target_version = "0.5.0"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+milestone = "v0_5"
+status = "done"
+implemented = "fixture"
+title = "Done active task"
+scores = { d = 2, b = 8, u = 8 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "alpha"
+milestone = "v0_5"
+status = "pending"
+title = "Pending active task"
+scores = { d = 2, b = 8, u = 8 }
+
+[[task]]
+id = 3
+phase = 1
+bundle = "alpha"
+milestone = "v0_4"
+status = "pending"
+title = "Pending prior task"
+scores = { d = 2, b = 6, u = 6 }
+"#;
+
+const MILESTONE_SECTION_ROADMAP: &str = r#"# Roadmap
+
+## Release Lines
+
+<!-- MILESTONES:BEGIN -->
+stale milestone content
+<!-- MILESTONES:END -->
+"#;
+
 #[test]
 fn list_command_filters_by_milestone() {
     let path = write_temp_tasks("milestone_list.toml", MILESTONE_TASKS);
@@ -7494,6 +7561,69 @@ fn milestones_command_empty_milestones() {
         stdout.contains("(no milestones declared)"),
         "empty-state line:\n{stdout}"
     );
+}
+
+#[test]
+fn render_command_updates_milestones_block() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(&dir.join("roadmap"), "tasks.toml", MILESTONE_SECTION_TASKS);
+    write_file(&dir, "ROADMAP.md", MILESTONE_SECTION_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap render");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let rendered = fs::read_to_string(dir.join("ROADMAP.md")).expect("read rendered roadmap");
+    assert!(!rendered.contains("stale milestone content"), "{rendered}");
+    assert!(
+        rendered.contains("### v0_5 — v0.5 — paid pilot"),
+        "{rendered}"
+    );
+    assert!(rendered.contains("- **status:** 🔄 active"), "{rendered}");
+    assert!(
+        rendered.contains(
+            "- **hypothesis:** Tests whether readers understand what the active release is proving."
+        ),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("- **pinned tasks:** 1/2 done"),
+        "{rendered}"
+    );
+
+    let active_pos = rendered.find("v0_5").expect("active milestone rendered");
+    let pending_pos = rendered.find("v0_4").expect("pending milestone rendered");
+    assert!(
+        active_pos < pending_pos,
+        "active milestone should render before lower-order pending milestone:\n{rendered}"
+    );
+}
+
+#[test]
+fn validate_check_render_detects_stale_milestones_block() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    write_file(&dir.join("roadmap"), "tasks.toml", MILESTONE_SECTION_TASKS);
+    write_file(&dir, "ROADMAP.md", MILESTONE_SECTION_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("validate")
+        .arg("--check-render")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap validate --check-render");
+
+    assert_eq!(output.status.code(), Some(2), "expected render drift");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("run rmap render"));
 }
 
 #[test]
