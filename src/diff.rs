@@ -425,6 +425,7 @@ fn task_changes(
         implemented,
         delivered_by,
         verified,
+        attempts,
         cross_repo,
     );
 

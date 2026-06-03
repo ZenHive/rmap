@@ -108,9 +108,10 @@ impl CrossRepoSpec {
 /// outcome layer grows. All are optional; `None` leaves the field untouched.
 /// Each field is gated on its matching transition: the first four (`implemented`,
 /// `delivered_by`, `verified`, `shipped_in`) apply only on a `done` transition;
-/// `blocked_reason` applies only on a `blocked` transition. On any other
-/// transition the relevant fields are ignored. `Default` yields all-`None` (the
-/// common "just change the status" case).
+/// `blocked_reason` applies only on a `blocked` transition; `attempt_report` /
+/// `attempt_by` apply only on a `pending` transition. On any other transition
+/// the relevant fields are ignored. `Default` yields all-`None` (the common
+/// "just change the status" case).
 #[derive(Default, Clone, Copy)]
 pub struct TransitionFields<'a> {
     /// What was actually built (overwrites any existing value when `Some`).
@@ -126,6 +127,14 @@ pub struct TransitionFields<'a> {
     /// Why the task is blocked (free-text). Blocked-only: written on a `blocked`
     /// transition, auto-cleared when the task leaves the blocked state.
     pub blocked_reason: Option<&'a str>,
+    /// Failure evidence for the attempt that just sent this task back to the
+    /// queue (free-text — a reviewer's rejection report). Pending-only: when
+    /// `Some`, a new entry is **appended** to the task's `attempts` history
+    /// (never overwritten), timestamped with `today_iso()`.
+    pub attempt_report: Option<&'a str>,
+    /// Which agent the appended attempt is attributed to (free-text). Only
+    /// meaningful alongside `attempt_report` on a `pending` transition.
+    pub attempt_by: Option<&'a str>,
 }
 
 /// Atomically flip the `status` field on every task in `ids` to `new_status`.
@@ -163,6 +172,13 @@ pub struct TransitionFields<'a> {
 /// (current status `blocked`, new status anything else) auto-removes the stale
 /// `blocked_reason` — it described a state that no longer holds. Re-blocking
 /// (`blocked → blocked`) keeps or overwrites the existing reason.
+///
+/// `fields.attempt_report` / `fields.attempt_by`: written only on a `pending`
+/// transition, ignored otherwise. When `attempt_report` is `Some`, a new
+/// `attempts` entry is **appended** (never overwritten) — `{ at = today_iso(),
+/// by = attempt_by?, report }` — recording why the prior dispatch attempt was
+/// rejected so the next implementer sees the history. Each call appends exactly
+/// one entry; re-running appends again (append semantics, no dedup).
 pub fn update_status_many_str(
     path: impl Into<String>,
     input: &str,
@@ -197,6 +213,8 @@ pub fn update_status_many_str(
         verified,
         shipped_in,
         blocked_reason,
+        attempt_report,
+        attempt_by,
     } = fields;
     let (implemented, delivered_by, verified, shipped_in) = if new_status == "done" {
         (implemented, delivered_by, verified, shipped_in)
@@ -208,9 +226,16 @@ pub fn update_status_many_str(
     } else {
         None
     };
+    let (attempt_report, attempt_by) = if new_status == "pending" {
+        (attempt_report, attempt_by)
+    } else {
+        (None, None)
+    };
     // Snapshot once per call so a bulk transition that straddles midnight
     // stamps every matched task with the same date.
     let today = timestamp_field.map(|_| crate::today_iso());
+    // Same snapshot rule for an appended attempt's `at` timestamp.
+    let attempt_today = attempt_report.map(|_| crate::today_iso());
 
     for task in tasks.iter_mut() {
         let Some(id) = task.get("id").and_then(item_to_task_id) else {
@@ -275,6 +300,33 @@ pub fn update_status_many_str(
             // guarantees `blocked_reason` is `None` here, so no write to undo).
             if was_blocked && new_status != "blocked" {
                 task.remove("blocked_reason");
+            }
+
+            // Append one attempt entry (history, never overwrite). Stored as an
+            // inline table per entry, mirroring `cross_repo`.
+            if let Some(report) = attempt_report {
+                let was_present = task.contains_key("attempts");
+                {
+                    let entry = task
+                        .entry("attempts")
+                        .or_insert(Item::Value(Value::Array(Array::new())));
+                    let array = entry
+                        .as_array_mut()
+                        .ok_or_else(|| MutateError::Toml("attempts is not an array".to_string()))?;
+                    let mut inline = InlineTable::new();
+                    let at = attempt_today
+                        .as_deref()
+                        .expect("attempt_today set when attempt_report is");
+                    inline.insert("at", Value::from(at));
+                    if let Some(by) = attempt_by {
+                        inline.insert("by", Value::from(by));
+                    }
+                    inline.insert("report", Value::from(report));
+                    array.push(Value::InlineTable(inline));
+                }
+                if !was_present {
+                    needs_sort = true;
+                }
             }
 
             if needs_sort {
@@ -526,6 +578,7 @@ fn canonical_task_key_index(key: &str) -> u32 {
         "scored_at" => 26,
         "done_at" => 27,
         "shipped_in" => 28,
+        "attempts" => 29,
         _ => u32::MAX,
     }
 }

@@ -81,6 +81,7 @@ mod tests {
             implemented: None,
             delivered_by: None,
             verified: None,
+            attempts: vec![],
             cross_repo: vec![],
         }
     }

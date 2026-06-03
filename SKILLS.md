@@ -229,6 +229,13 @@ rmap status 3 blocked --reason vendor-approval-pending
 # exit: 0
 ```
 
+When a dispatch attempt fails and the task returns to the queue, flip it back to `pending` with `--report "<why it was rejected>"` (and optional `--attempt-by <agent>`) to append the failure evidence to the task's attempt history. Attempts **accumulate** — each call adds a new entry, never overwrites — and surface in `rmap show`, `rmap delegate` (so the next implementer reads why the last attempt failed), and `--json` / `data.json`. Like the outcome flags, it applies only on `pending`; other transitions emit a stderr warning and skip the write.
+
+```bash
+rmap status 3 pending --report reviewer-rejected-tests-red --attempt-by claude
+# exit: 0
+```
+
 `rmap mark <id> +marker -marker …` toggles markers. Adds are idempotent; removes are idempotent. Valid markers: `parallel | cx | csr | bug | security | docs | handbuild`. `handbuild` flags work that needs a human-driven browser (LiveView / UI / DOM) — the minority exception that `rmap ready --dispatchable` / `rmap list --dispatchable` exclude, so everything else is headless-dispatchable by default.
 
 ```bash

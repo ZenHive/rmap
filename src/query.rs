@@ -157,6 +157,15 @@ pub fn format_task(task: &Task) -> String {
         lines.push(format!("verified: {}", if verified { "yes" } else { "no" }));
     }
 
+    if !task.attempts.is_empty() {
+        lines.push(format!("attempts ({}):", task.attempts.len()));
+        for attempt in &task.attempts {
+            let by = attempt.by.as_deref().unwrap_or("unknown");
+            lines.push(format!("- {} by {}:", attempt.at, by));
+            lines.push(attempt.report.trim().to_string());
+        }
+    }
+
     lines.join("\n")
 }
 

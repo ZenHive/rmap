@@ -8494,3 +8494,276 @@ scored_at = "2026-05-01"
         "expected verified in --verbose values: {value}"
     );
 }
+
+#[test]
+fn status_pending_with_report_appends_attempt_and_leaves_siblings_intact() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    // Target task 2 (the MIDDLE task) to prove the inline-table append lands on
+    // the right row and doesn't disturb its siblings.
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("2")
+        .arg("pending")
+        .arg("--report")
+        .arg("reviewer rejected: tests red at foo.rs:42")
+        .arg("--attempt-by")
+        .arg("claude")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status pending --report");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let task_2_section = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 2\n"))
+        .expect("task 2 section present");
+    assert!(
+        task_2_section.contains("attempts = [{ at = \"2026-05-14\", by = \"claude\", report = \"reviewer rejected: tests red at foo.rs:42\" }]"),
+        "attempts entry missing/malformed on task 2:\n{task_2_section}"
+    );
+
+    // Siblings untouched — no attempts leaked onto task 1 or 3.
+    let task_1_section = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 1\n"))
+        .expect("task 1 section present");
+    assert!(
+        !task_1_section.contains("attempts"),
+        "task 1 must be untouched:\n{task_1_section}"
+    );
+
+    // show renders the attempt; --json carries the structured history.
+    let show = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show 2");
+    let stdout = String::from_utf8_lossy(&show.stdout);
+    assert!(stdout.contains("attempts (1):"), "{stdout}");
+    assert!(stdout.contains("2026-05-14 by claude:"), "{stdout}");
+    assert!(
+        stdout.contains("reviewer rejected: tests red at foo.rs:42"),
+        "{stdout}"
+    );
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show 2 --json");
+    let value: serde_json::Value = serde_json::from_slice(&json.stdout).expect("valid json");
+    let attempts = value["attempts"].as_array().expect("attempts array");
+    assert_eq!(attempts.len(), 1, "{value}");
+    assert_eq!(attempts[0]["at"], "2026-05-14");
+    assert_eq!(attempts[0]["by"], "claude");
+    assert_eq!(
+        attempts[0]["report"],
+        "reviewer rejected: tests red at foo.rs:42"
+    );
+}
+
+#[test]
+fn status_pending_report_accumulates_across_attempts() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    for (day, report, by) in [
+        ("2026-05-14", "first rejection", "claude"),
+        ("2026-05-15", "second rejection", "codex"),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+            .arg("status")
+            .arg("1")
+            .arg("pending")
+            .arg("--report")
+            .arg(report)
+            .arg("--attempt-by")
+            .arg(by)
+            .arg("--tasks-path")
+            .arg(&tasks_path)
+            .env("RMAP_TODAY", day)
+            .current_dir(&dir)
+            .output()
+            .expect("run rmap status pending --report");
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("1")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show 1 --json");
+    let value: serde_json::Value = serde_json::from_slice(&json.stdout).expect("valid json");
+    let attempts = value["attempts"].as_array().expect("attempts array");
+    assert_eq!(
+        attempts.len(),
+        2,
+        "attempts must accumulate, not overwrite: {value}"
+    );
+    assert_eq!(attempts[0]["report"], "first rejection");
+    assert_eq!(attempts[1]["report"], "second rejection");
+    assert_eq!(attempts[1]["by"], "codex");
+}
+
+#[test]
+fn status_non_pending_with_report_emits_warning_and_skips_write() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("in_progress")
+        .arg("--report")
+        .arg("should be ignored")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status in_progress --report");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--report/--attempt-by ignored for status `in_progress`"),
+        "expected report warning:\n{stderr}"
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    let task_1_section = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 1\n"))
+        .expect("task 1 section present");
+    assert!(
+        !task_1_section.contains("attempts"),
+        "attempts must not be written on non-pending transitions:\n{task_1_section}"
+    );
+}
+
+#[test]
+fn status_attempt_by_without_report_warns_and_writes_nothing() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("pending")
+        .arg("--attempt-by")
+        .arg("claude")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status pending --attempt-by");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--attempt-by ignored without --report"),
+        "expected attempt-by warning:\n{stderr}"
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(
+        !tasks.contains("attempts"),
+        "no attempt should be appended without --report:\n{tasks}"
+    );
+}
+
+#[test]
+fn delegate_includes_prior_attempts() {
+    let with_attempt = r#"
+schema_version = 2
+project = "delegate_attempt"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Task under retry"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+assignee = "claude"
+body = "do the thing"
+attempts = [{ at = "2026-05-14", by = "claude", report = "reviewer rejected: missing edge-case test" }]
+"#;
+    let path = write_temp_tasks("delegate_attempt.toml", with_attempt);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("1")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap delegate 1");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("## Prior attempts"), "{stdout}");
+    assert!(
+        stdout.contains("### Attempt 1 — 2026-05-14 by claude"),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("reviewer rejected: missing edge-case test"),
+        "{stdout}"
+    );
+}

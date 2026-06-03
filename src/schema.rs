@@ -90,7 +90,7 @@ pub struct Milestone {
 /// timestamps + `implemented` + outcome layer, etc.) + surfaces 4–6. Stays
 /// absent from `StdinTask` / `NewTaskFields` on purpose. Today: `started_at`,
 /// `done_at`, `blocked_reason`, `shipped_in`, `implemented`, `delivered_by`,
-/// `verified`.
+/// `verified`, `attempts`.
 #[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Task {
@@ -133,6 +133,16 @@ pub struct Task {
     pub implemented: Option<String>,
     pub delivered_by: Option<String>,
     pub verified: Option<bool>,
+    /// Append-only history of dispatch attempts that failed and returned the
+    /// task to the queue, each carrying its failure evidence (e.g. a reviewer's
+    /// rejection report). A transition-time field — appended by
+    /// `rmap status <id> pending --report "<text>" [--attempt-by <agent>]`,
+    /// never settable at creation. The implementer/reviewer "argument" happens
+    /// asynchronously across attempts, with evidence: the next dispatch reads
+    /// this history instead of starting blind. Empty = never failed (skipped on
+    /// every output surface so untouched tasks round-trip byte-identically).
+    #[serde(default)]
+    pub attempts: Vec<Attempt>,
     #[serde(default)]
     pub cross_repo: Vec<CrossRepo>,
 }
@@ -143,6 +153,27 @@ pub struct Scores {
     pub d: u32,
     pub b: u32,
     pub u: u32,
+}
+
+/// One recorded dispatch attempt that did not stick — e.g. a cross-family
+/// reviewer's rejection report on a run that sent the task back to `pending`.
+/// Accumulated (never overwritten) in [`Task::attempts`]; appended by
+/// `rmap status <id> pending --report`. Stored as an inline table per entry
+/// (mirroring [`CrossRepo`]).
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Attempt {
+    /// ISO date (`YYYY-MM-DD`) the attempt was recorded. Auto-filled from
+    /// `today_iso()` at write time — `RMAP_TODAY`-aware like every timestamp.
+    pub at: String,
+    /// Which agent or instance made the attempt (free-text, unvalidated —
+    /// posture of `model` / `delivered_by`). Optional: the writer supplies it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub by: Option<String>,
+    /// Free-text failure evidence (a reviewer's rejection report, a harness
+    /// verdict). An attempt without a report carries no signal, so the mutator
+    /// only appends an entry when a report is supplied.
+    pub report: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]

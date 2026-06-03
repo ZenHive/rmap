@@ -132,6 +132,16 @@ enum Commands {
         /// task leaves the blocked state. Passed non-TTY; no interactive prompt.
         #[arg(long)]
         reason: Option<String>,
+        /// Append failure evidence (a reviewer's rejection report) for the
+        /// attempt that returned this task to the queue. Settable only on
+        /// `pending` transitions; ignored with a one-line stderr note otherwise.
+        /// Accumulates — each call appends a new attempt, never overwrites.
+        #[arg(long)]
+        report: Option<String>,
+        /// Attribute the appended `--report` to an agent (free-text). Only
+        /// meaningful with `--report` on a `pending` transition.
+        #[arg(long)]
+        attempt_by: Option<String>,
         #[arg(long)]
         tasks_path: Option<PathBuf>,
         #[arg(long)]
@@ -498,6 +508,8 @@ fn run() -> Result<ExitCode> {
             verified,
             shipped_in,
             reason,
+            report,
+            attempt_by,
             tasks_path,
             roadmap_path,
             data_path,
@@ -513,6 +525,8 @@ fn run() -> Result<ExitCode> {
                     verified: if verified { Some(true) } else { None },
                     shipped_in: shipped_in.as_deref(),
                     blocked_reason: reason.as_deref(),
+                    attempt_report: report.as_deref(),
+                    attempt_by: attempt_by.as_deref(),
                 },
             )?;
         }
@@ -1306,6 +1320,14 @@ fn update_status(
         );
     }
 
+    if (fields.attempt_report.is_some() || fields.attempt_by.is_some()) && new_status != "pending" {
+        eprintln!(
+            "warning: --report/--attempt-by ignored for status `{new_status}` (only applies to `pending`)"
+        );
+    } else if fields.attempt_report.is_none() && fields.attempt_by.is_some() {
+        eprintln!("warning: --attempt-by ignored without --report");
+    }
+
     let input = std::fs::read_to_string(&paths.tasks_path)
         .with_context(|| format!("read {}", paths.tasks_path.display()))?;
 
@@ -1458,8 +1480,8 @@ struct StdinPayload {
 /// Task-shaped stdin row. Field set matches `schema::Task` except `id` is
 /// optional (auto-allocate when absent). `status` is excluded — creation
 /// produces `"pending"` tasks only. Lifecycle / transition-time fields
-/// (`started_at`, `done_at`, `blocked_reason`, `shipped_in`, `implemented`)
-/// are excluded; `rmap status` owns those transitions.
+/// (`started_at`, `done_at`, `blocked_reason`, `shipped_in`, `implemented`,
+/// `attempts`) are excluded; `rmap status` owns those transitions.
 ///
 /// `branch`, `files_to_modify`, and `cross_repo` are the documented
 /// power-user fields — only reachable via `--from-stdin`, not via the

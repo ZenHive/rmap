@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::next_bundle::BundlePick;
 use crate::schema::{
-    Bundle, CrossRepo, Focus, Linear, Milestone, Phase, Scores, Task, TaskId, Tasks,
+    Attempt, Bundle, CrossRepo, Focus, Linear, Milestone, Phase, Scores, Task, TaskId, Tasks,
 };
 use crate::scoring::rounded_efficiency;
 use crate::topo::compute_layers;
@@ -81,6 +81,8 @@ struct ExportedTask<'a> {
     delivered_by: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     verified: Option<bool>,
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    attempts: &'a [Attempt],
     cross_repo: &'a [CrossRepo],
 }
 
@@ -119,6 +121,7 @@ pub const EXPORTED_TASK_FIELDS: &[&str] = &[
     "implemented",
     "delivered_by",
     "verified",
+    "attempts",
     "cross_repo",
 ];
 
@@ -314,6 +317,7 @@ fn exported_task<'a>(task: &'a Task, layers: &HashMap<String, usize>) -> Exporte
         implemented: task.implemented.as_ref(),
         delivered_by: task.delivered_by.as_ref(),
         verified: task.verified,
+        attempts: &task.attempts,
         cross_repo: &task.cross_repo,
     }
 }
@@ -375,6 +379,7 @@ blocked_reason = "was blocked"
 implemented = "what shipped"
 delivered_by = "codex"
 verified = true
+attempts = [{ at = "2026-01-02", by = "claude", report = "reviewer rejected: tests red" }]
 cross_repo = [{ repo = "other", task_id = 5, relation = "blocks" }]
 "#;
 

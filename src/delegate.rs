@@ -88,6 +88,7 @@ fn format_prompt(tasks: &Tasks, task: &Task, target: DelegateTarget) -> String {
 
     append_context(&mut prompt, tasks, task, target);
     append_task_body(&mut prompt, task);
+    append_prior_attempts(&mut prompt, task);
     append_implemented(&mut prompt, task);
     append_acceptance_criteria(&mut prompt, task);
     append_out_of_scope(&mut prompt, task);
@@ -198,6 +199,38 @@ fn append_task_body(prompt: &mut String, task: &Task) {
     line!(prompt);
     line!(prompt, "## Task");
     line!(prompt, "{body}");
+}
+
+// Surface the failure evidence from prior dispatch attempts so the next
+// implementer reads why earlier runs were rejected before starting — the
+// implementer/reviewer "argument" carried across attempts, not re-litigated.
+fn append_prior_attempts(prompt: &mut String, task: &Task) {
+    if task.attempts.is_empty() {
+        return;
+    }
+
+    line!(prompt);
+    line!(prompt, "## Prior attempts");
+    line!(
+        prompt,
+        "This task returned to the queue {} time(s). Read the rejection evidence before starting — do not repeat these failures.",
+        task.attempts.len()
+    );
+    for (index, attempt) in task.attempts.iter().enumerate() {
+        let by = attempt.by.as_deref().unwrap_or("unknown");
+        line!(prompt);
+        line!(
+            prompt,
+            "### Attempt {} — {} by {}",
+            index + 1,
+            attempt.at,
+            by
+        );
+        let report = attempt.report.trim();
+        if !report.is_empty() {
+            line!(prompt, "{report}");
+        }
+    }
 }
 
 fn append_implemented(prompt: &mut String, task: &Task) {

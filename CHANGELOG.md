@@ -6,6 +6,13 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Task 42: Attempt-history writeback — record why a dispatch attempt failed
+
+**What was done:**
+- New append-only `attempts` field on a task: a list of `{ at, by, report }` entries recording dispatch attempts that failed and returned the task to the queue, each with its failure evidence (e.g. a cross-family reviewer's rejection report). A transition-time field — never settable at creation.
+- `rmap status <id> pending --report "<why>" [--attempt-by <agent>]` appends one entry (timestamped via `today_iso()`); attempts **accumulate**, never overwrite. Like the outcome / `--reason` flags, `--report` applies only on `pending` transitions and is ignored with a stderr note otherwise.
+- The history renders in `rmap show`, appears in `rmap delegate`'s `## Prior attempts` section (so the next implementer reads why the last attempt was rejected instead of starting blind), and surfaces in `--json` / `data.json` (skipped when empty — attemptless tasks round-trip byte-identically).
+
 ### Task 9: `rmap render --html --multi` portfolio view + single-view restyle
 
 **What was done:**
