@@ -30,6 +30,7 @@ scores = { d = 5, b = 8, u = 8 }
 markers = ["parallel"]
 linear_id = "INE-247"
 assignee = "claude"
+domains = ["rust", "agent-routing"]
 acceptance_criteria = ["Ticker fields are normalized"]
 shipped_in = "PR #21"
 
@@ -53,6 +54,7 @@ fn valid_tasks_toml_deserializes_and_validates() {
     assert_eq!(tasks.task.len(), 2);
     assert_eq!(tasks.task[0].id, 74);
     assert_eq!(tasks.task[0].assignee.as_deref(), Some("claude"));
+    assert_eq!(tasks.task[0].domains, vec!["rust", "agent-routing"]);
     assert_eq!(
         tasks.task[0].acceptance_criteria,
         vec!["Ticker fields are normalized"]
@@ -80,7 +82,7 @@ fn rejects_invalid_status() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("status is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:38"));
+    assert!(message.contains("roadmap/tasks.toml:39"));
     assert!(message.contains("invalid status \"shipped\""));
 }
 
@@ -122,7 +124,7 @@ fn rejects_score_above_maximum() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("b = 11 is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:40"), "got: {message}");
+    assert!(message.contains("roadmap/tasks.toml:41"), "got: {message}");
     assert!(
         message.contains("task 75 scores.b = 11 must be in 1..=10"),
         "got: {message}"
@@ -161,7 +163,7 @@ fn rejects_linear_id_that_does_not_match_team_key() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("linear id is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:42"));
+    assert!(message.contains("roadmap/tasks.toml:43"));
     assert!(message.contains("linear_id \"OPS-300\" must match INE-<integer>"));
 }
 
@@ -190,7 +192,7 @@ fn rejects_orphan_dependencies() {
     let err = validate_tasks_str("roadmap/tasks.toml", &input).expect_err("dependency is rejected");
 
     let message = err.to_string();
-    assert!(message.contains("roadmap/tasks.toml:41"));
+    assert!(message.contains("roadmap/tasks.toml:42"));
     assert!(message.contains("task 75 depends on unknown task 999"));
 }
 

@@ -1436,6 +1436,7 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
             out_of_scope: &out_of_scope,
             files_to_modify: &task.files_to_modify,
             touches: &task.touches,
+            domains: &task.domains,
             cross_repo: &task.cross_repo,
             assignee: task.assignee.as_deref(),
             linear_id: task.linear_id.as_deref(),
@@ -1483,10 +1484,11 @@ struct StdinPayload {
 /// (`started_at`, `done_at`, `blocked_reason`, `shipped_in`, `implemented`,
 /// `attempts`) are excluded; `rmap status` owns those transitions.
 ///
-/// `branch`, `files_to_modify`, and `cross_repo` are the documented
+/// `branch`, `files_to_modify`, `touches`, and `cross_repo` are the documented
 /// power-user fields — only reachable via `--from-stdin`, not via the
-/// interactive `prompt_task_fields` flow. See the `MIRROR SURFACES` block
-/// on `schema::Task` for the full invariant.
+/// interactive `prompt_task_fields` flow. `domains` is prompted interactively
+/// and also accepted here. See the `MIRROR SURFACES` block on `schema::Task`
+/// for the full invariant.
 #[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StdinTask {
@@ -1512,6 +1514,8 @@ struct StdinTask {
     pub files_to_modify: Vec<String>,
     #[serde(default)]
     pub touches: Vec<String>,
+    #[serde(default)]
+    pub domains: Vec<String>,
     #[serde(default)]
     pub cross_repo: Vec<rmap::schema::CrossRepo>,
     pub branch: Option<String>,
@@ -1635,6 +1639,25 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         }
     }
 
+    let mut domains: Vec<String> = Vec::new();
+    loop {
+        let next: String = Input::with_theme(&theme)
+            .with_prompt("Domain (empty to stop)")
+            .allow_empty(true)
+            .interact_text()?;
+        if next.trim().is_empty() {
+            break;
+        }
+        domains.push(next);
+        if !Confirm::with_theme(&theme)
+            .with_prompt("Add another?")
+            .default(false)
+            .interact()?
+        {
+            break;
+        }
+    }
+
     let assignee_choices = [
         "(skip)",
         "human",
@@ -1702,6 +1725,7 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         model,
         acceptance_criteria,
         out_of_scope,
+        domains,
         // Power-user fields not exposed by the interactive prompt — set via
         // `rmap new --from-stdin` or edit `tasks.toml` directly.
         files_to_modify: Vec::new(),

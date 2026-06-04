@@ -562,23 +562,24 @@ fn canonical_task_key_index(key: &str) -> u32 {
         "out_of_scope" => 10,
         "files_to_modify" => 11,
         "touches" => 12,
-        "cross_repo" => 13,
-        "assignee" => 14,
-        "linear_id" => 15,
-        "module" => 16,
-        "model" => 17,
-        "branch" => 18,
-        "blocked_reason" => 19,
-        "body" => 20,
-        "implemented" => 21,
-        "delivered_by" => 22,
-        "verified" => 23,
-        "created_at" => 24,
-        "started_at" => 25,
-        "scored_at" => 26,
-        "done_at" => 27,
-        "shipped_in" => 28,
-        "attempts" => 29,
+        "domains" => 13,
+        "cross_repo" => 14,
+        "assignee" => 15,
+        "linear_id" => 16,
+        "module" => 17,
+        "model" => 18,
+        "branch" => 19,
+        "blocked_reason" => 20,
+        "body" => 21,
+        "implemented" => 22,
+        "delivered_by" => 23,
+        "verified" => 24,
+        "created_at" => 25,
+        "started_at" => 26,
+        "scored_at" => 27,
+        "done_at" => 28,
+        "shipped_in" => 29,
+        "attempts" => 30,
         _ => u32::MAX,
     }
 }
@@ -730,6 +731,8 @@ pub struct NewTaskFields<'a> {
     /// Advisory collision-prediction hint (see `schema::Task::touches`). Empty
     /// slice = skip serialization.
     pub touches: &'a [String],
+    /// Advisory capability-routing tags. Empty slice = skip serialization.
+    pub domains: &'a [String],
     /// Slice of cross-repo dependencies. Empty slice = skip serialization. Each
     /// entry's `task_id` is written as an integer when parseable, otherwise a
     /// string — mirroring `add_dependency_str`'s shape.
@@ -903,6 +906,14 @@ pub fn add_task_str(
             array.push(path.as_str());
         }
         table["touches"] = Item::Value(Value::Array(array));
+    }
+
+    if !fields.domains.is_empty() {
+        let mut array = Array::new();
+        for domain in fields.domains {
+            array.push(domain.as_str());
+        }
+        table["domains"] = Item::Value(Value::Array(array));
     }
 
     if !fields.cross_repo.is_empty() {

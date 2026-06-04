@@ -116,6 +116,9 @@ fn append_context(prompt: &mut String, tasks: &Tasks, task: &Task, target: Deleg
     if let Some(model) = &task.model {
         line!(prompt, "- Model: {model}");
     }
+    if !task.domains.is_empty() {
+        line!(prompt, "- Domains: {}", task.domains.join(", "));
+    }
     line!(prompt, "- Status: {}", task.status);
     line!(prompt, "- Phase: {}", task.phase);
     line!(prompt, "- Bundle: {}", task.bundle);

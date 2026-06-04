@@ -415,6 +415,7 @@ fn task_changes(
         out_of_scope,
         files_to_modify,
         touches,
+        domains,
         shipped_in,
         body,
         created_at,

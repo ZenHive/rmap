@@ -53,6 +53,7 @@ scored_at = "2026-04-15"                      # last D/B/U revision; >30d render
 markers = ["parallel"]                        # subset of: parallel | cx | csr
 assignee = "claude"                           # human | claude | codex | cursor (optional)
 model = "claude-opus-4-7"                     # LLM model to use (optional, free-text); rmap delegate surfaces it
+domains = ["rust", "otp"]                     # optional free-text capability tags; downstream owns vocabulary
 linear_id = "INE-247"                         # optional — when a Linear issue tracks this task
 created_at = "2026-04-01"                     # ISO-8601 date (optional)
 started_at = "2026-04-12"                     # set when status → in_progress
@@ -238,6 +239,7 @@ Read this section before changing anything. The schema example above IS the cont
 - `[milestones.<name>].status` must be one of `{"pending", "active", "done"}` — distinct vocabulary from task status. `task.milestone`, when present, must reference a declared `[milestones.<name>]` key. Milestones are flat-namespace (no nesting) and a task pins to at most one.
 - `linear_id` (when present) must match `<team_key>-<integer>` per `[linear].team_key`. Skip the format check entirely if the `[linear]` table is absent — Linear is opt-in.
 - `assignee` (when present) must be one of `{"human", "claude", "codex", "cursor"}`.
+- `domains` is an optional free-text list for advisory capability/routing metadata. rmap validates shape only; downstream consumers own the vocabulary.
 - Timestamps (`created_at`, `started_at`, `done_at`, `scored_at`) are ISO-8601 dates (`YYYY-MM-DD`). All optional — presence is what unlocks decay / stale / recently-shipped features.
 - **Outcome layer** (`delivered_by`, `verified`) is two queryable facts about a completed task, distinct from the implementer's `implemented` prose. `delivered_by` (free-text, like `model`) records which agent actually executed the task; it answers "who shipped this?" without parsing prose. `verified` (optional bool) encodes evaluator separation per `workflow-philosophy.md`: `true` = an independent check passed (verification stack green, code-review approved); absent = not yet graded (hand-built, bootstrap, merged directly). Both are optional, both transition-time, both set by `rmap status <id> done --delivered-by <agent> --verified` (overwriting on re-set, like `implemented`). `rmap doctor` surfaces `done && verified.is_none()` as a soft `ClaimedNotGraded` advisory and never fails — hand-built tasks are legitimate. Adding a composite score / agent leaderboard / agent registry is out of scope; ranking is the consumer's job.
 - `<!-- TASKS:BEGIN phase=N -->` / `<!-- TASKS:END -->` are preservation boundaries. Render replaces ONLY contents between matching markers; everything else in `ROADMAP.md` is hand-edited prose and must be byte-preserved. Same rule for `<!-- FOCUS:BEGIN -->` / `<!-- FOCUS:END -->`, `<!-- MERMAID:BEGIN -->` / `<!-- MERMAID:END -->`, and `<!-- MILESTONES:BEGIN -->` / `<!-- MILESTONES:END -->`.

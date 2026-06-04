@@ -153,7 +153,7 @@ rmap ready --fields id,status,eff,depends_on,dep_layer
 ```
 
 ```bash
-rmap list --fields id,title,touches
+rmap list --fields id,title,touches,domains
 # exit: 0
 ```
 
@@ -291,9 +291,9 @@ rmap new --from-stdin
 # EOF
 ```
 
-`rmap new` without `--from-stdin` drops into an interactive `dialoguer` flow (phase → bundle → title → D/B/U → markers → acceptance criteria → assignee → linear_id → module). Requires a TTY — non-interactive contexts must use `--from-stdin`. Bundles cannot be created on the fly; author the `[bundles.<name>]` table in `tasks.toml` first.
+`rmap new` without `--from-stdin` drops into an interactive `dialoguer` flow (phase → bundle → title → D/B/U → markers → acceptance criteria → out of scope → domains → assignee → linear_id → module → model). Requires a TTY — non-interactive contexts must use `--from-stdin`. Bundles cannot be created on the fly; author the `[bundles.<name>]` table in `tasks.toml` first.
 
-Power-user fields are not prompted interactively — set them via `--from-stdin` or by editing `tasks.toml`: `files_to_modify` (the write target), `touches` (an advisory collision-prediction hint — files the task may read or write, typically a superset of `files_to_modify`; free-text, unvalidated), `cross_repo`, and `branch`.
+Power-user fields are not prompted interactively — set them via `--from-stdin` or by editing `tasks.toml`: `files_to_modify` (the write target), `touches` (an advisory collision-prediction hint — files the task may read or write, typically a superset of `files_to_modify`; free-text, unvalidated), `cross_repo`, and `branch`. `domains` is prompted interactively and is also accepted in `--from-stdin`; it is advisory routing metadata, free-text and unvalidated.
 
 ## Reading change signal
 
@@ -368,7 +368,7 @@ Adding fields to `schema::Task` is additive (safe); renaming or removing a field
 
 `rmap delegate <id> [--to claude|codex|cursor|grok|antigravity|pi|droid]` emits a paste-ready Markdown prompt: title, body, in-repo dep context, acceptance criteria, plus a per-agent environment-notes footer tailored to that agent's runtime constraints (Codex sandbox / Cursor full-network / Claude·Grok·Pi·Droid local / Antigravity local-with-cwd-caveat). Pure read — never calls Linear/GitHub/Slack.
 
-`--to` is optional. Without it, the prompt targets the task's stored `assignee` — the agent-routing field; explicit `--to` is the render-time override (the prompt then carries a `Stored assignee: ... (overridden)` bullet). A task with no `assignee`, or with `assignee = "human"`, requires an explicit `--to` — exit 1 otherwise.
+`--to` is optional. Without it, the prompt targets the task's stored `assignee` — the agent-routing field; explicit `--to` is the render-time override (the prompt then carries a `Stored assignee: ... (overridden)` bullet). A task with no `assignee`, or with `assignee = "human"`, requires an explicit `--to` — exit 1 otherwise. Routing metadata is split: `assignee` chooses the agent, `model` pins that agent's LLM, `domains` carries free-text capability tags for downstream scoring, and `--to` overrides at render time.
 
 ```bash
 rmap delegate 3

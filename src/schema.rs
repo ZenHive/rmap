@@ -83,7 +83,7 @@ pub struct Milestone {
 ///
 /// Plus decide whether to add to `diff::TASK_VERBOSE_WHITELIST`. Interactive
 /// `prompt_task_fields` (main.rs) is optional — power-user fields (`branch`,
-/// `files_to_modify`, `cross_repo`) intentionally route through
+/// `files_to_modify`, `touches`, `cross_repo`) intentionally route through
 /// `rmap new --from-stdin` rather than dialoguer.
 ///
 /// Transition-time field → owning mutator (`set_status_str` for lifecycle
@@ -123,6 +123,10 @@ pub struct Task {
     /// (posture of `model` / `assignee`); creation-time field.
     #[serde(default)]
     pub touches: Vec<String>,
+    /// Advisory capability-routing tags consumed by orchestrators. Free-text,
+    /// unvalidated in rmap; downstream tooling owns any vocabulary.
+    #[serde(default)]
+    pub domains: Vec<String>,
     pub shipped_in: Option<String>,
     pub body: Option<String>,
     pub created_at: Option<String>,

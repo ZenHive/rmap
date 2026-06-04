@@ -1821,6 +1821,38 @@ fn list_fields_projects_to_named_keys_only() {
 }
 
 #[test]
+fn list_fields_projects_domains() {
+    let input = HANDBUILD_TASKS.replace(
+        "title = \"dispatchable\"\n",
+        "title = \"dispatchable\"\ndomains = [\"rust\", \"otp\"]\n",
+    );
+    let path = write_temp_tasks("fields_domains.toml", &input);
+
+    let out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("list")
+        .arg("--fields")
+        .arg("id,domains")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap list --fields id,domains");
+    assert!(
+        out.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&out.stdout).expect("stdout is a json array");
+    let rows = value.as_array().expect("top-level array");
+    assert_eq!(rows[0]["id"], 1);
+    assert_eq!(rows[0]["domains"], serde_json::json!(["rust", "otp"]));
+    assert!(
+        rows[1].get("domains").is_none(),
+        "empty domains should be omitted from projected rows: {value}"
+    );
+}
+
+#[test]
 fn fields_unknown_name_errors_with_offending_field() {
     let path = write_temp_tasks("fields_bad.toml", HANDBUILD_TASKS);
 
@@ -2178,9 +2210,19 @@ fn schema_json_command_emits_parseable_schema_for_tasks_file() {
         serde_json::from_slice(&output.stdout).expect("stdout is valid json");
     assert_eq!(schema["title"], "Tasks");
     assert!(schema["properties"]["task"].is_object());
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("\"domains\""),
+        "schema output should expose per-task domains"
+    );
 
-    let tasks =
-        rmap::validate::validate_tasks_str("roadmap/tasks.toml", VALID_TASKS).expect("valid tasks");
+    let tasks = rmap::validate::validate_tasks_str(
+        "roadmap/tasks.toml",
+        &VALID_TASKS.replace(
+            "title = \"Add validation\"\n",
+            "title = \"Add validation\"\ndomains = [\"rust\", \"otp\"]\n",
+        ),
+    )
+    .expect("valid tasks");
     let tasks_json = serde_json::to_value(tasks).expect("tasks serialize to json");
     let compiled = jsonschema::JSONSchema::compile(&schema).expect("schema compiles");
 
@@ -4006,6 +4048,74 @@ touches = ["src/foo.rs", "src/shared.rs"]
 }
 
 #[test]
+fn new_from_stdin_round_trips_domains_field() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Domain-tagged task"
+scores = { d = 2, b = 6, u = 6 }
+domains = ["rust", "otp"]
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(
+        tasks.contains("domains = [\"rust\", \"otp\"]"),
+        "domains should round-trip into tasks.toml; tasks: {tasks}"
+    );
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show --json");
+    assert!(json.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    assert_eq!(value["domains"], serde_json::json!(["rust", "otp"]));
+
+    let list = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("list")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap list --json");
+    assert!(list.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&list.stdout).expect("stdout is valid json");
+    assert_eq!(
+        value["task"][1]["domains"],
+        serde_json::json!(["rust", "otp"])
+    );
+
+    let data_json = fs::read_to_string(&data_path).expect("read rendered data.json");
+    let value: serde_json::Value = serde_json::from_str(&data_json).expect("data.json is valid");
+    assert_eq!(
+        value["task"][1]["domains"],
+        serde_json::json!(["rust", "otp"])
+    );
+}
+
+#[test]
 fn new_from_stdin_round_trips_cross_repo_field() {
     let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
 
@@ -4082,7 +4192,7 @@ cross_repo = [
 fn new_from_stdin_emits_canonical_order_for_creation_fields() {
     // Asserts the writer in add_task_str + canonical_task_key_index produce
     // the expected key ordering when all three Task-25 fields are present:
-    //   out_of_scope (10) < files_to_modify (11) < touches (12) < cross_repo (13) < model (17) < branch (18)
+    //   out_of_scope (10) < files_to_modify (11) < touches (12) < domains (13) < cross_repo (14) < model (18) < branch (19)
     let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
 
     let payload = r#"
@@ -4093,6 +4203,7 @@ title = "Full-shape task"
 scores = { d = 2, b = 6, u = 6 }
 out_of_scope = ["No DB migration"]
 files_to_modify = ["src/foo.rs"]
+domains = ["rust"]
 cross_repo = [{ repo = "other-repo", task_id = 1, relation = "blocks" }]
 model = "claude-opus-4-7"
 branch = "feat/task-25"
@@ -4119,6 +4230,7 @@ branch = "feat/task-25"
     let ftm_idx = tasks
         .find("\nfiles_to_modify = ")
         .expect("files_to_modify present");
+    let domains_idx = tasks.find("\ndomains = ").expect("domains present");
     let xrepo_idx = tasks.find("\ncross_repo = ").expect("cross_repo present");
     let model_idx = tasks.find("\nmodel = ").expect("model present");
     let branch_idx = tasks.find("\nbranch = ").expect("branch present");
@@ -4129,7 +4241,11 @@ branch = "feat/task-25"
     );
     assert!(
         ftm_idx < xrepo_idx,
-        "cross_repo should follow files_to_modify; tasks:\n{tasks}"
+        "domains/cross_repo should follow files_to_modify; tasks:\n{tasks}"
+    );
+    assert!(
+        domains_idx < xrepo_idx,
+        "cross_repo should follow domains; tasks:\n{tasks}"
     );
     assert!(
         xrepo_idx < model_idx,

@@ -32,6 +32,7 @@ markers = ["parallel"]
 linear_id = "INE-247"
 assignee = "codex"
 model = "claude-opus-4-7"
+domains = ["rust", "agent-routing"]
 acceptance_criteria = ["Ticker fields are normalized"]
 out_of_scope = ["Do not touch parseOrder"]
 files_to_modify = ["src/parse_ticker.rs", "tests/parse_ticker.rs"]
@@ -62,6 +63,10 @@ fn exports_validated_tasks_with_computed_efficiency() {
     assert_eq!(value["task"][0]["assignee"], "codex");
     assert_eq!(value["task"][0]["model"], "claude-opus-4-7");
     assert_eq!(
+        value["task"][0]["domains"],
+        serde_json::json!(["rust", "agent-routing"])
+    );
+    assert_eq!(
         value["task"][0]["acceptance_criteria"],
         serde_json::json!(["Ticker fields are normalized"])
     );
@@ -89,6 +94,11 @@ fn exports_validated_tasks_with_computed_efficiency() {
     assert!(
         value["task"][1].get("model").is_none(),
         "task 75 should omit model when unset, got {value}"
+    );
+    // domains skips serialization when empty.
+    assert!(
+        value["task"][1].get("domains").is_none(),
+        "task 75 should omit domains when empty, got {value}"
     );
 }
 

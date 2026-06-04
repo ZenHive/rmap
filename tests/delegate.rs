@@ -46,6 +46,7 @@ markers = ["parallel"]
 linear_id = "INE-300"
 assignee = "codex"
 model = "claude-opus-4-7"
+domains = ["rust", "agent-routing"]
 acceptance_criteria = [
   "parseOrder accepts spot and futures payloads",
   "Empty venues field maps to null",
@@ -134,6 +135,10 @@ fn formats_full_delegate_prompt_for_agent_target() {
     );
     assert!(prompt.contains("- Project: ccxt_extract"), "{prompt}");
     assert!(prompt.contains("- Model: claude-opus-4-7"), "{prompt}");
+    assert!(
+        prompt.contains("- Domains: rust, agent-routing"),
+        "{prompt}"
+    );
     assert!(prompt.contains("- Markers: parallel"), "{prompt}");
     assert!(prompt.contains("- Linear: INE-300"), "{prompt}");
     assert!(prompt.contains("### Dependencies"), "{prompt}");
@@ -192,6 +197,15 @@ fn omits_model_bullet_when_unset() {
 
     assert!(prompt.contains("## Context"), "{prompt}");
     assert!(!prompt.contains("- Model:"), "{prompt}");
+}
+
+#[test]
+fn omits_domains_bullet_when_unset() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");
+    let prompt = format_delegate_prompt(&tasks, "75", DelegateTarget::Claude).expect("task 75");
+
+    assert!(prompt.contains("## Context"), "{prompt}");
+    assert!(!prompt.contains("- Domains:"), "{prompt}");
 }
 
 #[test]

@@ -61,6 +61,8 @@ struct ExportedTask<'a> {
     files_to_modify: &'a [String],
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
     touches: &'a [String],
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    domains: &'a [String],
     #[serde(skip_serializing_if = "Option::is_none")]
     shipped_in: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -111,6 +113,7 @@ pub const EXPORTED_TASK_FIELDS: &[&str] = &[
     "out_of_scope",
     "files_to_modify",
     "touches",
+    "domains",
     "shipped_in",
     "body",
     "created_at",
@@ -307,6 +310,7 @@ fn exported_task<'a>(task: &'a Task, layers: &HashMap<String, usize>) -> Exporte
         out_of_scope: &task.out_of_scope,
         files_to_modify: &task.files_to_modify,
         touches: &task.touches,
+        domains: &task.domains,
         shipped_in: task.shipped_in.as_ref(),
         body: task.body.as_ref(),
         created_at: task.created_at.as_ref(),
@@ -369,6 +373,7 @@ acceptance_criteria = ["ac"]
 out_of_scope = ["oos"]
 files_to_modify = ["src/a.rs"]
 touches = ["src/b.rs"]
+domains = ["rust", "otp"]
 shipped_in = "abc123"
 body = "intent"
 created_at = "2026-01-01"
