@@ -457,6 +457,13 @@ rmap render --html --multi .
 # exit: 0
 ```
 
+`rmap export json` prints the `data.json` payload (the structured agent view, with computed `eff` / `dep_layer`) to **stdout** without touching any file — the read-only emitter for piping into `jq` or another tool. `rmap render` is what *writes* `roadmap/data.json` to disk; `export json` is the same shape on stdout.
+
+```bash
+rmap export json
+# exit: 0
+```
+
 ### Marker conventions
 
 Four marker pairs live inside `ROADMAP.md`. Bytes outside these markers are preserved exactly — hand-edited prose, headings, and blank lines all round-trip byte-equal.
