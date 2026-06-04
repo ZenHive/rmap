@@ -1153,3 +1153,29 @@ started_at = "2026-06-03"
 scored_at = "2026-06-03"
 done_at = "2026-06-03"
 shipped_in = "f589813b0058a68440d38d623dfa13764d9bc784"
+
+[[task]]
+id = 43
+phase = 15
+bundle = "agent_routing"
+status = "done"
+title = "Add `domains` task field: schema + JSON/data.json export (harness CapabilityScore reader is pre-wired, rmap never emits it)"
+scores = { d = 2, b = 4, u = 4 }
+acceptance_criteria = ["Task schema gains an optional domains list field (free-text strings, validate-tolerant, no closed enum)", "`rmap show --json`, `rmap list --json`/`--fields domains`, and roadmap/data.json all carry the field (omitted/empty renders identically to today for tasks without it)", "Settable via `rmap new` interactive, `rmap new --from-stdin`, and direct TOML edit; `rmap validate` accepts it", "harness Roadmap.list/ingest path receives domains end-to-end (manual check: a tagged task surfaces non-empty domains in harness)", "rmap.md three-way-split doc note extended to mention domains as an advisory routing-metadata field"]
+out_of_scope = ["Defining the domain vocabulary — harness owns CapabilityDomain; rmap stays free-text", "Any harness-side change — the reader already exists"]
+assignee = "codex"
+body = """
+harness consumes a per-task `domains` tag for {agent, domain} capability scoring: lib/harness/roadmap.ex:134 reads task["domains"] (a list), maps via Harness.CapabilityDomain (valid set: :otp :genserver :liveview :phoenix :ecto :oban :rust :elixir; unknown atoms pass through), and threads it onto the run record (run.ex:1212) so AgentKPI/CapabilityScore can group by domain. But rmap has NO domains field: it is absent from `rmap schema`, `rmap show <id> --json`, and roadmap/data.json. So the harness reader always hits its `_task -> []` fallback and per-domain routing can never get evidence — confirmed 2026-06-04 against the harness roadmap.
+
+Add a creation-time domains Option list-of-string task field, same free-text/advisory posture as model/assignee/touches (validate-tolerant, no closed enum — harness owns the vocabulary). Export it in `rmap show --json`, `rmap list --json`/`--fields`, and roadmap/data.json so harness's ExportedTask path receives it. Optionally surface it in `rmap delegate` Context as a `- Domains:` bullet. Settable via `rmap new` (interactive + --from-stdin) and direct TOML edit.
+
+Motivating consumer: harness wants to tag e.g. 181/174 :otp, 165 :ecto/:oban, 140 :ecto/:phoenix to start filling the (currently empty) CapabilityScore corpus so dispatch-recommend moves from explore to exploit.
+"""
+implemented = "Landed by codex via merge-train; reviewer-approved (run run-1780539639690-22caf067, e05729d0847574a2ab9abbf6428da00d82e453a9)."
+delivered_by = "codex"
+verified = true
+created_at = "2026-06-03"
+started_at = "2026-06-04"
+scored_at = "2026-06-03"
+done_at = "2026-06-04"
+shipped_in = "e05729d0847574a2ab9abbf6428da00d82e453a9"

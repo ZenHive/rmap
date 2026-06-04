@@ -50,6 +50,7 @@ gantt
     Formalize assignee as the agent-routing field— delegate --to defaults to it :done, 2026-06-02, 2026-06-02
     MILESTONES marker pair — render a Release Lines section in ROADMAP.md :done, 2026-06-03, 2026-06-03
     Rejection-report / attempt-history writeback— record why a dispatch attempt failed on a task returning to pending :done, 2026-06-03, 2026-06-03
+    Add `domains` task field— schema + JSON/data.json export (harness CapabilityScore reader is pre-wired— rmap never emits it) :done, 2026-06-04, 2026-06-04
 ```
 <!-- MERMAID:END -->
 
@@ -124,4 +125,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 40 | ✅ | 🎁 **agent_routing** · Formalize assignee as the agent-routing field; delegate --to defaults to it [D:3/B:7/U:8 → Eff:2.5] 🎯 |
 | Task 41 | ✅ | 🎁 **schema_milestones** · MILESTONES marker pair — render a Release Lines section in ROADMAP.md [D:3/B:6/U:6 → Eff:2.0] 🎯 |
 | Task 42 | ✅ | 🎁 **attempt_history** · Rejection-report / attempt-history writeback: record why a dispatch attempt failed on a task returning to pending [D:4/B:7/U:6 → Eff:1.62] 🚀 |
+| Task 43 | ✅ | 🎁 **agent_routing** · Add `domains` task field: schema + JSON/data.json export (harness CapabilityScore reader is pre-wired, rmap never emits it) [D:2/B:4/U:4 → Eff:2.0] 🎯 |
 <!-- TASKS:END -->
