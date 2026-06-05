@@ -34,8 +34,31 @@ use rmap::schema::{Scores, Task, TaskId, Tasks};
 use rmap::schema_json::schema_json_str;
 use rmap::stale::{find_stale, parse_duration};
 use rmap::today_iso;
-use rmap::validate::{validate_tasks_file, validate_tasks_str};
+use rmap::validate::{ValidateError, validate_tasks_file, validate_tasks_str};
 use rmap::watch;
+
+/// Exit code for "task <id> not found" — a specific, named task does not exist.
+///
+/// Distinct from the generic failure code (1) so machine consumers (e.g.
+/// harness's `Harness.Roadmap.classify_failure/2`) can branch on the structured
+/// signal instead of regex-matching the English stderr.
+const EXIT_TASK_NOT_FOUND: u8 = 3;
+
+/// Exit code for "the roadmap file is unreadable, missing, or malformed TOML".
+///
+/// Corresponds to `ValidateError::Parse`. Semantic validation failures keep the
+/// generic code (1) — they mean the roadmap parsed but violates a rule, not that
+/// it could not be loaded at all.
+const EXIT_INVALID_ROADMAP: u8 = 4;
+
+/// A named task could not be found in the roadmap.
+///
+/// A typed error (rather than `anyhow::anyhow!`) so `main` can map it to
+/// `EXIT_TASK_NOT_FOUND` via `downcast_ref` while preserving the existing stderr
+/// wording for humans.
+#[derive(Debug, thiserror::Error)]
+#[error("task {0} not found")]
+struct TaskNotFound(String);
 
 #[derive(Debug, Parser)]
 #[command(name = "rmap")]
@@ -460,8 +483,24 @@ fn main() -> ExitCode {
         Ok(code) => code,
         Err(err) => {
             eprintln!("Error: {err:#}");
-            ExitCode::FAILURE
+            ExitCode::from(exit_code_for(&err))
         }
+    }
+}
+
+/// Maps a failure to a structured exit code, the machine-readable half of the
+/// CLI contract. `task <id> not found` and an unloadable/malformed roadmap each
+/// get a distinct code; everything else is a generic failure (1).
+fn exit_code_for(err: &anyhow::Error) -> u8 {
+    if err.downcast_ref::<TaskNotFound>().is_some() {
+        EXIT_TASK_NOT_FOUND
+    } else if matches!(
+        err.downcast_ref::<ValidateError>(),
+        Some(ValidateError::Parse { .. })
+    ) {
+        EXIT_INVALID_ROADMAP
+    } else {
+        1
     }
 }
 
@@ -591,8 +630,7 @@ fn run() -> Result<ExitCode> {
         } => {
             let paths = resolve_paths(tasks_path, None, None)?;
             let tasks = validate_tasks_file(&paths.tasks_path)?;
-            let task =
-                find_task(&tasks, &id).ok_or_else(|| anyhow::anyhow!("task {id} not found"))?;
+            let task = find_task(&tasks, &id).ok_or_else(|| TaskNotFound(id.clone()))?;
 
             if json {
                 println!("{}", export_task_json_str(&tasks, Some(task))?);
@@ -698,11 +736,10 @@ fn run() -> Result<ExitCode> {
         Commands::Delegate { id, to, tasks_path } => {
             let paths = resolve_paths(tasks_path, None, None)?;
             let tasks = validate_tasks_file(&paths.tasks_path)?;
-            let task =
-                find_task(&tasks, &id).ok_or_else(|| anyhow::anyhow!("task {id} not found"))?;
+            let task = find_task(&tasks, &id).ok_or_else(|| TaskNotFound(id.clone()))?;
             let target = resolve_target(task, to).map_err(anyhow::Error::msg)?;
             let prompt = format_delegate_prompt(&tasks, &id, target)
-                .ok_or_else(|| anyhow::anyhow!("task {id} not found"))?;
+                .ok_or_else(|| TaskNotFound(id.clone()))?;
 
             print!("{prompt}");
         }

@@ -1310,7 +1310,7 @@ fn show_command_prints_human_and_json_views() {
 }
 
 #[test]
-fn show_unknown_task_exits_one() {
+fn show_unknown_task_exits_task_not_found() {
     let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
 
     let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
@@ -1321,7 +1321,13 @@ fn show_unknown_task_exits_one() {
         .output()
         .expect("run rmap show unknown task");
 
-    assert_eq!(output.status.code(), Some(1), "expected unknown task error");
+    // Exit code 3 is the structured task-not-found signal machine consumers
+    // branch on instead of regex-matching the English stderr.
+    assert_eq!(
+        output.status.code(),
+        Some(3),
+        "expected task-not-found exit"
+    );
     assert!(String::from_utf8_lossy(&output.stderr).contains("task 999 not found"));
 }
 
@@ -1365,7 +1371,7 @@ fn delegate_command_prints_agent_prompt() {
 }
 
 #[test]
-fn delegate_unknown_task_exits_one() {
+fn delegate_unknown_task_exits_task_not_found() {
     let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
 
     let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
@@ -1378,8 +1384,56 @@ fn delegate_unknown_task_exits_one() {
         .output()
         .expect("run rmap delegate unknown task");
 
-    assert_eq!(output.status.code(), Some(1), "expected unknown task error");
+    assert_eq!(
+        output.status.code(),
+        Some(3),
+        "expected task-not-found exit"
+    );
     assert!(String::from_utf8_lossy(&output.stderr).contains("task 999 not found"));
+}
+
+#[test]
+fn read_command_on_malformed_roadmap_exits_invalid_roadmap() {
+    // Broken TOML syntax — the file cannot be parsed at all.
+    let path = write_temp_tasks("malformed.toml", "schema_version = = 2\n");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("1")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap show on malformed roadmap");
+
+    // Exit code 4 is the structured invalid-roadmap signal, distinct from
+    // task-not-found (3) and generic failure (1).
+    assert_eq!(
+        output.status.code(),
+        Some(4),
+        "expected invalid-roadmap exit"
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("invalid TOML"));
+}
+
+#[test]
+fn read_command_on_missing_roadmap_exits_invalid_roadmap() {
+    let dir = temp_dir();
+    let missing = dir.join("does-not-exist.toml");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("next")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&missing)
+        .output()
+        .expect("run rmap next on missing roadmap");
+
+    // An unreadable/missing file is a Parse error too — same structured code.
+    assert_eq!(
+        output.status.code(),
+        Some(4),
+        "expected invalid-roadmap exit"
+    );
 }
 
 #[test]

@@ -520,17 +520,24 @@ Unlike the other commands here, `rmap watch` (with or without `--json`) is shown
 
 ## Exit code reference
 
-| Command | 0 | 1 | 2 |
-|---|---|---|---|
-| `validate` | schema valid | schema error | — |
-| `validate --check-render` | no drift | schema error | render drift |
-| `doctor` | always (informational) | unparseable input | — |
-| `diff` | success | schema/git error | — |
-| `render` | success | schema/IO error | — |
-| `watch` | — (runs until Ctrl-C) | watcher setup error | — |
-| `show` | found | unknown id | — |
-| `list`, `next`, `ready`, `critical-path`, `schema`, `delegate`, `stale` | success | schema/IO error | — |
-| Mutators (`status`, `mark`, `depend`, `new`) | success + re-rendered | mutation rejected by re-validation | — |
+Two codes are **structured signals** a machine consumer can branch on without
+parsing stderr: **3** = the named task does not exist (`task <id> not found`),
+**4** = the roadmap file is unreadable, missing, or malformed TOML. Both keep
+their human-readable stderr message; the code is the contract. Everything else
+is the generic failure code **1**.
+
+| Command | 0 | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|---|
+| `validate` | schema valid | semantic error | render drift (`--check-render`) | — | unreadable/malformed TOML |
+| `doctor` | always (informational) | — | — | — | unparseable input |
+| `diff` | success | git/semantic error | — | — | unreadable/malformed TOML |
+| `render` | success | IO/semantic error | — | — | unreadable/malformed TOML |
+| `watch` | — (runs until Ctrl-C) | watcher setup error | — | — | — |
+| `show` | found | — | — | unknown id | unreadable/malformed TOML |
+| `delegate` | success | unknown target / no assignee | — | unknown id | unreadable/malformed TOML |
+| `list`, `next`, `ready`, `critical-path`, `next-bundle`, `stale` | success | semantic error | — | — | unreadable/malformed TOML |
+| `schema` | success | — | — | — | — |
+| Mutators (`status`, `mark`, `depend`, `new`) | success + re-rendered | mutation rejected by re-validation | — | — | unreadable/malformed TOML |
 
 For finer health signals, pipe `rmap doctor --json` through `jq`:
 

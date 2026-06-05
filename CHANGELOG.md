@@ -6,6 +6,15 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Structured exit codes for task-not-found and invalid-roadmap
+
+**What was done:**
+- `rmap` now emits two distinct exit codes alongside the existing `0`/`1`: **3** = `task <id> not found` (any `show`/`delegate` on an unknown id), **4** = the roadmap file is unreadable, missing, or malformed TOML (a `ValidateError::Parse`, surfaced by any command that loads `tasks.toml`). The human-readable stderr message is unchanged; the code is the machine-readable half of the contract.
+- Motivation: downstream consumers (e.g. harness's `Harness.Roadmap.classify_failure/2`) were classifying failures by regex-matching the English stderr (`task .+ not found`, `invalid TOML`) — fragile against wording/locale drift. The meaning now lives in the exit-code contract, not the consumer's regex.
+- Semantic validation errors (the roadmap parsed but violates a rule) keep the generic code `1` — only a true parse/IO failure is `4`.
+- Implementation: a typed `TaskNotFound` error plus `exit_code_for/1` in `main.rs` that `downcast_ref`s the `anyhow::Error` to pick the code; `SKILLS.md`'s exit-code reference table documents codes `3`/`4`.
+- Tests: `tests/cli.rs` asserts exit `3` on `show`/`delegate` of an unknown id and exit `4` on a malformed and a missing roadmap.
+
 ### Task 42: Attempt-history writeback — record why a dispatch attempt failed
 
 **What was done:**
