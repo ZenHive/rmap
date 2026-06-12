@@ -1612,6 +1612,40 @@
       "delivered_by": "codex",
       "verified": true,
       "cross_repo": []
+    },
+    {
+      "id": 44,
+      "phase": 15,
+      "bundle": "doctor_state_drift",
+      "status": "pending",
+      "title": "rmap doctor: soft DispatchableNoModel advisory — dispatchable task with no model pin",
+      "scores": {
+        "d": 2,
+        "b": 3,
+        "u": 3
+      },
+      "eff": 1.5,
+      "dep_layer": 0,
+      "markers": [],
+      "depends_on": [],
+      "assignee": "claude",
+      "acceptance_criteria": [
+        "rmap doctor emits a soft `DispatchableNoModel` advisory for each task where assignee is set and != \"human\" AND model is unset/blank; always exit 0",
+        "Advisory text names the task id + title and states it relies on the consumer's per-agent default (e.g. harness `{:agent_model, agent}`), not a hard error",
+        "Surfaces in `rmap doctor` text output and `rmap doctor --json` (append-only, mirrors ClaimedNotGraded shape)",
+        "No advisory for assignee=\"human\" (not for autonomous dispatch) or for tasks that DO pin a model",
+        "Tests: dispatchable-no-model -> advisory; human-no-model -> none; dispatchable-with-model -> none; exit code stays 0",
+        "No schema_version bump (read-only advisory; no new field)"
+      ],
+      "out_of_scope": [
+        "A hard `rmap validate` failure for missing model (the model may come from the consumer's per-agent default — rmap can't see it)",
+        "Validating the model string against any closed model-ID set (model field stays free-text, per Task 19)",
+        "Any change to harness — this is the rmap-side authoring advisory only"
+      ],
+      "body": "Authoring-time complement to a harness policy change (2026-06-12): harness now HARD-REJECTS any dispatch of a model-capable agent (implementer OR reviewer) that resolves to no model — it never falls through to the agent CLI's ambient/sticky default (a premium default once burned the token budget on every later run). Harness resolves the model as: task `model` pin > consumer per-agent default (`{:agent_model, agent}`) > REJECT.\n\nrmap owns the authoring surface. A task with `assignee != \"human\"` and no `model` pin is silently relying on the consumer's per-agent default; if that default is unset, harness rejects the dispatch. Surface the gap EARLY as a soft `rmap doctor` advisory so the author sees it when writing the task, not when the dispatch fails.\n\nSoft (exit 0), NOT a `validate` error: a missing `model` is legitimate when the consumer supplies a per-agent default — rmap cannot know the consumer's config, so it must not hard-fail. Mirrors the existing `ClaimedNotGraded` soft-advisory precedent (done && verified absent).\n",
+      "created_at": "2026-06-12",
+      "scored_at": "2026-06-12",
+      "cross_repo": []
     }
   ]
 }
