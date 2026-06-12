@@ -82,6 +82,9 @@ pub fn collect_findings(tasks: &Tasks, path: &str, input: &str) -> Vec<ValidateE
     if let Err(e) = validate_assignees(path, input, tasks) {
         findings.push(e);
     }
+    if let Err(e) = validate_dispatch_model(path, input, tasks) {
+        findings.push(e);
+    }
     if let Err(e) = validate_linear_ids(path, input, tasks) {
         findings.push(e);
     }
@@ -131,6 +134,7 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_markers(&path, input, &tasks)?;
     validate_scores(&path, input, &tasks)?;
     validate_assignees(&path, input, &tasks)?;
+    validate_dispatch_model(&path, input, &tasks)?;
     validate_linear_ids(&path, input, &tasks)?;
     validate_timestamps(&path, input, &tasks)?;
     validate_blocked_reasons(&path, input, &tasks)?;
@@ -255,6 +259,56 @@ fn validate_assignees(path: &str, input: &str, tasks: &Tasks) -> Result<(), Vali
             line_containing(input, &format!("assignee = \"{assignee}\""))
                 .unwrap_or(FIRST_LINE_NUMBER),
             format!("invalid assignee \"{assignee}\""),
+        ));
+    }
+
+    Ok(())
+}
+
+/// A live task routed to an agent must name the model it runs on.
+///
+/// Harness hard-rejects any dispatch of a model-capable agent that resolves to
+/// no model (it never falls through to the agent CLI's ambient default — a
+/// premium default once burned the token budget on every later run). rmap owns
+/// the authoring surface, so it refuses to author a dispatch that would be
+/// rejected: a `pending`/`in_progress` task whose `assignee` is a real agent
+/// (set and != `"human"`) MUST carry a non-empty `model`.
+///
+/// Scope is deliberately narrow:
+/// - **Terminal tasks** (`done` / `superseded` / `blocked`) are exempt — they
+///   already ran (or won't dispatch), so a missing model is a historical fact,
+///   not an authoring error. Requiring it would retroactively fail `validate`
+///   on shipped work.
+/// - **Unset assignee** is exempt — no agent is chosen, so there is no model to
+///   require; the consumer picks both at dispatch time.
+/// - **`assignee = "human"`** is exempt — not for autonomous dispatch.
+///
+/// Agent-grep substring for the error: `missing model`.
+fn validate_dispatch_model(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        if task.status != "pending" && task.status != "in_progress" {
+            continue;
+        }
+
+        let Some(assignee) = task.assignee.as_deref() else {
+            continue;
+        };
+        if assignee.is_empty() || assignee == "human" {
+            continue;
+        }
+
+        if task.model.as_deref().is_some_and(|s| !s.is_empty()) {
+            continue;
+        }
+
+        return Err(semantic_error(
+            path,
+            line_containing(input, &format!("assignee = \"{assignee}\""))
+                .unwrap_or(FIRST_LINE_NUMBER),
+            format!(
+                "task {} is assigned to \"{assignee}\" but missing model (a dispatchable task must pin the LLM it runs on)",
+                task.id
+            ),
         ));
     }
 

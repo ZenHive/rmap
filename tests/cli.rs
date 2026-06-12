@@ -79,6 +79,7 @@ scores = { d = 5, b = 9, u = 9 }
 depends_on = [74]
 markers = ["parallel"]
 assignee = "codex"
+model = "gpt-5.4"
 acceptance_criteria = ["parseOrder accepts spot payloads"]
 "#;
 
@@ -1627,6 +1628,7 @@ bundle = "foundation"
 status = "pending"
 title = "Assigned task"
 assignee = "{agent}"
+model = "some-model"
 scores = {{ d = 2, b = 5, u = 5 }}
 "#
         );
@@ -1644,6 +1646,86 @@ scores = {{ d = 2, b = 5, u = 5 }}
             "expected assignee \"{agent}\" to validate, stderr: {}",
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+}
+
+#[test]
+fn validate_requires_model_for_live_agent_tasks() {
+    // status × assignee × model → expected `rmap validate` success.
+    // The gate: a live (pending/in_progress) task routed to a real agent must
+    // pin a model; terminal / human / unset-assignee tasks are exempt.
+    let cases: &[(&str, &str, bool, bool)] = &[
+        // (status, assignee, has_model, expect_success)
+        ("pending", "claude", false, false),    // the violation
+        ("in_progress", "codex", false, false), // live, mid-dispatch
+        ("pending", "claude", true, true),      // pinned → ok
+        ("done", "claude", false, true),        // terminal → exempt
+        ("superseded", "claude", false, true),  // terminal → exempt
+        ("blocked", "claude", false, true),     // terminal → exempt
+        ("pending", "human", false, true),      // not for dispatch → exempt
+    ];
+
+    for (status, assignee, has_model, expect_success) in cases {
+        let model_line = if *has_model {
+            "model = \"some-model\""
+        } else {
+            ""
+        };
+        // `done` needs `implemented`; `blocked` needs `blocked_reason` — supply
+        // both unconditionally so only the model gate is under test.
+        let tasks = format!(
+            r#"
+schema_version = 2
+project = "rmap"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.foundation]
+phase = 1
+order = 1
+description = "Foundation tasks"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "foundation"
+status = "{status}"
+title = "Routed task"
+assignee = "{assignee}"
+{model_line}
+implemented = "done"
+blocked_reason = "waiting"
+scores = {{ d = 2, b = 5, u = 5 }}
+"#
+        );
+        let path = write_temp_tasks("dispatch_model_tasks.toml", &tasks);
+
+        let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+            .arg("validate")
+            .arg("--tasks-path")
+            .arg(&path)
+            .output()
+            .expect("run rmap validate");
+
+        assert_eq!(
+            output.status.success(),
+            *expect_success,
+            "status={status} assignee={assignee} has_model={has_model}: \
+             expected success={expect_success}, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        if !*expect_success {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(
+                stderr.contains("missing model"),
+                "expected `missing model` in stderr, got: {stderr}"
+            );
+        }
     }
 }
 
@@ -9538,6 +9620,7 @@ title = "Task under retry"
 scores = { d = 2, b = 4, u = 4 }
 scored_at = "2026-05-01"
 assignee = "claude"
+model = "claude-opus-4-8"
 body = "do the thing"
 attempts = [{ at = "2026-05-14", by = "claude", report = "reviewer rejected: missing edge-case test" }]
 "#;

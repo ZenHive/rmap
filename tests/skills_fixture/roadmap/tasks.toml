@@ -52,6 +52,7 @@ title = "ship feature"
 scores = { d = 4, b = 8, u = 8 }
 scored_at = "2026-05-10"
 assignee = "codex"
+model = "gpt-5.4"
 depends_on = [1]
 acceptance_criteria = ["feature works end-to-end", "documented in README"]
 

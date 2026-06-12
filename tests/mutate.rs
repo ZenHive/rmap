@@ -189,6 +189,7 @@ acceptance_criteria = [
   "accepts futures payloads",
 ]
 assignee = "claude"
+model = "claude-opus-4-8"
 "#;
 
 #[test]
@@ -251,6 +252,7 @@ acceptance_criteria = [
 ]
 markers = ["parallel"]
 assignee = "claude"
+model = "claude-opus-4-8"
 "#;
 
 #[test]
