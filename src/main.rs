@@ -275,6 +275,9 @@ enum Commands {
         /// Override the D/B bar for the missing-acceptance_criteria lint (defaults 5/8).
         #[arg(long)]
         ac_threshold: Option<u32>,
+        /// Override the transitive-dependent count for the graph-bottleneck lint (default 3).
+        #[arg(long)]
+        bottleneck_min: Option<u32>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -854,6 +857,7 @@ fn run() -> Result<ExitCode> {
         Commands::Doctor {
             threshold_days,
             ac_threshold,
+            bottleneck_min,
             json,
             tasks_path,
             roadmap_path,
@@ -865,7 +869,8 @@ fn run() -> Result<ExitCode> {
             let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &input)?;
             let roadmap_input = std::fs::read_to_string(&paths.roadmap_path).ok();
             let today = today_iso();
-            let thresholds = DoctorThresholds::resolve(threshold_days, ac_threshold);
+            let thresholds =
+                DoctorThresholds::resolve(threshold_days, ac_threshold, bottleneck_min);
 
             let report = DoctorReport::run(
                 &tasks,

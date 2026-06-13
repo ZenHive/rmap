@@ -5709,6 +5709,7 @@ fn doctor_command_thresholds_in_json() {
     assert_eq!(default_json["thresholds"]["days"], 30);
     assert_eq!(default_json["thresholds"]["ac_difficulty"], 5);
     assert_eq!(default_json["thresholds"]["ac_benefit"], 8);
+    assert_eq!(default_json["thresholds"]["bottleneck_min"], 3);
 
     // Overrides flow into the JSON envelope; --ac-threshold collapses both AC fields.
     let override_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
@@ -5733,6 +5734,331 @@ fn doctor_command_thresholds_in_json() {
     assert_eq!(override_json["thresholds"]["days"], 45);
     assert_eq!(override_json["thresholds"]["ac_difficulty"], 6);
     assert_eq!(override_json["thresholds"]["ac_benefit"], 6);
+}
+
+// ---------------------------------------------------------------------------
+// `rmap doctor` — Task 47 / graph-health advisories (bottleneck + isolated)
+// ---------------------------------------------------------------------------
+
+const DOCTOR_GRAPH_HEALTH_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_graph_health"
+default_branch = "main"
+
+[phases.1]
+name = "Graph health"
+order = 1
+status = "in_progress"
+
+[bundles.chain]
+phase = 1
+order = 1
+description = "Dependency chain"
+
+[bundles.orphan]
+phase = 1
+order = 2
+description = "Disconnected orphan"
+
+[bundles.dead]
+phase = 1
+order = 3
+description = "Off-milestone island"
+
+[milestones.v1]
+name = "v1 release"
+order = 1
+status = "active"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "chain"
+status = "pending"
+title = "Bottleneck root"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "chain"
+status = "pending"
+depends_on = [1]
+title = "Downstream 1"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 3
+phase = 1
+bundle = "chain"
+status = "pending"
+depends_on = [2]
+title = "Downstream 2"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 4
+phase = 1
+bundle = "chain"
+status = "pending"
+depends_on = [3]
+title = "Downstream 3"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 5
+phase = 1
+bundle = "orphan"
+status = "pending"
+title = "Orphan"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 10
+phase = 1
+bundle = "chain"
+milestone = "v1"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Milestone seed"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 11
+phase = 1
+bundle = "chain"
+milestone = "v1"
+status = "pending"
+depends_on = [10]
+title = "Milestone downstream"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 20
+phase = 1
+bundle = "dead"
+status = "pending"
+title = "Off-milestone island root"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 21
+phase = 1
+bundle = "dead"
+status = "pending"
+depends_on = [20]
+title = "Off-milestone island leaf"
+scores = { d = 1, b = 1, u = 1 }
+scored_at = "2026-05-10"
+"#;
+
+#[test]
+fn doctor_command_surfaces_graph_bottleneck_and_isolated_nodes() {
+    let path = write_temp_tasks("doctor_graph_health.toml", DOCTOR_GRAPH_HEALTH_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor graph health");
+
+    assert!(
+        output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Graph bottleneck"),
+        "expected bottleneck section:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("task 1 gates 3 others"),
+        "expected bottleneck dependent count:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("Isolated / unreachable nodes"),
+        "expected isolated section:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("task 5") && stdout.contains("orphan"),
+        "expected orphan finding:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("task 20") && stdout.contains("unreachable from any milestone"),
+        "expected milestone-unreachable finding:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("task 21") && stdout.contains("unreachable from any milestone"),
+        "expected downstream off-milestone island to be unreachable:\n{stdout}"
+    );
+
+    let json_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor graph health json");
+
+    assert!(
+        json_output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&json_output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&json_output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+
+    let bottlenecks: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|finding| finding["kind"] == "bottleneck")
+        .collect();
+    assert_eq!(bottlenecks.len(), 1);
+    assert_eq!(bottlenecks[0]["id"], "1");
+    assert_eq!(bottlenecks[0]["dependent_count"], 3);
+
+    let isolated: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|finding| finding["kind"] == "isolated_node")
+        .collect();
+    assert!(
+        isolated
+            .iter()
+            .any(|finding| finding["id"] == "5" && finding["reason"] == "orphan"),
+        "expected orphan isolated_node:\n{report}"
+    );
+    assert!(
+        isolated.iter().any(|finding| {
+            finding["id"] == "20" && finding["reason"] == "unreachable_from_milestone"
+        }),
+        "expected unreachable isolated_node for task 20:\n{report}"
+    );
+}
+
+#[test]
+fn doctor_command_bottleneck_min_threshold_suppresses_finding() {
+    let path = write_temp_tasks(
+        "doctor_graph_bottleneck_threshold.toml",
+        DOCTOR_GRAPH_HEALTH_TASKS,
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--bottleneck-min")
+        .arg("4")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor bottleneck threshold");
+
+    assert!(output.status.success(), "expected exit 0");
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    assert!(
+        findings
+            .iter()
+            .all(|finding| finding["kind"] != "bottleneck"),
+        "task 1 gates 3 others; threshold 4 should suppress bottleneck:\n{report}"
+    );
+    assert_eq!(report["thresholds"]["bottleneck_min"], 4);
+}
+
+#[test]
+fn doctor_command_skips_bottleneck_for_done_gating_task() {
+    let done_root = r#"
+schema_version = 2
+project = "doctor_graph_done_root"
+default_branch = "main"
+
+[phases.1]
+name = "Graph health"
+order = 1
+status = "in_progress"
+
+[bundles.chain]
+phase = 1
+order = 1
+description = "Dependency chain"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "chain"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Done root"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "chain"
+status = "pending"
+depends_on = [1]
+title = "Downstream"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 3
+phase = 1
+bundle = "chain"
+status = "pending"
+depends_on = [2]
+title = "Downstream 2"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 4
+phase = 1
+bundle = "chain"
+status = "pending"
+depends_on = [3]
+title = "Downstream 3"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"
+"#;
+    let path = write_temp_tasks("doctor_graph_done_root.toml", done_root);
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor done root");
+
+    assert!(output.status.success(), "expected exit 0");
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    assert!(
+        findings
+            .iter()
+            .all(|finding| finding["kind"] != "bottleneck"),
+        "done tasks should not trigger bottleneck even with high unlock count:\n{report}"
+    );
 }
 
 // ---------------------------------------------------------------------------

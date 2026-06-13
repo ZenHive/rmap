@@ -1,10 +1,11 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 use crate::render::render_roadmap_str_with_today;
-use crate::schema::{Scores, TaskId, Tasks};
+use crate::schema::{Scores, Task, TaskId, Tasks};
 use crate::scoring::days_since;
 use crate::stale::find_stale;
+use crate::topo::{compute_unlocks, forward_adjacency, milestone_reachable_ids};
 use crate::validate;
 
 /// Default cutoff (in days) for both the stale-in-progress check and the
@@ -17,6 +18,10 @@ const STALE_THRESHOLD_DAYS: u32 = 30;
 const AC_DIFFICULTY_THRESHOLD: u32 = 5;
 const AC_BENEFIT_THRESHOLD: u32 = 8;
 
+/// Minimum transitive-dependent count at which a still-open task triggers the
+/// `bottleneck` doctor finding. Overridable via `rmap doctor --bottleneck-min`.
+const BOTTLENECK_MIN_THRESHOLD: u32 = 3;
+
 /// Effective doctor thresholds for one `rmap doctor` invocation: the constant
 /// defaults above unless overridden by `--threshold-days` / `--ac-threshold`.
 /// `--threshold-days` collapses the stale and score-decay cutoffs into one
@@ -26,14 +31,20 @@ pub struct DoctorThresholds {
     pub days: u32,
     pub ac_difficulty: u32,
     pub ac_benefit: u32,
+    pub bottleneck_min: u32,
 }
 
 impl DoctorThresholds {
-    pub fn resolve(threshold_days: Option<u32>, ac_threshold: Option<u32>) -> Self {
+    pub fn resolve(
+        threshold_days: Option<u32>,
+        ac_threshold: Option<u32>,
+        bottleneck_min: Option<u32>,
+    ) -> Self {
         Self {
             days: threshold_days.unwrap_or(STALE_THRESHOLD_DAYS),
             ac_difficulty: ac_threshold.unwrap_or(AC_DIFFICULTY_THRESHOLD),
             ac_benefit: ac_threshold.unwrap_or(AC_BENEFIT_THRESHOLD),
+            bottleneck_min: bottleneck_min.unwrap_or(BOTTLENECK_MIN_THRESHOLD),
         }
     }
 }
@@ -102,7 +113,27 @@ pub enum DoctorFinding {
     MultipleActiveMilestones {
         milestones: Vec<ActiveMilestone>,
     },
+    /// Soft graph-health advisory: a still-open task gates many downstream
+    /// tasks (transitive-dependent count >= threshold).
+    Bottleneck {
+        id: String,
+        dependent_count: usize,
+    },
+    /// Soft graph-health advisory: a task is disconnected from the dependency
+    /// graph (orphan) or not downstream of any milestone-pinned task.
+    IsolatedNode {
+        id: String,
+        reason: IsolatedNodeReason,
+    },
     Drift,
+}
+
+/// Why an [`DoctorFinding::IsolatedNode`] fired.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IsolatedNodeReason {
+    Orphan,
+    UnreachableFromMilestone,
 }
 
 /// One `active` milestone cited by a `MultipleActiveMilestones` finding.
@@ -317,7 +348,50 @@ impl DoctorReport {
             });
         }
 
-        // 9. render drift — only if a roadmap was provided
+        // 9. dependency-graph health — soft advisories only; never auto-mutate.
+        let task_refs: Vec<&Task> = tasks.task.iter().collect();
+        let unlocks = compute_unlocks(&task_refs);
+        let forward = forward_adjacency(&task_refs);
+        let milestone_reachable = if tasks.milestones.is_empty() {
+            None
+        } else {
+            Some(milestone_reachable_ids(&task_refs))
+        };
+        let graph_has_edges = forward.values().any(|deps| !deps.is_empty())
+            || unlocks.values().any(|&count| count > 0);
+
+        for task in &tasks.task {
+            let id = task_id_display(&task.id);
+            let dependent_count = unlocks.get(&id).copied().unwrap_or(0);
+
+            if (task.status == "pending" || task.status == "blocked")
+                && dependent_count >= thresholds.bottleneck_min as usize
+            {
+                findings.push(DoctorFinding::Bottleneck {
+                    id: id.clone(),
+                    dependent_count,
+                });
+            }
+
+            if graph_has_edges && is_orphan(&id, &forward, dependent_count) {
+                findings.push(DoctorFinding::IsolatedNode {
+                    id: id.clone(),
+                    reason: IsolatedNodeReason::Orphan,
+                });
+                continue;
+            }
+
+            if let Some(reachable) = &milestone_reachable
+                && !reachable.contains(&id)
+            {
+                findings.push(DoctorFinding::IsolatedNode {
+                    id,
+                    reason: IsolatedNodeReason::UnreachableFromMilestone,
+                });
+            }
+        }
+
+        // 10. render drift — only if a roadmap was provided
         if let Some(roadmap) = roadmap_input
             && let Ok(rendered) = render_roadmap_str_with_today(roadmap, tasks, today)
             && rendered != roadmap
@@ -338,6 +412,11 @@ fn task_id_display(id: &TaskId) -> String {
         TaskId::Number(n) => n.to_string(),
         TaskId::Text(s) => s.clone(),
     }
+}
+
+fn is_orphan(id: &str, forward: &HashMap<String, Vec<String>>, dependent_count: usize) -> bool {
+    let has_in_repo_deps = forward.get(id).is_some_and(|deps| !deps.is_empty());
+    !has_in_repo_deps && dependent_count == 0
 }
 
 fn pinned_task_count(tasks: &Tasks, milestone_key: &str) -> usize {
@@ -624,6 +703,61 @@ impl fmt::Display for DoctorReport {
                     "  - milestones {} are all active; keep exactly one milestone at status='active'",
                     milestone_refs_with_counts(milestones)
                 )?;
+            }
+        }
+
+        let bottleneck_findings: Vec<(&str, usize)> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::Bottleneck {
+                    id,
+                    dependent_count,
+                } = fi
+                {
+                    Some((id.as_str(), *dependent_count))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !bottleneck_findings.is_empty() {
+            writeln!(
+                f,
+                "\nGraph bottleneck (>= {} transitive dependents, pending/blocked):",
+                self.thresholds.bottleneck_min
+            )?;
+            for (id, count) in bottleneck_findings {
+                writeln!(
+                    f,
+                    "  - task {id} gates {count} others — finish or unblock this task to release downstream work"
+                )?;
+            }
+        }
+
+        let isolated_findings: Vec<(&str, &IsolatedNodeReason)> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::IsolatedNode { id, reason } = fi {
+                    Some((id.as_str(), reason))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !isolated_findings.is_empty() {
+            writeln!(f, "\nIsolated / unreachable nodes:")?;
+            for (id, reason) in isolated_findings {
+                let label = match reason {
+                    IsolatedNodeReason::Orphan => "orphan (no deps, no dependents)",
+                    IsolatedNodeReason::UnreachableFromMilestone => {
+                        "unreachable from any milestone"
+                    }
+                };
+                writeln!(f, "  - task {id} — {label}")?;
             }
         }
 
