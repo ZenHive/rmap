@@ -13,6 +13,15 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 - `rmap status <id> pending --report "<why>" [--attempt-by <agent>]` appends one entry (timestamped via `today_iso()`); attempts **accumulate**, never overwrite. Like the outcome / `--reason` flags, `--report` applies only on `pending` transitions and is ignored with a stderr note otherwise.
 - The history renders in `rmap show`, appears in `rmap delegate`'s `## Prior attempts` section (so the next implementer reads why the last attempt was rejected instead of starting blind), and surfaces in `--json` / `data.json` (skipped when empty — attemptless tasks round-trip byte-identically).
 
+### Task 46: `rmap critical-path` — longest dependency chain (graph_queries)
+
+**What was done:**
+- New read-only `rmap critical-path [--milestone <V>] [--json]`: answers "what is the actual serial bottleneck?" by emitting the longest root→leaf task sequence through the in-repo `depends_on` DAG (length = task count, not D/B/U-weighted; out-of-scope per AC).
+- Reuses `topo::compute_layers` (already used for `dep_layer` / HTML layering) then backtracks from a deepest leaf (tie-break by source TOML order for deterministic "leftmost" longest path). `--milestone` scopes via transitive dep closure of pinned tasks + longest within that subgraph.
+- Pure selector `critical_path(&Tasks, &CriticalPathFilter) -> Vec<&Task>` + separate `format_critical_path_human` (header + "→ "-prefixed rows via `format_task_row` with status/Eff/glyphs). CLI wires to `validate_tasks_file` then `export_tasks_array_json_str(&full, &chain_slice)` for bare ordered `ExportedTask[]` (full graph for correct `dep_layer`).
+- Tests: units for chain / diamond-longer-arm / milestone-scoping / edges; CLI black-box for human output/side-exclusion, diamond, `--milestone` filter, `--json` ordering and shapes.
+- SKILLS.md section + exit-code table (skills_smoke green); no schema/ render / mutation impact.
+
 ### Task 9: `rmap render --html --multi` portfolio view + single-view restyle
 
 **What was done:**
