@@ -1234,6 +1234,7 @@ delivered_by = "claude"
 created_at = "2026-06-13"
 scored_at = "2026-06-13"
 done_at = "2026-06-13"
+shipped_in = "7c95f185d37f3bf59a65abf4c25116a1d4e02308"
 
 [[task]]
 id = 46
@@ -1270,7 +1271,7 @@ verified = true
 created_at = "2026-06-13"
 scored_at = "2026-06-13"
 done_at = "2026-06-13"
-shipped_in = "9a89007"
+shipped_in = "9a890070258d5a0a0065badeb750c4e64e8bb1bd"
 
 [[task]]
 id = 48
