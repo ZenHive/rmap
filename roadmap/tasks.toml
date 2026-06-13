@@ -1239,28 +1239,38 @@ done_at = "2026-06-13"
 id = 46
 phase = 16
 bundle = "graph_queries"
-status = "pending"
+status = "done"
 title = "rmap critical-path: longest dependency chain to a milestone/release"
 scores = { d = 3, b = 5, u = 5 }
 acceptance_criteria = ["`rmap critical-path` emits the longest dependency chain (ordered task sequence), not just depths", "`--milestone V` scopes the path to a release line", "--json carries the ordered chain; human view shows status + Eff glyphs", "Reuses topo longest-path; pure selector + formatter split; tests for chain, diamond (picks the longer arm), and milestone scoping"]
 out_of_scope = ["Weighting the path by Difficulty or estimated time (path length = task count, not effort)", "Visualizing the path in HTML/mermaid (follow-up)"]
 body = """Answer "what's the actual serial bottleneck to cut this release?" by emitting the longest dependency chain (critical path) through the DAG, optionally scoped to a milestone via --milestone V. Reuses the existing forward longest-path machinery in topo.rs (compute_layers already finds the depth) but emits the PATH itself — the ordered task sequence — not just the per-task depth. Human view prints the chain with Eff/status glyphs; --json carries the ordered task array. Composes with --milestone to bound the path to one release line's pinned tasks (and their transitive deps)."""
+implemented = "rmap critical-path: longest dependency chain to a milestone/release; added topo::milestone_reachable_ids + critical-path command. Built by harness on stale base, reconciled via rebase onto graph core."
+delivered_by = "claude"
+verified = true
 created_at = "2026-06-13"
 scored_at = "2026-06-13"
+done_at = "2026-06-13"
+shipped_in = "1666d3fcdd033e82d9297c70511c6b2bf503f0fd"
 
 [[task]]
 id = 47
 phase = 16
 bundle = "graph_queries"
-status = "pending"
+status = "done"
 title = "rmap doctor graph-health advisories: bottleneck + isolated/unreachable node"
 scores = { d = 3, b = 4, u = 4 }
 depends_on = [45]
 acceptance_criteria = ["Bottleneck advisory: open task whose transitive-dependent count >= threshold; soft, exit 0; JSON kind bottleneck", "Isolated-node advisory: no deps and no dependents (or unreachable from any milestone); JSON kind isolated_node", "Reuses topo::compute_unlocks / reverse traversal; threshold tunable via DoctorThresholds", "doctor still always exits 0; human + --json tests assert section + kind strings", "rmap.md / CLAUDE.md doctor-advisory invariant list updated"]
 out_of_scope = ["Auto-mutating the roadmap (doctor never mutates)", "Failing the run on graph-health findings (validate is the strict gate, not doctor)"]
 body = 'Add two soft doctor advisories (always exit 0, no auto-mutation, mirroring the existing ClaimedNotGraded / milestone-drift pattern) for dependency-graph health. Bottleneck: a still-open (pending/blocked) task with a high transitive-dependent count (reuses the compute_unlocks primitive from the reverse-traversal task) — "this one task gates N others." Isolated/unreachable: a task with no deps AND no dependents (orphan), or a task unreachable from any milestone (dead roadmap). Human lines cite the task id + dependent count; JSON kinds `bottleneck` / `isolated_node`. Thresholds via DoctorThresholds (e.g. --bottleneck-min).'
+implemented = "rmap doctor graph-health advisories: bottleneck (high transitive-dependent count) + isolated/orphan node detection; soft, exit 0. Built by harness on stale base, reconciled via rebase onto graph core."
+delivered_by = "claude"
+verified = true
 created_at = "2026-06-13"
 scored_at = "2026-06-13"
+done_at = "2026-06-13"
+shipped_in = "9a89007"
 
 [[task]]
 id = 48
