@@ -5046,6 +5046,310 @@ fn stale_command_rejects_malformed_duration() {
 }
 
 // ---------------------------------------------------------------------------
+// critical-path command fixtures
+// ---------------------------------------------------------------------------
+
+const CRITICAL_PATH_TASKS: &str = r#"
+schema_version = 2
+project = "critical_path_test"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "done"
+implemented = "fixture"
+title = "Root"
+scores = { d = 2, b = 4, u = 4 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Middle"
+scores = { d = 2, b = 4, u = 4 }
+depends_on = [1]
+
+[[task]]
+id = 3
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Leaf"
+scores = { d = 2, b = 4, u = 4 }
+depends_on = [2]
+
+[[task]]
+id = 4
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Side branch"
+scores = { d = 2, b = 4, u = 4 }
+depends_on = [1]
+"#;
+
+const CRITICAL_PATH_DIAMOND: &str = r#"
+schema_version = 2
+project = "critical_path_diamond"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "done"
+implemented = "fixture"
+title = "Root"
+scores = { d = 2, b = 4, u = 4 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Long arm mid"
+scores = { d = 2, b = 4, u = 4 }
+depends_on = [1]
+
+[[task]]
+id = 3
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Long arm late"
+scores = { d = 2, b = 4, u = 4 }
+depends_on = [2]
+
+[[task]]
+id = 4
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Short arm"
+scores = { d = 2, b = 4, u = 4 }
+depends_on = [1]
+
+[[task]]
+id = 5
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Merge"
+scores = { d = 2, b = 4, u = 4 }
+depends_on = [3, 4]
+"#;
+
+const CRITICAL_PATH_MILESTONE: &str = r#"
+schema_version = 2
+project = "critical_path_milestone"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[milestones.v1]
+name = "Release v1"
+order = 1
+status = "active"
+description = "Release v1"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "done"
+implemented = "fixture"
+title = "Shared root"
+scores = { d = 2, b = 4, u = 4 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "done"
+implemented = "fixture"
+title = "Release dep"
+scores = { d = 2, b = 4, u = 4 }
+depends_on = [1]
+
+[[task]]
+id = 3
+phase = 1
+bundle = "core"
+milestone = "v1"
+status = "pending"
+title = "Release leaf"
+scores = { d = 2, b = 4, u = 4 }
+depends_on = [2]
+
+[[task]]
+id = 4
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Other line"
+scores = { d = 2, b = 4, u = 4 }
+depends_on = [1]
+"#;
+
+// ---------------------------------------------------------------------------
+// critical-path command tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn critical_path_command_emits_longest_chain_human() {
+    let path = write_temp_tasks("critical_path_chain.toml", CRITICAL_PATH_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("critical-path")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap critical-path");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("critical path (3 tasks)"),
+        "expected header:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("Task 1 [done"),
+        "expected root with status glyph:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("→ Task 2 [pending"),
+        "expected middle hop:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("→ Task 3 [pending"),
+        "expected leaf hop:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("Task 4"),
+        "side branch should not appear:\n{stdout}"
+    );
+}
+
+#[test]
+fn critical_path_command_diamond_picks_longer_arm() {
+    let path = write_temp_tasks("critical_path_diamond.toml", CRITICAL_PATH_DIAMOND);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("critical-path")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap critical-path diamond");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Task 1"), "expected root:\n{stdout}");
+    assert!(
+        stdout.contains("Task 2"),
+        "expected long arm mid:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("Task 3"),
+        "expected long arm late:\n{stdout}"
+    );
+    assert!(stdout.contains("Task 5"), "expected merge:\n{stdout}");
+    assert!(
+        !stdout.contains("Task 4"),
+        "short arm should not appear on critical path:\n{stdout}"
+    );
+}
+
+#[test]
+fn critical_path_command_milestone_scopes_release_line() {
+    let path = write_temp_tasks("critical_path_milestone.toml", CRITICAL_PATH_MILESTONE);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("critical-path")
+        .arg("--milestone")
+        .arg("v1")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap critical-path --milestone");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Task 1"),
+        "expected transitive root:\n{stdout}"
+    );
+    assert!(stdout.contains("Task 2"), "expected release dep:\n{stdout}");
+    assert!(
+        stdout.contains("Task 3"),
+        "expected release leaf:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("Task 4"),
+        "other line should be excluded:\n{stdout}"
+    );
+}
+
+#[test]
+fn critical_path_command_emits_ordered_json_array() {
+    let path = write_temp_tasks("critical_path_json.toml", CRITICAL_PATH_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("critical-path")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap critical-path --json");
+
+    assert!(output.status.success());
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be valid JSON");
+    let arr = json.as_array().expect("expected bare task array");
+    assert_eq!(arr.len(), 3, "expected 3-hop chain, got: {arr:?}");
+    assert_eq!(arr[0]["id"], 1);
+    assert_eq!(arr[1]["id"], 2);
+    assert_eq!(arr[2]["id"], 3);
+    assert!(arr[0]["eff"].is_number(), "expected Eff on JSON tasks");
+    assert_eq!(arr[1]["status"], "pending");
+}
+
+// ---------------------------------------------------------------------------
 // doctor command fixtures
 // ---------------------------------------------------------------------------
 

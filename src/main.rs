@@ -6,6 +6,7 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use notify::Watcher;
 use rmap::bundles::{BundleFilter, bundles_json, format_bundles_human, list_bundles};
+use rmap::critical_path::{CriticalPathFilter, critical_path, format_critical_path_human};
 use rmap::delegate::{DelegateTarget, format_delegate_prompt, resolve_target};
 use rmap::diff::{diff_toml, format_diff};
 use rmap::doctor::{DoctorReport, DoctorThresholds};
@@ -413,6 +414,20 @@ enum Commands {
         /// Force-pick a specific bundle, bypassing ranking.
         #[arg(long)]
         bundle: Option<String>,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+    },
+    /// Longest dependency chain through the DAG — the serial bottleneck to a release.
+    ///
+    /// Emits the ordered root→leaf task sequence (path length = task count, not
+    /// Eff-weighted). `--milestone <name>` scopes to that release line's pinned
+    /// tasks and their transitive in-repo dependencies.
+    CriticalPath {
+        /// Scope to a milestone's pinned tasks and their transitive deps.
+        #[arg(long)]
+        milestone: Option<String>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -833,6 +848,24 @@ fn run() -> Result<ExitCode> {
                 eprintln!("none — no actionable bundle in phase {focus}");
             } else {
                 eprintln!("none — no actionable bundle in any phase");
+            }
+        }
+        Commands::CriticalPath {
+            milestone,
+            json,
+            tasks_path,
+        } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+            let filter = CriticalPathFilter { milestone };
+            let chain = critical_path(&tasks, &filter);
+
+            if json {
+                println!("{}", export_tasks_array_json_str(&tasks, &chain)?);
+            } else if chain.is_empty() {
+                // Empty stdout — same contract as stale / list with no matches.
+            } else {
+                println!("{}", format_critical_path_human(&chain));
             }
         }
         Commands::Stale {

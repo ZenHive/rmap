@@ -157,6 +157,18 @@ rmap list --fields id,title,touches,domains
 # exit: 0
 ```
 
+`rmap critical-path` emits the longest in-repo dependency chain (root→leaf task sequence) — the serial bottleneck to a release. Path length is task count, not Eff-weighted. Human output shows status and Eff glyphs per hop; `--json` emits a bare ordered [`ExportedTask`] array. `--milestone <name>` scopes to that release line's pinned tasks and their transitive in-repo dependencies.
+
+```bash
+rmap critical-path
+# exit: 0
+```
+
+```bash
+rmap critical-path --milestone v1 --json
+# exit: 0
+```
+
 ## Milestones — release-line pinning
 
 `[milestones.<name>]` is a fourth, flat-namespace top-level concept (alongside phases / bundles / markers). Milestones answer "which release ships this?" — they cross phases by design. A task pins to at most one milestone via `milestone = "<name>"`; absent = unpinned (the default).
@@ -517,7 +529,7 @@ Unlike the other commands here, `rmap watch` (with or without `--json`) is shown
 | `render` | success | schema/IO error | — |
 | `watch` | — (runs until Ctrl-C) | watcher setup error | — |
 | `show` | found | unknown id | — |
-| `list`, `next`, `ready`, `schema`, `delegate`, `stale` | success | schema/IO error | — |
+| `list`, `next`, `ready`, `critical-path`, `schema`, `delegate`, `stale` | success | schema/IO error | — |
 | Mutators (`status`, `mark`, `depend`, `new`) | success + re-rendered | mutation rejected by re-validation | — |
 
 For finer health signals, pipe `rmap doctor --json` through `jq`:

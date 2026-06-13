@@ -1,4 +1,5 @@
 pub mod bundles;
+pub mod critical_path;
 pub mod delegate;
 pub mod diff;
 pub mod doctor;
