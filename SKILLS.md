@@ -52,6 +52,27 @@ rmap list --delivered-by claude
 # exit: 0
 ```
 
+## Graph queries
+
+`rmap blocks <id>` answers **"what does this task unblock?"** — every task that transitively depends on `<id>`, its whole downstream subtree, nearest dependency wave first. `rmap deps <id>` is the mirror: **"what must finish before this?"** — every task `<id>` transitively depends on. Both are read-only, take an unknown id to exit 3 (task-not-found), and emit a `list`-shaped `--json` envelope. A leaf (`blocks`) or a root (`deps`) returns empty.
+
+```bash
+rmap blocks 1
+# exit: 0
+```
+
+```bash
+rmap deps 4 --json
+# exit: 0
+```
+
+Every `--json` task payload also carries a computed **`unlocks`** field — the count of tasks it transitively unblocks (its `blocks` set size). It turns hand-guessed unlock leverage into a graph fact; like `eff` / `dep_layer` it is computed at read time, never persisted.
+
+```bash
+rmap show 1 --json
+# exit: 0
+```
+
 ## Picking work
 
 `rmap next` returns the highest-Eff `pending` task whose dependencies are all `done`. When `[focus].phase` is set, focus-phase candidates win over higher-Eff candidates in other phases. When any `[milestones.<name>].status = "active"`, tasks pinned to an active milestone win over out-of-active-milestone tasks within the same focus tier — focus phase dominates milestone when the two diverge.

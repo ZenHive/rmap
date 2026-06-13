@@ -34,6 +34,7 @@ use rmap::schema::{Scores, Task, TaskId, Tasks};
 use rmap::schema_json::schema_json_str;
 use rmap::stale::{find_stale, parse_duration};
 use rmap::today_iso;
+use rmap::topo::{transitive_dependencies, transitive_dependents};
 use rmap::validate::{ValidateError, validate_tasks_file, validate_tasks_str};
 use rmap::watch;
 
@@ -188,6 +189,32 @@ enum Commands {
         tasks_path: Option<PathBuf>,
     },
     Show {
+        id: String,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+    },
+    /// What does this task unblock? Lists every task that transitively depends
+    /// on `<id>` — its full downstream subtree, nearest dependency wave first.
+    ///
+    /// The transitive answer to "if I finish this, what frees up?" Direct edges
+    /// are already visible in each task's `depends_on`; this walks the whole
+    /// subtree. `--json` is a `list`-shaped envelope (each task carries its
+    /// computed `unlocks` leverage). Empty when `<id>` is a leaf.
+    Blocks {
+        id: String,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+    },
+    /// What must finish before this task? Lists every task `<id>` transitively
+    /// depends on — its full prerequisite subtree, nearest dependency wave first.
+    ///
+    /// The transitive answer to "what blocks this?" `--json` is a `list`-shaped
+    /// envelope. Empty when `<id>` is a dependency root.
+    Deps {
         id: String,
         #[arg(long)]
         json: bool,
@@ -636,6 +663,45 @@ fn run() -> Result<ExitCode> {
                 println!("{}", export_task_json_str(&tasks, Some(task))?);
             } else {
                 println!("{}", format_task(task));
+            }
+        }
+        Commands::Blocks {
+            id,
+            json,
+            tasks_path,
+        } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+            // Resolve `id` first so an unknown task exits 3 (not an empty list).
+            find_task(&tasks, &id).ok_or_else(|| TaskNotFound(id.clone()))?;
+            let all: Vec<&Task> = tasks.task.iter().collect();
+            let result = transitive_dependents(&all, &id);
+
+            if json {
+                println!("{}", export_filtered_json_str(&tasks, &result)?);
+            } else {
+                for task in &result {
+                    println!("{}", format_task_row(task));
+                }
+            }
+        }
+        Commands::Deps {
+            id,
+            json,
+            tasks_path,
+        } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+            find_task(&tasks, &id).ok_or_else(|| TaskNotFound(id.clone()))?;
+            let all: Vec<&Task> = tasks.task.iter().collect();
+            let result = transitive_dependencies(&all, &id);
+
+            if json {
+                println!("{}", export_filtered_json_str(&tasks, &result)?);
+            } else {
+                for task in &result {
+                    println!("{}", format_task_row(task));
+                }
             }
         }
         Commands::List {

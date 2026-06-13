@@ -4917,6 +4917,183 @@ fn next_bundle_missing_bundle_errors_with_exit_one() {
     );
 }
 
+// Diamond: 1 (root) ← 2, 1 ← 3, {2,3} ← 4. Exercises transitive traversal and
+// dedup (4 is reachable from 1 via two paths but counts once).
+const GRAPH_TASKS: &str = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase One"
+order = 1
+status = "in_progress"
+
+[bundles.b]
+phase = 1
+order = 1
+description = "b"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "b"
+status = "done"
+title = "root"
+scores = { d = 2, b = 3, u = 4 }
+implemented = "shipped"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "b"
+status = "pending"
+title = "mid a"
+scores = { d = 2, b = 3, u = 4 }
+depends_on = [1]
+
+[[task]]
+id = 3
+phase = 1
+bundle = "b"
+status = "pending"
+title = "mid b"
+scores = { d = 2, b = 3, u = 4 }
+depends_on = [1]
+
+[[task]]
+id = 4
+phase = 1
+bundle = "b"
+status = "pending"
+title = "leaf"
+scores = { d = 2, b = 3, u = 4 }
+depends_on = [2, 3]
+"#;
+
+fn json_ids(value: &serde_json::Value) -> Vec<i64> {
+    value["task"]
+        .as_array()
+        .expect("task array")
+        .iter()
+        .map(|t| t["id"].as_i64().expect("numeric id"))
+        .collect()
+}
+
+#[test]
+fn blocks_lists_transitive_downstream_subtree() {
+    let path = write_temp_tasks("graph_blocks.toml", GRAPH_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["blocks", "1", "--json", "--tasks-path"])
+        .arg(&path)
+        .output()
+        .expect("run rmap blocks");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    // 1 unblocks {2, 3, 4}, deduped, nearest wave first.
+    assert_eq!(json_ids(&value), vec![2, 3, 4]);
+}
+
+#[test]
+fn blocks_on_leaf_is_empty() {
+    let path = write_temp_tasks("graph_blocks_leaf.toml", GRAPH_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["blocks", "4", "--json", "--tasks-path"])
+        .arg(&path)
+        .output()
+        .expect("run rmap blocks leaf");
+
+    assert!(output.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    assert!(json_ids(&value).is_empty(), "leaf unblocks nothing");
+}
+
+#[test]
+fn deps_lists_transitive_upstream_subtree() {
+    let path = write_temp_tasks("graph_deps.toml", GRAPH_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["deps", "4", "--json", "--tasks-path"])
+        .arg(&path)
+        .output()
+        .expect("run rmap deps");
+
+    assert!(output.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    // 4 transitively depends on {1, 2, 3}.
+    assert_eq!(json_ids(&value), vec![1, 2, 3]);
+}
+
+#[test]
+fn blocks_unknown_task_exits_task_not_found() {
+    let path = write_temp_tasks("graph_blocks_unknown.toml", GRAPH_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["blocks", "999", "--tasks-path"])
+        .arg(&path)
+        .output()
+        .expect("run rmap blocks unknown");
+
+    assert_eq!(
+        output.status.code(),
+        Some(3),
+        "expected task-not-found exit"
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("task 999 not found"));
+}
+
+#[test]
+fn blocks_human_output_lists_task_rows() {
+    let path = write_temp_tasks("graph_blocks_human.toml", GRAPH_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["blocks", "1", "--tasks-path"])
+        .arg(&path)
+        .output()
+        .expect("run rmap blocks human");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Task 2"), "{stdout}");
+    assert!(stdout.contains("Task 4"), "{stdout}");
+}
+
+#[test]
+fn show_json_carries_computed_unlocks() {
+    let path = write_temp_tasks("graph_unlocks.toml", GRAPH_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["show", "1", "--json", "--tasks-path"])
+        .arg(&path)
+        .output()
+        .expect("run rmap show --json");
+
+    assert!(output.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is valid json");
+    // Root unblocks 3 tasks (2, 3, 4 — deduped), not 4.
+    assert_eq!(value["unlocks"], 3);
+
+    let leaf = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["show", "4", "--json", "--tasks-path"])
+        .arg(&path)
+        .output()
+        .expect("run rmap show leaf --json");
+    let leaf_value: serde_json::Value =
+        serde_json::from_slice(&leaf.stdout).expect("stdout is valid json");
+    assert_eq!(leaf_value["unlocks"], 0);
+}
+
 fn write_temp_tasks(file_name: &str, contents: &str) -> PathBuf {
     let dir = temp_dir();
     write_file(&dir, file_name, contents)

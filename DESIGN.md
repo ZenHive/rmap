@@ -111,6 +111,8 @@ rmap doctor [--json]                 # health summary: validate findings, stale,
 rmap next [--marker parallel] [--json]   # next highest-Eff unblocked pending
 rmap show <id> [--json]              # full task detail; --json for piping
 rmap list [--status S --marker M --phase N --bundle B --milestone V --json]   # generalized query
+rmap blocks <id> [--json]            # transitive dependents — what finishing <id> unblocks
+rmap deps <id> [--json]              # transitive dependencies — what must finish before <id>
 rmap milestones [--has-next] [--status STATE] [--json]   # release-line discovery + next-task glyphs
 rmap schema                          # emit JSON Schema for editor completion + agent self-description
 rmap diff [--against <ref>] [--json] [--verbose]  # what changed in tasks.toml vs base ref (default: default_branch)
@@ -132,7 +134,7 @@ rmap watch                           # FS watch on tasks.toml, render on change
 rmap watch --json                    # planned — event stream for agent consumers
 ```
 
-**Cross-cutting invariant.** The `--json` outputs of `show`, `list`, `next`, `schema`, `diff`, and `doctor` are the agent contract. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.
+**Cross-cutting invariant.** The `--json` outputs of `show`, `list`, `blocks`, `deps`, `next`, `schema`, `diff`, and `doctor` are the agent contract. Every per-task `--json` payload also carries the computed `unlocks` leverage field (transitive-dependent count) alongside `eff` / `dep_layer`. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.
 
 ## HTML render design (Phase 6)
 

@@ -7,7 +7,7 @@ use crate::schema::{
     Attempt, Bundle, CrossRepo, Focus, Linear, Milestone, Phase, Scores, Task, TaskId, Tasks,
 };
 use crate::scoring::rounded_efficiency;
-use crate::topo::compute_layers;
+use crate::topo::{compute_layers, compute_unlocks};
 
 #[derive(Serialize)]
 struct ExportedTasks<'a> {
@@ -41,6 +41,10 @@ struct ExportedTask<'a> {
     /// never persisted — like `eff`). `0` for tasks with no in-repo dep; within
     /// a result set the lowest `dep_layer` present is the current parallel wave.
     dep_layer: usize,
+    /// Count of tasks that transitively depend on this one — computed unlock
+    /// leverage ("what finishing this frees up"), over the whole in-repo graph.
+    /// Computed, never persisted (like `eff` / `dep_layer`); `0` for a leaf.
+    unlocks: usize,
     markers: &'a [String],
     depends_on: &'a [TaskId],
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -90,7 +94,7 @@ struct ExportedTask<'a> {
 
 /// Every JSON key an `ExportedTask` can carry — the validation set for the
 /// `--fields` projection (`rmap list` / `rmap ready`). Includes the computed
-/// `eff` / `dep_layer`. MIRROR SURFACE: adding an `ExportedTask` field means
+/// `eff` / `dep_layer` / `unlocks`. MIRROR SURFACE: adding an `ExportedTask` field means
 /// adding it here; `exported_task_fields_cover_serialized_keys` guards drift.
 pub const EXPORTED_TASK_FIELDS: &[&str] = &[
     "id",
@@ -102,6 +106,7 @@ pub const EXPORTED_TASK_FIELDS: &[&str] = &[
     "scores",
     "eff",
     "dep_layer",
+    "unlocks",
     "markers",
     "depends_on",
     "linear_id",
@@ -151,13 +156,13 @@ pub fn project_fields_json_str(
         }
     }
     let requested: std::collections::HashSet<&str> = fields.iter().map(String::as_str).collect();
-    let layers = graph_layers(all);
+    let metrics = graph_metrics(all);
     let projected: Vec<serde_json::Value> = task
         .iter()
         .copied()
         .map(|t| {
             let value =
-                serde_json::to_value(exported_task(t, &layers)).unwrap_or(serde_json::Value::Null);
+                serde_json::to_value(exported_task(t, &metrics)).unwrap_or(serde_json::Value::Null);
             match value {
                 serde_json::Value::Object(map) => serde_json::Value::Object(
                     map.into_iter()
@@ -188,16 +193,16 @@ pub fn export_filtered_json_str(tasks: &Tasks, task: &[&Task]) -> serde_json::Re
 }
 
 pub fn export_task_json_str(all: &Tasks, task: Option<&Task>) -> serde_json::Result<String> {
-    let layers = graph_layers(all);
-    serde_json::to_string_pretty(&task.map(|t| exported_task(t, &layers)))
+    let metrics = graph_metrics(all);
+    serde_json::to_string_pretty(&task.map(|t| exported_task(t, &metrics)))
 }
 
 pub fn export_tasks_array_json_str(all: &Tasks, tasks: &[&Task]) -> serde_json::Result<String> {
-    let layers = graph_layers(all);
+    let metrics = graph_metrics(all);
     let exported: Vec<ExportedTask<'_>> = tasks
         .iter()
         .copied()
-        .map(|t| exported_task(t, &layers))
+        .map(|t| exported_task(t, &metrics))
         .collect();
     serde_json::to_string_pretty(&exported)
 }
@@ -213,7 +218,7 @@ pub fn export_bundle_pick_json_str(
     effective_focus: Option<u32>,
     pick: Option<&BundlePick<'_>>,
 ) -> serde_json::Result<String> {
-    let layers = graph_layers(tasks);
+    let metrics = graph_metrics(tasks);
     let (bundle, exported_tasks) = match pick {
         Some(p) => (
             Some(BundlePickInfo {
@@ -224,7 +229,7 @@ pub fn export_bundle_pick_json_str(
             p.tasks
                 .iter()
                 .copied()
-                .map(|t| exported_task(t, &layers))
+                .map(|t| exported_task(t, &metrics))
                 .collect(),
         ),
         None => (None, Vec::new()),
@@ -261,7 +266,7 @@ fn exported_tasks_with<'a>(
     tasks: &'a Tasks,
     task: impl IntoIterator<Item = &'a Task>,
 ) -> ExportedTasks<'a> {
-    let layers = graph_layers(tasks);
+    let metrics = graph_metrics(tasks);
     ExportedTasks {
         schema_version: tasks.schema_version,
         project: &tasks.project,
@@ -274,21 +279,31 @@ fn exported_tasks_with<'a>(
         milestones: &tasks.milestones,
         task: task
             .into_iter()
-            .map(|t| exported_task(t, &layers))
+            .map(|t| exported_task(t, &metrics))
             .collect(),
     }
 }
 
-/// Longest-path dependency layers over the full in-repo graph, keyed by
-/// canonical `TaskId` string. Always built from `tasks.task` (the whole graph),
-/// never from a filtered slice — `dep_layer` must reflect global depth even
-/// when only a subset of tasks is being exported.
-fn graph_layers(tasks: &Tasks) -> HashMap<String, usize> {
-    let all: Vec<&Task> = tasks.task.iter().collect();
-    compute_layers(&all)
+/// Computed per-task graph metrics keyed by canonical `TaskId` string. Always
+/// built from `tasks.task` (the whole graph), never from a filtered slice —
+/// `dep_layer` / `unlocks` must reflect global depth and leverage even when only
+/// a subset of tasks is being exported. Computed once per export call, then
+/// shared across every `exported_task`.
+struct GraphMetrics {
+    layers: HashMap<String, usize>,
+    unlocks: HashMap<String, usize>,
 }
 
-fn exported_task<'a>(task: &'a Task, layers: &HashMap<String, usize>) -> ExportedTask<'a> {
+fn graph_metrics(tasks: &Tasks) -> GraphMetrics {
+    let all: Vec<&Task> = tasks.task.iter().collect();
+    GraphMetrics {
+        layers: compute_layers(&all),
+        unlocks: compute_unlocks(&all),
+    }
+}
+
+fn exported_task<'a>(task: &'a Task, metrics: &GraphMetrics) -> ExportedTask<'a> {
+    let key = task.id.to_string();
     ExportedTask {
         id: &task.id,
         phase: task.phase,
@@ -298,7 +313,8 @@ fn exported_task<'a>(task: &'a Task, layers: &HashMap<String, usize>) -> Exporte
         title: &task.title,
         scores: &task.scores,
         eff: rounded_efficiency(task),
-        dep_layer: layers.get(&task.id.to_string()).copied().unwrap_or(0),
+        dep_layer: metrics.layers.get(&key).copied().unwrap_or(0),
+        unlocks: metrics.unlocks.get(&key).copied().unwrap_or(0),
         markers: &task.markers,
         depends_on: &task.depends_on,
         linear_id: task.linear_id.as_ref(),
@@ -391,9 +407,9 @@ cross_repo = [{ repo = "other", task_id = 5, relation = "blocks" }]
     #[test]
     fn exported_task_fields_cover_serialized_keys() {
         let tasks: Tasks = toml::from_str(FULLY_POPULATED).expect("valid toml");
-        let layers = graph_layers(&tasks);
+        let metrics = graph_metrics(&tasks);
         let value =
-            serde_json::to_value(exported_task(&tasks.task[0], &layers)).expect("serialize task");
+            serde_json::to_value(exported_task(&tasks.task[0], &metrics)).expect("serialize task");
         let serialized: std::collections::BTreeSet<String> =
             value.as_object().expect("object").keys().cloned().collect();
         let declared: std::collections::BTreeSet<String> =

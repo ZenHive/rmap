@@ -18,6 +18,11 @@
       "order": 15,
       "status": "in_progress"
     },
+    "16": {
+      "name": "Graph queries",
+      "order": 16,
+      "status": "in_progress"
+    },
     "6": {
       "name": "HTML render",
       "order": 6,
@@ -80,6 +85,11 @@
       "order": 3,
       "description": "Hardcoded doctor thresholds → CLI overrides (--threshold-days, --ac-threshold)"
     },
+    "graph_queries": {
+      "phase": 16,
+      "order": 1,
+      "description": "Expose the already-computed dependency graph as first-class read queries — reverse traversal (blocks/deps), computed unlock leverage, critical path, graph-health advisories, and DOT/waves export"
+    },
     "html_portfolio": {
       "phase": 6,
       "order": 2,
@@ -141,6 +151,7 @@
       },
       "eff": 1.83,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -168,6 +179,7 @@
       },
       "eff": 2.25,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -194,6 +206,7 @@
       },
       "eff": 1.83,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -220,6 +233,7 @@
       },
       "eff": 2.5,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -245,6 +259,7 @@
       },
       "eff": 1.67,
       "dep_layer": 0,
+      "unlocks": 1,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -271,6 +286,7 @@
       },
       "eff": 2.5,
       "dep_layer": 0,
+      "unlocks": 1,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -302,6 +318,7 @@
       },
       "eff": 1.83,
       "dep_layer": 1,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [
         5,
@@ -332,6 +349,7 @@
       },
       "eff": 1.08,
       "dep_layer": 0,
+      "unlocks": 1,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -362,6 +380,7 @@
       },
       "eff": 0.92,
       "dep_layer": 1,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [
         8
@@ -398,6 +417,7 @@
       },
       "eff": 1.13,
       "dep_layer": 0,
+      "unlocks": 1,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -424,6 +444,7 @@
       },
       "eff": 1.33,
       "dep_layer": 1,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [
         10
@@ -451,6 +472,7 @@
       },
       "eff": 1.5,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -476,6 +498,7 @@
       },
       "eff": 1.5,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -501,6 +524,7 @@
       },
       "eff": 3.5,
       "dep_layer": 0,
+      "unlocks": 1,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -531,6 +555,7 @@
       },
       "eff": 1.5,
       "dep_layer": 1,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [
         14
@@ -562,6 +587,7 @@
       },
       "eff": 2.0,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -597,6 +623,7 @@
       },
       "eff": 2.33,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "module": "src/next_bundle.rs",
@@ -632,6 +659,7 @@
       },
       "eff": 2.5,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "model": "claude-sonnet-4-6",
@@ -663,6 +691,7 @@
       },
       "eff": 1.67,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "model": "claude-opus-4-7",
@@ -699,6 +728,7 @@
       },
       "eff": 2.25,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [
         "bug"
       ],
@@ -731,6 +761,7 @@
       },
       "eff": 2.75,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [
         "bug"
       ],
@@ -763,6 +794,7 @@
       },
       "eff": 1.63,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -802,6 +834,7 @@
       },
       "eff": 2.75,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [
         "bug"
       ],
@@ -837,6 +870,7 @@
       },
       "eff": 1.33,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -881,6 +915,7 @@
       },
       "eff": 1.5,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [
         "bug"
       ],
@@ -914,6 +949,7 @@
       },
       "eff": 1.0,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -955,6 +991,7 @@
       },
       "eff": 1.83,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -989,6 +1026,7 @@
       },
       "eff": 1.5,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -1035,6 +1073,7 @@
       },
       "eff": 2.17,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [
         "bug"
       ],
@@ -1065,6 +1104,7 @@
       },
       "eff": 1.83,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [
         "bug"
       ],
@@ -1099,6 +1139,7 @@
       },
       "eff": 3.25,
       "dep_layer": 0,
+      "unlocks": 1,
       "markers": [
         "cx"
       ],
@@ -1144,6 +1185,7 @@
       },
       "eff": 2.75,
       "dep_layer": 1,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [
         31
@@ -1185,6 +1227,7 @@
       },
       "eff": 3.0,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -1227,6 +1270,7 @@
       },
       "eff": 2.0,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -1271,6 +1315,7 @@
       },
       "eff": 2.83,
       "dep_layer": 0,
+      "unlocks": 1,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -1308,6 +1353,7 @@
       },
       "eff": 2.17,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -1345,6 +1391,7 @@
       },
       "eff": 2.33,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -1384,6 +1431,7 @@
       },
       "eff": 2.17,
       "dep_layer": 1,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [
         35
@@ -1425,6 +1473,7 @@
       },
       "eff": 2.17,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -1464,6 +1513,7 @@
       },
       "eff": 2.5,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "acceptance_criteria": [
@@ -1502,6 +1552,7 @@
       },
       "eff": 2.0,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "assignee": "codex",
@@ -1543,6 +1594,7 @@
       },
       "eff": 1.63,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "assignee": "claude",
@@ -1588,6 +1640,7 @@
       },
       "eff": 2.0,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "assignee": "codex",
@@ -1626,6 +1679,7 @@
       },
       "eff": 2.0,
       "dep_layer": 0,
+      "unlocks": 0,
       "markers": [],
       "depends_on": [],
       "assignee": "claude",
@@ -1651,6 +1705,151 @@
       "scored_at": "2026-06-12",
       "implemented": "Implemented as a HARD rmap validate gate (validate_dispatch_model in src/validate.rs), not the originally-scoped soft doctor advisory — per user decision that harness now expects a model on every dispatch. Errors (exit 1, agent-grep 'missing model') when status is pending/in_progress AND assignee is set and != human AND model is blank. Terminal (done/superseded/blocked) and assignee-unset/human tasks exempt so already-committed work never retro-breaks. Mutators inherit via validate-then-write. CLI test validate_requires_model_for_live_agent_tasks covers the 7-case matrix; backfilled model on fixtures + task 44 itself. Docs: CLAUDE.md invariant + ~/.claude/includes/rmap.md.",
       "delivered_by": "claude",
+      "cross_repo": []
+    },
+    {
+      "id": 45,
+      "phase": 16,
+      "bundle": "graph_queries",
+      "status": "done",
+      "title": "Reverse-dependency traversal: unlocks computed field + rmap blocks / rmap deps commands",
+      "scores": {
+        "d": 3,
+        "b": 6,
+        "u": 7
+      },
+      "eff": 2.17,
+      "dep_layer": 0,
+      "unlocks": 1,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "topo::transitive_dependents / transitive_dependencies / compute_unlocks added, canonical-keyed, cycle-guarded, with inline tests (chain, diamond dedup, leaf, unknown-id)",
+        "`unlocks` computed field on every per-task --json payload (show/list/next/ready/blocks/deps), added to EXPORTED_TASK_FIELDS, drift test green",
+        "`rmap blocks <id>` lists transitive dependents; `rmap deps <id>` lists transitive dependencies; both nearest-wave-first",
+        "unknown id exits 3 (task-not-found); leaf/root returns empty; --json is a list-shaped envelope",
+        "SKILLS.md documents blocks/deps + unlocks, skills_smoke green; rmap.md / CLAUDE.md / DESIGN.md updated",
+        "cargo fmt/clippy/test all green"
+      ],
+      "out_of_scope": [
+        "Folding unlocks into next/ready ranking (load-bearing 4-tier sort; schema_version-bump territory; keep unlocks additive/export-only)",
+        "--direct and --fields projection on blocks/deps (follow-ups)",
+        "Any ROADMAP.md markdown-row change for unlocks (stays JSON-only)"
+      ],
+      "touches": [
+        "src/topo.rs",
+        "src/export.rs",
+        "src/main.rs",
+        "tests/cli.rs",
+        "SKILLS.md"
+      ],
+      "body": "rmap is already a graph tool internally (topo.rs longest-path layering, dep_layer on every --json, mermaid DAG) but the graph is only consumed internally — there is no way for the consuming agent (Claude/harness) to ask \"what does this task unblock?\" or \"what must finish first?\", and the U score's unlock-leverage component is hand-guessed when the graph could compute it.\n\nAdd a reverse-edge traversal primitive to topo.rs (transitive_dependents / transitive_dependencies / compute_unlocks, canonical-keyed + cycle-guarded like the layering walk), surface a computed `unlocks` field (transitive-dependent count) on every --json payload exactly like dep_layer/eff (never persisted; GraphMetrics bundles layers+unlocks computed once), and add two read-only commands: `rmap blocks <id>` (downstream subtree, nearest wave first) and `rmap deps <id>` (upstream prerequisite subtree). Both take an unknown id to exit 3, emit a list-shaped --json envelope, and are additive to the harness contract (no harness change needed).",
+      "created_at": "2026-06-13",
+      "done_at": "2026-06-13",
+      "scored_at": "2026-06-13",
+      "implemented": "Reverse-edge traversal added to topo.rs (transitive_dependents/transitive_dependencies/compute_unlocks, canonical-keyed + cycle-guarded; inline tests for chain/diamond-dedup/leaf/unknown). Computed unlocks field on every per-task --json via GraphMetrics (layers+unlocks computed once); added to EXPORTED_TASK_FIELDS (drift test green). New read-only commands rmap blocks <id> / rmap deps <id> (nearest-wave-first, unknown id exits 3, list-shaped --json envelope). 6 cli tests + skills_smoke green. Docs: SKILLS.md Graph-queries section, rmap.md, CLAUDE.md, DESIGN.md.",
+      "delivered_by": "claude",
+      "cross_repo": []
+    },
+    {
+      "id": 46,
+      "phase": 16,
+      "bundle": "graph_queries",
+      "status": "pending",
+      "title": "rmap critical-path: longest dependency chain to a milestone/release",
+      "scores": {
+        "d": 3,
+        "b": 5,
+        "u": 5
+      },
+      "eff": 1.67,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`rmap critical-path` emits the longest dependency chain (ordered task sequence), not just depths",
+        "`--milestone V` scopes the path to a release line",
+        "--json carries the ordered chain; human view shows status + Eff glyphs",
+        "Reuses topo longest-path; pure selector + formatter split; tests for chain, diamond (picks the longer arm), and milestone scoping"
+      ],
+      "out_of_scope": [
+        "Weighting the path by Difficulty or estimated time (path length = task count, not effort)",
+        "Visualizing the path in HTML/mermaid (follow-up)"
+      ],
+      "body": "Answer \"what's the actual serial bottleneck to cut this release?\" by emitting the longest dependency chain (critical path) through the DAG, optionally scoped to a milestone via --milestone V. Reuses the existing forward longest-path machinery in topo.rs (compute_layers already finds the depth) but emits the PATH itself — the ordered task sequence — not just the per-task depth. Human view prints the chain with Eff/status glyphs; --json carries the ordered task array. Composes with --milestone to bound the path to one release line's pinned tasks (and their transitive deps).",
+      "created_at": "2026-06-13",
+      "scored_at": "2026-06-13",
+      "cross_repo": []
+    },
+    {
+      "id": 47,
+      "phase": 16,
+      "bundle": "graph_queries",
+      "status": "pending",
+      "title": "rmap doctor graph-health advisories: bottleneck + isolated/unreachable node",
+      "scores": {
+        "d": 3,
+        "b": 4,
+        "u": 4
+      },
+      "eff": 1.33,
+      "dep_layer": 1,
+      "unlocks": 0,
+      "markers": [],
+      "depends_on": [
+        45
+      ],
+      "acceptance_criteria": [
+        "Bottleneck advisory: open task whose transitive-dependent count >= threshold; soft, exit 0; JSON kind bottleneck",
+        "Isolated-node advisory: no deps and no dependents (or unreachable from any milestone); JSON kind isolated_node",
+        "Reuses topo::compute_unlocks / reverse traversal; threshold tunable via DoctorThresholds",
+        "doctor still always exits 0; human + --json tests assert section + kind strings",
+        "rmap.md / CLAUDE.md doctor-advisory invariant list updated"
+      ],
+      "out_of_scope": [
+        "Auto-mutating the roadmap (doctor never mutates)",
+        "Failing the run on graph-health findings (validate is the strict gate, not doctor)"
+      ],
+      "body": "Add two soft doctor advisories (always exit 0, no auto-mutation, mirroring the existing ClaimedNotGraded / milestone-drift pattern) for dependency-graph health. Bottleneck: a still-open (pending/blocked) task with a high transitive-dependent count (reuses the compute_unlocks primitive from the reverse-traversal task) — \"this one task gates N others.\" Isolated/unreachable: a task with no deps AND no dependents (orphan), or a task unreachable from any milestone (dead roadmap). Human lines cite the task id + dependent count; JSON kinds `bottleneck` / `isolated_node`. Thresholds via DoctorThresholds (e.g. --bottleneck-min).",
+      "created_at": "2026-06-13",
+      "scored_at": "2026-06-13",
+      "cross_repo": []
+    },
+    {
+      "id": 48,
+      "phase": 16,
+      "bundle": "graph_queries",
+      "status": "pending",
+      "title": "rmap graph export: rmap export dot (Graphviz) + rmap waves (parallel dispatch schedule)",
+      "scores": {
+        "d": 2,
+        "b": 4,
+        "u": 4
+      },
+      "eff": 2.0,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "`rmap export dot` emits a valid Graphviz digraph of the depends_on graph (status/Eff-styled nodes, dependency edges)",
+        "`rmap waves` prints tasks grouped by dep_layer (successive parallel dispatch waves); --json carries the layer->ids map",
+        "Both reuse topo (compute_layers); read-only; pure builder + formatter split with tests",
+        "SKILLS.md / DESIGN.md / rmap.md updated; skills_smoke green"
+      ],
+      "out_of_scope": [
+        "Rendering the DOT to an image (users run graphviz themselves)",
+        "Filtering dot/waves by phase/bundle/milestone (follow-up if needed)"
+      ],
+      "touches": [
+        "src/main.rs",
+        "src/export.rs",
+        "src/topo.rs"
+      ],
+      "body": "Two thin visualization/export surfaces over the existing topo graph. `rmap export dot` emits a Graphviz DOT digraph of the depends_on graph (nodes = tasks with status/Eff styling, edges = dependencies) so users can pipe to `dot`/external tools without the full --html view. `rmap waves` prints the parallel dispatch schedule by grouping tasks by dep_layer (\"wave 0: [1,3,5], wave 1: [2,4], ...\") — formalizing what dep_layer already encodes into the answer \"given unlimited parallelism, here are the successive dispatch waves.\" Both read-only; --json on waves carries the layer->task-ids map.",
+      "created_at": "2026-06-13",
+      "scored_at": "2026-06-13",
       "cross_repo": []
     }
   ]
