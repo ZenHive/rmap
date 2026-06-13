@@ -128,3 +128,16 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 43 | ✅ | 🎁 **agent_routing** · Add `domains` task field: schema + JSON/data.json export (harness CapabilityScore reader is pre-wired, rmap never emits it) [D:2/B:4/U:4 → Eff:2.0] 🎯 |
 | Task 44 | ✅ | 🎁 **doctor_state_drift** · rmap validate: hard error when a live agent-assigned task has no model [D:2/B:4/U:4 → Eff:2.0] 🎯 |
 <!-- TASKS:END -->
+
+## Phase 16 — Graph queries (in progress)
+
+🎁 `graph_queries` — expose the already-computed dependency graph as first-class read queries: reverse traversal (`blocks`/`deps`), computed unlock leverage, critical path, graph-health advisories, and DOT/waves export.
+
+<!-- TASKS:BEGIN phase=16 -->
+| Task | Status | Notes |
+|------|--------|-------|
+| Task 45 | ✅ | 🎁 **graph_queries** · Reverse-dependency traversal: unlocks computed field + rmap blocks / rmap deps commands [D:3/B:6/U:7 → Eff:2.17] 🎯 |
+| Task 46 | ✅ | 🎁 **graph_queries** · rmap critical-path: longest dependency chain to a milestone/release [D:3/B:5/U:5 → Eff:1.67] 🚀 |
+| Task 47 | ✅ | 🎁 **graph_queries** · rmap doctor graph-health advisories: bottleneck + isolated/unreachable node [D:3/B:4/U:4 → Eff:1.33] 📋 |
+| Task 48 | ✅ | 🎁 **graph_queries** · rmap graph export: rmap export dot (Graphviz) + rmap waves (parallel dispatch schedule) [D:2/B:4/U:4 → Eff:2.0] 🎯 |
+<!-- TASKS:END -->
