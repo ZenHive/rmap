@@ -101,6 +101,8 @@ rmap render --stdout                 # render ROADMAP.md to stdout (for diffing 
 rmap render --html                   # planned — single-project view → roadmap/dist/index.html
 rmap render --html --multi P1 P2     # planned — portfolio HTML across N repos/data.json paths
 rmap export json                     # data.json to stdout (for piping)
+rmap export dot                      # Graphviz DOT digraph of depends_on (pipe to dot)
+rmap waves [--json]                  # parallel dispatch schedule by dep_layer
 
 # validation + health
 rmap validate                        # schema check + integrity (orphan deps, marker validity, cycles)
@@ -113,6 +115,7 @@ rmap show <id> [--json]              # full task detail; --json for piping
 rmap list [--status S --marker M --phase N --bundle B --milestone V --json]   # generalized query
 rmap blocks <id> [--json]            # transitive dependents — what finishing <id> unblocks
 rmap deps <id> [--json]              # transitive dependencies — what must finish before <id>
+rmap waves [--json]                  # parallel dispatch schedule by dep_layer
 rmap milestones [--has-next] [--status STATE] [--json]   # release-line discovery + next-task glyphs
 rmap schema                          # emit JSON Schema for editor completion + agent self-description
 rmap diff [--against <ref>] [--json] [--verbose]  # what changed in tasks.toml vs base ref (default: default_branch)

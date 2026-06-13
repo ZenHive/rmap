@@ -497,6 +497,25 @@ rmap export json
 # exit: 0
 ```
 
+`rmap export dot` emits a Graphviz DOT digraph of the in-repo `depends_on` graph — nodes styled by status fill color and Eff tier glyph, edges running dependency → dependent. Pipe to `dot -Tsvg` or another Graphviz tool; rmap does not render images.
+
+```bash
+rmap export dot
+# exit: 0
+```
+
+`rmap waves` prints the parallel dispatch schedule: tasks grouped by longest-path `dep_layer` (`wave 0: [1, 3]` is the root set runnable with unlimited parallelism; each successive wave waits on the prior). `--json` carries the layer → task-id map.
+
+```bash
+rmap waves
+# exit: 0
+```
+
+```bash
+rmap waves --json
+# exit: 0
+```
+
 ### Marker conventions
 
 Four marker pairs live inside `ROADMAP.md`. Bytes outside these markers are preserved exactly — hand-edited prose, headings, and blank lines all round-trip byte-equal.

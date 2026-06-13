@@ -7,6 +7,7 @@
 //! - `render_html::build_dag` — vertical slotting of the DAG view.
 //! - `export::exported_task` — the computed `dep_layer` field on every
 //!   `--json` payload (like `eff`, never persisted).
+//! - `graph_export` — `rmap export dot` and `rmap waves` over the same layers.
 //!
 //! It also hosts the reverse-edge traversal that backs the graph queries:
 //! [`transitive_dependents`] (`rmap blocks` — what a task unblocks),

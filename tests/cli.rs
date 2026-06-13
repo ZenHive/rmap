@@ -464,6 +464,134 @@ fn export_json_command_prints_json_to_stdout() {
     assert_eq!(value["task"][0]["eff"], 4.0);
 }
 
+const WAVES_TASKS: &str = r#"
+schema_version = 2
+project = "waves_demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase One"
+order = 1
+status = "in_progress"
+
+[bundles.b]
+phase = 1
+order = 1
+description = "Wave fixture bundle"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "b"
+status = "done"
+implemented = "fixture"
+title = "Root"
+scores = { d = 2, b = 3, u = 4 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "b"
+status = "pending"
+title = "Mid A"
+scores = { d = 2, b = 3, u = 4 }
+depends_on = [1]
+
+[[task]]
+id = 3
+phase = 1
+bundle = "b"
+status = "pending"
+title = "Mid B"
+scores = { d = 2, b = 3, u = 4 }
+depends_on = [1]
+
+[[task]]
+id = 4
+phase = 1
+bundle = "b"
+status = "pending"
+title = "Leaf"
+scores = { d = 2, b = 3, u = 4 }
+depends_on = [2, 3]
+"#;
+
+#[test]
+fn export_dot_command_emits_graphviz_digraph() {
+    let path = write_temp_tasks("waves_tasks_dot.toml", WAVES_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("export")
+        .arg("dot")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap export dot");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.starts_with("digraph \"waves_demo\" {"));
+    assert!(stdout.contains("fillcolor=\"#34d399\""));
+    assert!(stdout.contains("fillcolor=\"#94a3b8\""));
+    assert!(stdout.contains("\"1\" -> \"2\";"));
+    assert!(stdout.contains("\"1\" -> \"3\";"));
+    assert!(stdout.contains("\"2\" -> \"4\";"));
+    assert!(stdout.contains("\"3\" -> \"4\";"));
+}
+
+#[test]
+fn waves_command_prints_dispatch_schedule() {
+    let path = write_temp_tasks("waves_tasks_human.toml", WAVES_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("waves")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap waves");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("wave 0: [1]"));
+    assert!(stdout.contains("wave 1: [2, 3]"));
+    assert!(stdout.contains("wave 2: [4]"));
+}
+
+#[test]
+fn waves_command_json_emits_layer_map() {
+    let path = write_temp_tasks("waves_tasks_json.toml", WAVES_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("waves")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap waves --json");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be valid JSON");
+    assert_eq!(json["0"], serde_json::json!(["1"]));
+    assert_eq!(json["1"], serde_json::json!(["2", "3"]));
+    assert_eq!(json["2"], serde_json::json!(["4"]));
+}
+
 #[test]
 fn render_stdout_prints_roadmap_without_writing_files() {
     let dir = temp_dir();

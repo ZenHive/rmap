@@ -14,6 +14,7 @@ use rmap::export::{
     export_bundle_pick_json_str, export_filtered_json_str, export_json_str, export_task_json_str,
     export_tasks_array_json_str, project_fields_json_str,
 };
+use rmap::graph_export::{build_dot, build_waves, format_dot, format_waves, format_waves_json};
 use rmap::import::format_import_prompt;
 use rmap::milestones::{
     MilestoneFilter, format_milestones_human, list_milestones, milestones_json,
@@ -483,6 +484,17 @@ enum Commands {
         #[arg(long)]
         tasks_path: Option<PathBuf>,
     },
+    /// Print the parallel dispatch schedule grouped by `dep_layer`.
+    ///
+    /// Wave 0 is the set runnable with no in-repo prerequisites; each successive
+    /// wave starts only after the prior wave completes. Read-only — formalizes
+    /// the layering `topo::compute_layers` already computes.
+    Waves {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+    },
     /// List in-progress tasks idle longer than the given duration.
     Stale {
         /// Duration threshold. Units: d (day), w (7d), m (30d), y (365d). Example: "30d", "2w", "6m", "1y".
@@ -500,6 +512,15 @@ enum Commands {
 #[derive(Debug, Subcommand)]
 enum ExportCommands {
     Json {
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+    },
+    /// Emit a Graphviz DOT digraph of the in-repo `depends_on` graph.
+    ///
+    /// Nodes carry status fill colors and Eff tier glyphs; edges run
+    /// dependency → dependent. Pipe to `dot` or another Graphviz tool —
+    /// rmap does not render images.
+    Dot {
         #[arg(long)]
         tasks_path: Option<PathBuf>,
     },
@@ -824,6 +845,23 @@ fn run() -> Result<ExitCode> {
             let paths = resolve_paths(tasks_path, None, None)?;
             let tasks = validate_tasks_file(&paths.tasks_path)?;
             println!("{}", export_json_str(&tasks)?);
+        }
+        Commands::Export {
+            command: ExportCommands::Dot { tasks_path },
+        } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+            println!("{}", format_dot(&build_dot(&tasks)));
+        }
+        Commands::Waves { json, tasks_path } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+            let waves = build_waves(&tasks);
+            if json {
+                println!("{}", format_waves_json(&waves));
+            } else {
+                println!("{}", format_waves(&waves));
+            }
         }
         Commands::Mark {
             id,
