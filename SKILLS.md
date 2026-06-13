@@ -1,6 +1,6 @@
 # SKILLS.md — agent guide to `rmap`
 
-> **Verified:** 2026-05-31 with `rmap @ development`. Re-run `cargo test --test skills_smoke` after schema or render changes.
+> **Verified:** 2026-06-13 with `rmap @ development`. Re-run `cargo test --test skills_smoke` after schema or render changes.
 
 `rmap` is a single-binary Rust CLI that manages `roadmap/tasks.toml` in any project. This file teaches cloud agents (Claude, Codex, Cursor) how to drive `rmap` from inside a consumer repo. The fenced `bash` blocks below run against `tests/skills_fixture/` via `tests/skills_smoke.rs`; the exit codes are part of the agent contract.
 
@@ -33,7 +33,7 @@ rmap show 1 --json
 # exit: 0
 ```
 
-`rmap list` filters across the whole tasks file via `--status`, `--phase`, `--marker`, `--bundle`, `--milestone`, and `--delivered-by`; flags compose with AND semantics. The `--json` envelope mirrors `data.json` (computed `eff` included).
+`rmap list` filters across the whole tasks file via `--status`, `--phase`, `--marker`, `--bundle`, `--milestone`, `--delivered-by`, and `--dispatchable` (excludes `handbuild`-marked tasks); flags compose with AND semantics. The `--json` envelope mirrors `data.json` (computed `eff` included).
 
 ```bash
 rmap list --status pending
@@ -290,7 +290,7 @@ rmap depend 4 on 3
 
 ## Creating tasks
 
-`rmap new --from-stdin` reads one-or-more `[[task]]` blocks as TOML from stdin and appends them to `tasks.toml`. Omitting `id` auto-allocates the next numeric id (`max + 1`). `created_at` and `scored_at` default to today if not provided. Lifecycle timestamps (`started_at`, `done_at`, `blocked_reason`, `shipped_in`) cannot be set on creation — those transitions belong to `rmap status`.
+`rmap new --from-stdin` reads one-or-more `[[task]]` blocks as TOML from stdin and appends them to `tasks.toml`. Omitting `id` auto-allocates the next numeric id (`max + 1`) — only numeric ids auto-allocate; a `TaskId::Text` id (e.g. `"78b"`, `"INE-5"`) is never auto-generated and must be supplied explicitly. `created_at` and `scored_at` default to today if not provided. Lifecycle timestamps (`started_at`, `done_at`, `blocked_reason`, `shipped_in`) cannot be set on creation — those transitions belong to `rmap status`.
 
 ```bash
 rmap new --from-stdin
@@ -330,7 +330,7 @@ Power-user fields are not prompted interactively — set them via `--from-stdin`
 
 ## Reading change signal
 
-`rmap diff` shows what's changed in `tasks.toml` vs. a git ref (default: `default_branch` from the TOML). Read-only — never mutates working tree or git state.
+`rmap diff` shows what's changed in `tasks.toml` vs. a git ref. `--against <ref>` picks the comparison base (default: `default_branch` from the TOML — never hardcoded `main`). Read-only — never mutates working tree or git state.
 
 ```bash
 rmap diff
@@ -353,7 +353,13 @@ rmap diff --json
 
 ## Health
 
-`rmap doctor` is the soft-signal aggregator. Findings, in severity order: validate findings + render drift + stale (>30d in-progress) + score-decay (>30d `scored_at` or missing) + degenerate-bundle + missing-`acceptance_criteria` + claimed-not-graded (a `done` task without `verified` set — "claimed, not graded"). **Always exits 0** on success; only fails when input is unparseable. CI gates should pipe through `jq`:
+`rmap doctor` is the soft-signal aggregator. Findings: validate findings + render drift + stale (>30d in-progress) + score-decay (>30d `scored_at` or missing) + degenerate-bundle + missing-`acceptance_criteria` + claimed-not-graded (a `done` task without `verified` set — "claimed, not graded"), plus three drift/graph families:
+
+- **phase drift** — phase all-done-but-still-open, a pending phase holding ≥1 in-progress task, and focus-phase-closed (`[focus].phase` points at a phase that looks done).
+- **milestone drift** — milestone all-done-but-still-open, and multiple-active-milestones (keep exactly one `active`).
+- **graph health** — bottleneck (a `pending`/`blocked` task whose transitive-dependent count is ≥ the bottleneck threshold), and isolated-node (an orphan with no in-repo deps and no dependents, or a node unreachable forward from any milestone-pinned task).
+
+All findings are **soft** — `rmap doctor` **always exits 0** on success (no auto-mutation; phase/focus/milestone state is user-curated); it only fails when input is unparseable. CI gates should pipe through `jq`:
 
 ```bash
 rmap doctor --json
@@ -365,10 +371,10 @@ rmap doctor
 # exit: 0
 ```
 
-`--threshold-days <N>` overrides the 30d stale + score-decay cutoff; `--ac-threshold <N>` overrides the missing-`acceptance_criteria` D/B bar (default 5/8, collapsed to one value when set). The effective thresholds are echoed in the `--json` envelope.
+`--threshold-days <N>` overrides the 30d stale + score-decay cutoff; `--ac-threshold <N>` overrides the missing-`acceptance_criteria` D/B bar (default 5/8, collapsed to one value when set); `--bottleneck-min <N>` overrides the transitive-dependent count that trips the graph-bottleneck lint (default 3). The effective thresholds are echoed in the `--json` envelope.
 
 ```bash
-rmap doctor --threshold-days 60 --ac-threshold 6
+rmap doctor --threshold-days 60 --ac-threshold 6 --bottleneck-min 2
 # exit: 0
 ```
 
@@ -385,6 +391,8 @@ rmap validate
 rmap validate --check-render
 # exit: 0
 ```
+
+**`model` is required (presence, not value) on a live agent-assigned task.** `validate` hard-errors (exit 1, agent-grep `missing model`) when a `pending`/`in_progress` task has `assignee` set and `assignee != "human"` but no `model` — harness rejects a dispatch that resolves to no model, so rmap refuses to author one. Terminal tasks (`done`/`superseded`/`blocked`) and assignee-unset / `human` tasks are exempt. Mutators inherit the gate via validate-then-write: `rmap new --assignee <agent>` on a model-less task fails before any row lands.
 
 ## Schema
 
@@ -573,11 +581,11 @@ is the generic failure code **1**.
 | `diff` | success | git/semantic error | — | — | unreadable/malformed TOML |
 | `render` | success | IO/semantic error | — | — | unreadable/malformed TOML |
 | `watch` | — (runs until Ctrl-C) | watcher setup error | — | — | — |
-| `show` | found | — | — | unknown id | unreadable/malformed TOML |
+| `show`, `blocks`, `deps` | found | — | — | unknown id | unreadable/malformed TOML |
 | `delegate` | success | unknown target / no assignee | — | unknown id | unreadable/malformed TOML |
-| `list`, `next`, `ready`, `critical-path`, `next-bundle`, `stale` | success | semantic error | — | — | unreadable/malformed TOML |
+| `list`, `next`, `ready`, `critical-path`, `next-bundle`, `bundles`, `milestones`, `waves`, `export`, `stale` | success | semantic error | — | — | unreadable/malformed TOML |
 | `schema` | success | — | — | — | — |
-| Mutators (`status`, `mark`, `depend`, `new`) | success + re-rendered | mutation rejected by re-validation | — | — | unreadable/malformed TOML |
+| Mutators (`status`, `mark`, `depend`, `milestone`, `new`) | success + re-rendered | mutation rejected by re-validation | — | — | unreadable/malformed TOML |
 
 For finer health signals, pipe `rmap doctor --json` through `jq`:
 
