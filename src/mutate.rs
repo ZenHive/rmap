@@ -542,6 +542,76 @@ pub fn update_milestone_str(
     Ok(output)
 }
 
+/// Set or clear a task's `assignee` and `model` fields.
+///
+/// `assignee = None` removes both fields (the `none` / `human` unassign path).
+/// `assignee = Some(agent)` sets the assignee; `model = Some(m)` also sets
+/// `model`, while `model = None` leaves an existing model untouched. Re-validates
+/// after edit so the dispatchable-pin gate (`validate_dispatch_model`) rejects
+/// live agent-assigned tasks without a model before any write.
+pub fn update_assignee_str(
+    path: impl Into<String>,
+    input: &str,
+    task_id: &str,
+    assignee: Option<&str>,
+    model: Option<&str>,
+) -> Result<String, MutateError> {
+    let path = path.into();
+    let mut document =
+        DocumentMut::from_str(input).map_err(|err| MutateError::Toml(err.to_string()))?;
+    let tasks = document["task"]
+        .as_array_of_tables_mut()
+        .ok_or(MutateError::MissingTasks)?;
+
+    let mut matched = false;
+    for task in tasks.iter_mut() {
+        let Some(id) = task.get("id").and_then(item_to_task_id) else {
+            continue;
+        };
+        if id.as_str() != task_id {
+            continue;
+        }
+        matched = true;
+
+        match assignee {
+            None => {
+                task.remove("assignee");
+                task.remove("model");
+            }
+            Some(agent) => {
+                let assignee_was_present = task.contains_key("assignee");
+                task.insert("assignee", Item::Value(Value::from(agent)));
+                if !assignee_was_present {
+                    task.sort_values_by(|a, _, b, _| {
+                        canonical_task_key_index(a.get()).cmp(&canonical_task_key_index(b.get()))
+                    });
+                }
+
+                if let Some(model_id) = model {
+                    let model_was_present = task.contains_key("model");
+                    task.insert("model", Item::Value(Value::from(model_id)));
+                    if !model_was_present {
+                        task.sort_values_by(|a, _, b, _| {
+                            canonical_task_key_index(a.get())
+                                .cmp(&canonical_task_key_index(b.get()))
+                        });
+                    }
+                }
+            }
+        }
+
+        break;
+    }
+
+    if !matched {
+        return Err(MutateError::UnknownTaskId(task_id.to_string()));
+    }
+
+    let output = document.to_string();
+    validate_tasks_str(path, &output)?;
+    Ok(output)
+}
+
 /// Canonical position for keys inside a `[[task]]` table, used to re-place a
 /// freshly-inserted field (e.g. `markers` from `rmap mark <id> +x`) near the
 /// other small scalars. Returns `u32::MAX` for unknown keys so they sort to
@@ -1100,6 +1170,81 @@ scores = { d = 1, b = 5, u = 5 }
         assert!(
             !output.contains("id = \"2\""),
             "must not switch an integer-id roadmap to string ids:\n{output}"
+        );
+    }
+
+    #[test]
+    fn update_assignee_str_sets_agent_and_model() {
+        let updated = update_assignee_str(
+            "test.toml",
+            SIMPLE_TOML,
+            "1",
+            Some("cursor"),
+            Some("composer-2.5-fast"),
+        )
+        .expect("assign agent + model");
+
+        assert!(
+            updated.contains("assignee = \"cursor\""),
+            "assignee set:\n{updated}"
+        );
+        assert!(
+            updated.contains("model = \"composer-2.5-fast\""),
+            "model set:\n{updated}"
+        );
+    }
+
+    #[test]
+    fn update_assignee_str_rejects_agent_without_model_on_live_task() {
+        let err = update_assignee_str("test.toml", SIMPLE_TOML, "1", Some("claude"), None)
+            .expect_err("missing model rejected");
+
+        let message = err.to_string();
+        assert!(
+            message.contains("missing model"),
+            "expected missing model in error: {message}"
+        );
+        assert!(
+            message.contains("a dispatchable task must pin the LLM it runs on"),
+            "expected pin explanation: {message}"
+        );
+    }
+
+    #[test]
+    fn update_assignee_str_clears_assignee_and_model() {
+        let with_assignee = update_assignee_str(
+            "test.toml",
+            SIMPLE_TOML,
+            "1",
+            Some("cursor"),
+            Some("composer-2.5-fast"),
+        )
+        .expect("assign first");
+
+        let cleared = update_assignee_str("test.toml", &with_assignee, "1", None, None)
+            .expect("clear assignee");
+
+        assert!(
+            !cleared.contains("assignee ="),
+            "assignee removed:\n{cleared}"
+        );
+        assert!(!cleared.contains("model ="), "model removed:\n{cleared}");
+    }
+
+    #[test]
+    fn update_assignee_str_unknown_id_errors() {
+        let err = update_assignee_str(
+            "test.toml",
+            SIMPLE_TOML,
+            "999",
+            Some("claude"),
+            Some("gpt-5"),
+        )
+        .expect_err("unknown id");
+
+        assert!(
+            matches!(err, MutateError::UnknownTaskId(ref id) if id == "999"),
+            "expected UnknownTaskId, got: {err:?}"
         );
     }
 }

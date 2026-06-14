@@ -125,6 +125,7 @@ rmap stale --over <duration> [--json]   # in_progress tasks idle > duration
 rmap status <id[,id,id]> <new>       # flip status (bulk form atomic), re-render
 rmap mark <id> +cx -parallel         # add/remove markers without TOML editing
 rmap milestone <id> <name|none>      # pin a task to a release line (or unpin via "none")
+rmap assign <id> <assignee|none|human> [--model <m>]   # set/clear assignee + model pin
 rmap depend <id> on <id> [--cross-repo <repo>:<task_id>[:<relation>]]   # add deps via mutation
 rmap new                             # interactive task creation (dialoguer)
 rmap new --from-stdin                # non-interactive — agent piping

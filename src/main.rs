@@ -21,7 +21,7 @@ use rmap::milestones::{
 };
 use rmap::mutate::{
     CrossRepoSpec, MarkerOp, NewTaskFields, TransitionFields, add_dependency_str, add_task_str,
-    update_markers_str, update_milestone_str, update_status_many_str,
+    update_assignee_str, update_markers_str, update_milestone_str, update_status_many_str,
 };
 use rmap::next::{format_next_task, next_tasks, ready_tasks};
 use rmap::next_bundle::{BundlePick, NextBundleFilter, pick as pick_next_bundle};
@@ -363,6 +363,26 @@ enum Commands {
     Milestone {
         id: String,
         name: String,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+        #[arg(long)]
+        roadmap_path: Option<PathBuf>,
+        #[arg(long)]
+        data_path: Option<PathBuf>,
+    },
+    /// Set or clear a task's agent routing: `rmap assign 7 cursor --model composer-2.5-fast`,
+    /// or `rmap assign 7 none` / `rmap assign 7 human` to unassign.
+    ///
+    /// A non-`human` assignee on a live (`pending` / `in_progress`) task requires
+    /// `--model` (same dispatchable-pin gate as `rmap new`). Clearing via `none` or
+    /// `human` removes both `assignee` and `model`; `--model` is forbidden on that
+    /// path. Validates before writing; unknown ids leave the file byte-equal.
+    Assign {
+        id: String,
+        assignee: String,
+        /// LLM pin for the assignee (required when routing to a real agent).
+        #[arg(long)]
+        model: Option<String>,
         #[arg(long)]
         tasks_path: Option<PathBuf>,
         #[arg(long)]
@@ -883,6 +903,17 @@ fn run() -> Result<ExitCode> {
             let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
             update_milestone(paths, &id, &name)?;
         }
+        Commands::Assign {
+            id,
+            assignee,
+            model,
+            tasks_path,
+            roadmap_path,
+            data_path,
+        } => {
+            let paths = resolve_paths(tasks_path, roadmap_path, data_path)?;
+            update_assignee(paths, &id, &assignee, model.as_deref())?;
+        }
         Commands::Depend {
             id,
             on,
@@ -1400,6 +1431,44 @@ fn update_milestone(paths: ResolvedPaths, task_id: &str, name: &str) -> Result<(
         &input,
         task_id,
         milestone,
+    )?;
+
+    let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &updated)?;
+    let (rendered_roadmap, rendered_data) = render_outputs(&paths, &tasks)?;
+
+    std::fs::write(&paths.tasks_path, updated)
+        .with_context(|| format!("write {}", paths.tasks_path.display()))?;
+    write_outputs(&paths, rendered_roadmap, rendered_data)?;
+    println!("updated");
+
+    Ok(())
+}
+
+fn update_assignee(
+    paths: ResolvedPaths,
+    task_id: &str,
+    assignee_arg: &str,
+    model: Option<&str>,
+) -> Result<()> {
+    if (assignee_arg == "none" || assignee_arg == "human") && model.is_some() {
+        bail!("cannot pass --model when clearing assignee (use `none` or `human` without --model)");
+    }
+
+    let (assignee, model_to_set) = if assignee_arg == "none" || assignee_arg == "human" {
+        (None, None)
+    } else {
+        (Some(assignee_arg), model)
+    };
+
+    let input = std::fs::read_to_string(&paths.tasks_path)
+        .with_context(|| format!("read {}", paths.tasks_path.display()))?;
+
+    let updated = update_assignee_str(
+        paths.tasks_path.display().to_string(),
+        &input,
+        task_id,
+        assignee,
+        model_to_set,
     )?;
 
     let tasks = validate_tasks_str(paths.tasks_path.display().to_string(), &updated)?;

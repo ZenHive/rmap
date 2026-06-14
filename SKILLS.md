@@ -220,6 +220,23 @@ rmap milestone 3 none
 # exit: 0
 ```
 
+`rmap assign <id> <assignee> [--model <m>] sets agent routing on an existing task; `rmap assign <id> none` or `rmap assign <id> human` clears both `assignee` and `model`. A non-`human` assignee on a live (`pending` / `in_progress`) task requires `--model` — same dispatchable-pin gate as `rmap new` (validate-then-write; unknown id → exit 1, file byte-equal).
+
+```bash
+rmap assign 4 cursor --model composer-2.5-fast
+# exit: 0
+```
+
+```bash
+rmap assign 3 none
+# exit: 0
+```
+
+```bash
+rmap assign 4 claude
+# exit: 1
+```
+
 `--milestone <name>` filters `rmap list` and `rmap next` to one release line. Composes with `--bundle`, `--phase`, `--marker`. Without an explicit `--milestone` flag, `rmap next` automatically biases toward tasks pinned to any `active` milestone (see § "Picking work" above) — `--milestone v_x` is the override when you want a different release line.
 
 ```bash
@@ -392,7 +409,7 @@ rmap validate --check-render
 # exit: 0
 ```
 
-**`model` is required (presence, not value) on a live agent-assigned task.** `validate` hard-errors (exit 1, agent-grep `missing model`) when a `pending`/`in_progress` task has `assignee` set and `assignee != "human"` but no `model` — harness rejects a dispatch that resolves to no model, so rmap refuses to author one. Terminal tasks (`done`/`superseded`/`blocked`) and assignee-unset / `human` tasks are exempt. Mutators inherit the gate via validate-then-write: `rmap new --assignee <agent>` on a model-less task fails before any row lands.
+**`model` is required (presence, not value) on a live agent-assigned task.** `validate` hard-errors (exit 1, agent-grep `missing model`) when a `pending`/`in_progress` task has `assignee` set and `assignee != "human"` but no `model` — harness rejects a dispatch that resolves to no model, so rmap refuses to author one. Terminal tasks (`done`/`superseded`/`blocked`) and assignee-unset / `human` tasks are exempt. Mutators inherit the gate via validate-then-write: `rmap new --assignee <agent>` on a model-less task fails before any row lands; `rmap assign <id> <agent>` without `--model` fails the same way.
 
 ## Schema
 

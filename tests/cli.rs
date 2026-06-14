@@ -8548,6 +8548,204 @@ fn milestone_command_rejects_unknown_target() {
     assert_eq!(before, after, "rejected mutation leaves file byte-equal");
 }
 
+const ASSIGN_TASKS: &str = r#"
+schema_version = 2
+project = "assign_demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase One"
+order = 1
+status = "pending"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "Alpha"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Unassigned task"
+scores = { d = 2, b = 5, u = 5 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Assigned task"
+assignee = "codex"
+model = "gpt-5.4"
+scores = { d = 2, b = 5, u = 5 }
+"#;
+
+#[test]
+fn assign_command_sets_agent_and_model() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", ASSIGN_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("initial render");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("assign")
+        .arg("1")
+        .arg("cursor")
+        .arg("--model")
+        .arg("composer-2.5-fast")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap assign 1 cursor");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read tasks.toml");
+    assert!(
+        after.contains("assignee = \"cursor\""),
+        "assignee set:\n{after}"
+    );
+    assert!(
+        after.contains("model = \"composer-2.5-fast\""),
+        "model set:\n{after}"
+    );
+}
+
+#[test]
+fn assign_command_rejects_missing_model() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", ASSIGN_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("initial render");
+
+    let before = fs::read_to_string(&tasks_path).expect("read pre-state");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("assign")
+        .arg("1")
+        .arg("claude")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap assign 1 claude");
+
+    assert!(!output.status.success(), "missing model is a hard error");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("missing model"),
+        "stderr should mention missing model: {stderr}"
+    );
+    assert!(
+        stderr.contains("a dispatchable task must pin the LLM it runs on"),
+        "stderr should explain pin requirement: {stderr}"
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read post-state");
+    assert_eq!(before, after, "rejected mutation leaves file byte-equal");
+}
+
+#[test]
+fn assign_command_unsets_assignee() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", ASSIGN_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("initial render");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("assign")
+        .arg("2")
+        .arg("none")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap assign 2 none");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read tasks.toml");
+    assert!(
+        !after.contains("assignee = \"codex\""),
+        "assignee cleared:\n{after}"
+    );
+    assert!(
+        !after.contains("model = \"gpt-5.4\""),
+        "model cleared:\n{after}"
+    );
+}
+
+#[test]
+fn assign_command_rejects_unknown_id() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", ASSIGN_TASKS);
+    write_file(&dir, "ROADMAP.md", ROADMAP);
+    Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("initial render");
+
+    let before = fs::read_to_string(&tasks_path).expect("read pre-state");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("assign")
+        .arg("999")
+        .arg("claude")
+        .arg("--model")
+        .arg("opus")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap assign 999 claude");
+
+    assert!(!output.status.success(), "unknown id is a hard error");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("unknown task id 999"),
+        "stderr should mention unknown id: {stderr}"
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read post-state");
+    assert_eq!(before, after, "rejected mutation leaves file byte-equal");
+}
+
 #[test]
 fn new_command_accepts_milestone_via_stdin() {
     let dir = temp_dir();
