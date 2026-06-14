@@ -1296,7 +1296,7 @@ shipped_in = "e8312bbefa681c43f9e10a1f0474f5e8ee83980b"
 id = 49
 phase = 15
 bundle = "agent_dispatch"
-status = "pending"
+status = "in_progress"
 title = "rmap assign — set assignee + model on an existing task"
 scores = { d = 2, b = 5, u = 5 }
 acceptance_criteria = ["`rmap assign <id> <assignee> [--model <m>]` sets the `assignee` (and `model`) fields on an existing task in tasks.toml in place, mirroring the `rmap milestone` mutation pattern", "Enforces the same dispatchable-pin invariant rmap new already enforces: a non-`human` assignee REQUIRES `--model` (reject with the same 'a dispatchable task must pin the LLM it runs on' error); `human` clears/forbids model", "`rmap assign <id> none` (or `human`) unsets `assignee`/`model` for hand-build tasks", "Re-validates + re-renders ROADMAP.md + data.json on success; on failure leaves tasks.toml byte-equal (same contract as other mutations)", "Unit tests cover: set agent+model, missing-model rejection, unset, unknown-id rejection", "rmap.md skill doc + --help updated with the new subcommand"]
@@ -1310,4 +1310,5 @@ Implementation: add an `Assign { id, assignee, model: Option<String>, ...paths }
 Invariant to preserve: rmap new already rejects a dispatchable (non-human) task with no `model` ("a dispatchable task must pin the LLM it runs on"). `assign` must enforce the same — setting an agent assignee without `--model` errors; `assign <id> human`/`none` clears both. Keeps the substrate's pin guarantee consistent across creation and mutation.
 """
 created_at = "2026-06-14"
+started_at = "2026-06-14"
 scored_at = "2026-06-14"

@@ -1872,7 +1872,7 @@
       "id": 49,
       "phase": 15,
       "bundle": "agent_dispatch",
-      "status": "pending",
+      "status": "in_progress",
       "title": "rmap assign — set assignee + model on an existing task",
       "scores": {
         "d": 2,
@@ -1902,6 +1902,7 @@
       ],
       "body": "Today assignee/model can only be set at task creation (`rmap new`) or by hand-editing tasks.toml — there is no mutation subcommand to (re)assign an existing task. This came up assigning ccxt_client Task 25 to an agent: had to edit the TOML directly. Add `rmap assign` as a sibling mutation to `mark`/`milestone`/`depend`.\n\nImplementation: add an `Assign { id, assignee, model: Option<String>, ...paths }` variant to the Commands enum in src/main.rs (mirror the `Milestone` command shape ~L363 and its dispatch arm ~L876), and a `pub fn update_assignee_str(...)` in src/mutate.rs modeled on `update_milestone_str` (~L495) — locate the task table by id, set/clear the `assignee` and `model` string fields (schema.rs:109/112), then the caller re-validates + re-renders like the other mutations.\n\nInvariant to preserve: rmap new already rejects a dispatchable (non-human) task with no `model` (\"a dispatchable task must pin the LLM it runs on\"). `assign` must enforce the same — setting an agent assignee without `--model` errors; `assign <id> human`/`none` clears both. Keeps the substrate's pin guarantee consistent across creation and mutation.\n",
       "created_at": "2026-06-14",
+      "started_at": "2026-06-14",
       "scored_at": "2026-06-14",
       "cross_repo": []
     }
