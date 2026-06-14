@@ -6,6 +6,16 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-14
+
+### `rmap assign` — set agent routing on an existing task
+
+**What was done:**
+- New `rmap assign <id> <assignee> [--model <m>]` mutation sets the `assignee` (and `model`) fields on an existing task in place — a sibling to `mark` / `milestone` / `depend`. Previously routing could only be set at `rmap new` time or by hand-editing `tasks.toml`.
+- `rmap assign <id> none` / `rmap assign <id> human` clears both `assignee` and `model` for hand-build work; `--model` is forbidden on that path.
+- Inherits the dispatchable-pin invariant: a non-`human` assignee on a live (`pending` / `in_progress`) task requires `--model` (same `missing model` gate as `rmap new`). Validate-then-write — an unknown id or invalid result leaves `tasks.toml` byte-equal.
+- `SKILLS.md`, `~/.claude/includes/rmap.md`, and `--help` document the subcommand; `tests/cli.rs` covers set-agent+model, missing-model rejection, unset, and unknown-id rejection.
+
 ### Structured exit codes for task-not-found and invalid-roadmap
 
 **What was done:**
