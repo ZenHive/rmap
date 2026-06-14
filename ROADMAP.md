@@ -127,6 +127,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 42 | ✅ | 🎁 **attempt_history** · Rejection-report / attempt-history writeback: record why a dispatch attempt failed on a task returning to pending [D:4/B:7/U:6 → Eff:1.62] 🚀 |
 | Task 43 | ✅ | 🎁 **agent_routing** · Add `domains` task field: schema + JSON/data.json export (harness CapabilityScore reader is pre-wired, rmap never emits it) [D:2/B:4/U:4 → Eff:2.0] 🎯 |
 | Task 44 | ✅ | 🎁 **doctor_state_drift** · rmap validate: hard error when a live agent-assigned task has no model [D:2/B:4/U:4 → Eff:2.0] 🎯 |
+| Task 49 | ⬜ | 🎁 **agent_dispatch** · rmap assign — set assignee + model on an existing task [D:2/B:5/U:5 → Eff:2.5] 🎯 |
 <!-- TASKS:END -->
 
 ## Phase 16 — Graph queries (in progress)
