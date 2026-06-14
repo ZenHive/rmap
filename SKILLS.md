@@ -220,7 +220,7 @@ rmap milestone 3 none
 # exit: 0
 ```
 
-`rmap assign <id> <assignee> [--model <m>] sets agent routing on an existing task; `rmap assign <id> none` or `rmap assign <id> human` clears both `assignee` and `model`. A non-`human` assignee on a live (`pending` / `in_progress`) task requires `--model` — same dispatchable-pin gate as `rmap new` (validate-then-write; unknown id → exit 1, file byte-equal).
+`rmap assign <id> <assignee> [--model <m>]` sets agent routing on an existing task; `rmap assign <id> none` or `rmap assign <id> human` clears both `assignee` and `model`. A non-`human` assignee on a live (`pending` / `in_progress`) task requires `--model` — same dispatchable-pin gate as `rmap new` (validate-then-write; unknown id → exit 1, file byte-equal).
 
 ```bash
 rmap assign 4 cursor --model composer-2.5-fast
