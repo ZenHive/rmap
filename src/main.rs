@@ -1645,6 +1645,14 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
     let mut allocated_ids: Vec<u32> = Vec::with_capacity(new_tasks.len());
 
     for task in &new_tasks {
+        if let Some(status) = &task.status
+            && status != "pending"
+        {
+            bail!(
+                "stdin task status {status:?}: `rmap new` creates pending tasks only — \
+                 omit `status` (or set \"pending\"), then run `rmap status <id> {status}` after creation"
+            );
+        }
         let markers: Vec<&str> = task.markers.iter().map(String::as_str).collect();
         let mut depends_on: Vec<u32> = Vec::with_capacity(task.depends_on.len());
         for dep in &task.depends_on {
@@ -1727,10 +1735,13 @@ struct StdinPayload {
 }
 
 /// Task-shaped stdin row. Field set matches `schema::Task` except `id` is
-/// optional (auto-allocate when absent). `status` is excluded — creation
-/// produces `"pending"` tasks only. Lifecycle / transition-time fields
-/// (`started_at`, `done_at`, `blocked_reason`, `shipped_in`, `implemented`,
-/// `attempts`) are excluded; `rmap status` owns those transitions.
+/// optional (auto-allocate when absent). `status` is accepted only as a
+/// tolerated no-op — it must be `"pending"` (or omitted), since creation
+/// produces `"pending"` tasks only; a non-pending value is rejected in
+/// `create_task` with a pointer to `rmap status`. The other lifecycle /
+/// transition-time fields (`started_at`, `done_at`, `blocked_reason`,
+/// `shipped_in`, `implemented`, `attempts`) remain excluded; `rmap status`
+/// owns those transitions.
 ///
 /// `branch`, `files_to_modify`, `touches`, and `cross_repo` are the documented
 /// power-user fields — only reachable via `--from-stdin`, not via the
@@ -1741,6 +1752,9 @@ struct StdinPayload {
 #[serde(deny_unknown_fields)]
 struct StdinTask {
     pub id: Option<TaskId>,
+    /// Tolerated no-op: must be `"pending"` or omitted. A non-pending value is
+    /// rejected in `create_task` (creation produces pending tasks only).
+    pub status: Option<String>,
     pub phase: u32,
     pub bundle: String,
     pub milestone: Option<String>,
@@ -1960,6 +1974,7 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
 
     Ok(StdinTask {
         id: None,
+        status: None,
         phase: phase_number,
         bundle,
         milestone,

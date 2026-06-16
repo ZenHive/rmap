@@ -3940,7 +3940,45 @@ scores = { d = 1, b = 4, u = 4 }
 }
 
 #[test]
-fn new_from_stdin_rejects_status_field() {
+fn new_from_stdin_tolerates_pending_status() {
+    // `status = "pending"` is the value agents reflexively echo; it must be a
+    // tolerated no-op (pending is the only status creation can produce).
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Pending status echoed"
+status = "pending"
+scores = { d = 2, b = 5, u = 5 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "status = \"pending\" must be tolerated, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(tasks.contains("Pending status echoed"), "tasks: {tasks}");
+    assert!(
+        tasks.contains("status = \"pending\""),
+        "created task must be pending; tasks: {tasks}"
+    );
+}
+
+#[test]
+fn new_from_stdin_rejects_non_pending_status() {
+    // A non-pending status needs transition fields creation can't set; reject
+    // with a pointer to `rmap status` rather than letting it fall through.
     let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
     let before = fs::read_to_string(&tasks_path).expect("read before");
 
@@ -3950,7 +3988,6 @@ phase = 1
 bundle = "foundation"
 title = "Tries to create a done task"
 status = "done"
-implemented = "fixture"
 scores = { d = 2, b = 5, u = 5 }
 "#;
 
@@ -3963,12 +4000,12 @@ scores = { d = 2, b = 5, u = 5 }
     );
     assert!(
         !output.status.success(),
-        "stdin status field must be rejected (creation produces pending tasks only)"
+        "non-pending stdin status must be rejected (creation produces pending tasks only)"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("unknown field") && stderr.contains("status"),
-        "stderr should mention unknown `status` field; got: {stderr}"
+        stderr.contains("creates pending tasks only"),
+        "stderr should point at `rmap status`; got: {stderr}"
     );
 
     let after = fs::read_to_string(&tasks_path).expect("read after");

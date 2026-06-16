@@ -307,7 +307,7 @@ rmap depend 4 on 3
 
 ## Creating tasks
 
-`rmap new --from-stdin` reads one-or-more `[[task]]` blocks as TOML from stdin and appends them to `tasks.toml`. Omitting `id` auto-allocates the next numeric id (`max + 1`) — only numeric ids auto-allocate; a `TaskId::Text` id (e.g. `"78b"`, `"INE-5"`) is never auto-generated and must be supplied explicitly. `created_at` and `scored_at` default to today if not provided. Lifecycle timestamps (`started_at`, `done_at`, `blocked_reason`, `shipped_in`) cannot be set on creation — those transitions belong to `rmap status`.
+`rmap new --from-stdin` reads one-or-more `[[task]]` blocks as TOML from stdin and appends them to `tasks.toml`. Omitting `id` auto-allocates the next numeric id (`max + 1`) — only numeric ids auto-allocate; a `TaskId::Text` id (e.g. `"78b"`, `"INE-5"`) is never auto-generated and must be supplied explicitly. `created_at` and `scored_at` default to today if not provided. A created task is always `pending`: `status` is accepted but only as `"pending"` (a tolerated no-op so agents can echo the default without a rejected round-trip); any other value is rejected with a pointer to `rmap status`. Lifecycle / transition fields (`started_at`, `done_at`, `blocked_reason`, `shipped_in`, `implemented`) cannot be set on creation — those transitions belong to `rmap status`.
 
 ```bash
 rmap new --from-stdin
@@ -317,6 +317,21 @@ rmap new --from-stdin
 # phase = 1
 # bundle = "alpha"
 # title = "follow-up: write docs"
+# scores = { d = 2, b = 5, u = 4 }
+# EOF
+```
+
+`status = "pending"` is tolerated (no-op); a non-pending status is rejected — transition the task with `rmap status` after creating it.
+
+```bash
+rmap new --from-stdin
+# exit: 1
+# stdin: <<EOF
+# [[task]]
+# phase = 1
+# bundle = "alpha"
+# title = "cannot create a done task"
+# status = "done"
 # scores = { d = 2, b = 5, u = 4 }
 # EOF
 ```
