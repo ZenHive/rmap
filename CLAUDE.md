@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Imports
 
-Universal includes (per `~/.claude/setup-guide.md`). No Rust-specific template exists; rmap takes the universal baseline only — the Elixir/Phoenix includes don't apply. Delegation includes (Linear/cloud-agent) are intentionally omitted — rmap has no git remote and is not in the Linear/cloud-agent queue. The harness MCP IS wired (`.mcp.json` — see § "Driving harness from this repo"). `web-command.md` is intentionally NOT imported: per the setup-guide's "Skills vs Includes" rule, situational tool references auto-load as skills — rmap does no browser work, so the `web-command` skill covers the rare case without paying the token cost every session.
+Universal includes (per `~/.claude/setup-guide.md`). No Rust-specific template exists; rmap takes the universal baseline only — the Elixir/Phoenix includes don't apply. Delegation includes (Linear/cloud-agent) are intentionally omitted — rmap is not in the Linear/cloud-agent queue (it has a GitHub remote, `ZenHive/rmap`, but no cloud-agent PR flow). The harness MCP IS wired (`.mcp.json` — see § "Driving harness from this repo"). `web-command.md` is intentionally NOT imported: per the setup-guide's "Skills vs Includes" rule, situational tool references auto-load as skills — rmap does no browser work, so the `web-command` skill covers the rare case without paying the token cost every session.
 
 @~/.claude/includes/across-instances.md
 @~/.claude/includes/critical-rules.md
