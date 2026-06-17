@@ -4111,6 +4111,178 @@ depends_on = [99]
 }
 
 #[test]
+fn new_from_stdin_batch_validates_all_field_errors_in_one_pass() {
+    // The Task-50 reproduction: a single submission with the mis-named array,
+    // an unknown field, an unknown phase, an unknown bundle, and partial scores
+    // must surface EVERY defect at once — not one error per round-trip.
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+    let before = fs::read_to_string(&tasks_path).expect("read before");
+
+    let payload = r#"
+[[tasks]]
+title = "x"
+difficulty = 3
+bundle = "nope"
+phase = 99
+scores = { d = 1, b = 2 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(!output.status.success(), "multi-defect payload must fail");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    // All five defect classes present in one payload.
+    assert!(stderr.contains("unknown key `tasks`"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("unknown field `difficulty`"),
+        "stderr: {stderr}"
+    );
+    assert!(stderr.contains("unknown phase 99"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("unknown bundle \"nope\""),
+        "stderr: {stderr}"
+    );
+    assert!(stderr.contains("`scores` missing `u`"), "stderr: {stderr}");
+    // Inline zero-guess discoverability: valid phases/bundles listed in-error.
+    assert!(stderr.contains("valid phases: 1"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("valid bundles: foundation"),
+        "stderr: {stderr}"
+    );
+
+    let after = fs::read_to_string(&tasks_path).expect("read after");
+    assert_eq!(before, after, "tasks.toml unchanged on batch reject");
+}
+
+#[test]
+fn new_from_stdin_reports_wrong_types_for_required_fields() {
+    // Wrong-type defects (phase string, title non-string, scores non-table)
+    // are reported together rather than serde aborting at the first.
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+title = 5
+bundle = "foundation"
+phase = "two"
+scores = 7
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(!output.status.success(), "wrong-typed payload must fail");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("`phase` must be an integer"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("`title` must be a string"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("`scores` must be an inline table"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn new_from_stdin_unknown_phase_lists_valid_phases_inline() {
+    // Option (c): the zero-guess path — an unknown phase names the valid set so
+    // the author never has to grep tasks.toml for valid phase numbers.
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 42
+bundle = "foundation"
+title = "Bad phase only"
+scores = { d = 1, b = 2, u = 3 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(!output.status.success(), "unknown phase must fail");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("unknown phase 42"), "stderr: {stderr}");
+    assert!(stderr.contains("valid phases: 1"), "stderr: {stderr}");
+}
+
+#[test]
+fn new_from_stdin_field_list_matches_struct() {
+    // Drift guard: STDIN_TASK_FIELDS must stay in sync with StdinTask. A payload
+    // exercising every documented field with a type-valid value must deserialize
+    // cleanly — if a field is renamed/removed in the struct, serde's
+    // deny_unknown_fields rejects this payload and the test fails, flagging that
+    // the batch-validator's field list drifted from the deser shape.
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+id = 77
+status = "pending"
+phase = 1
+bundle = "foundation"
+title = "Every field"
+scores = { d = 1, b = 2, u = 3 }
+markers = ["parallel"]
+depends_on = [1]
+linear_id = "ABC-1"
+assignee = "human"
+module = "core"
+model = "claude-opus-4-8"
+acceptance_criteria = ["does the thing"]
+out_of_scope = ["not that"]
+files_to_modify = ["src/x.rs"]
+touches = ["src/y.rs"]
+domains = ["rust"]
+cross_repo = []
+branch = "feat/x"
+body = "the prompt"
+created_at = "2026-05-12"
+scored_at = "2026-05-12"
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    // Every documented field, type-valid, must create the task cleanly. If a
+    // field were renamed/removed in StdinTask, serde's deny_unknown_fields would
+    // reject this payload — failing the test and flagging the drift.
+    assert!(
+        output.status.success(),
+        "payload exercising every documented field must succeed; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("created task 77"),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+#[test]
 fn new_from_stdin_pinned_today() {
     let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
 

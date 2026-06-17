@@ -356,6 +356,21 @@ rmap new --from-stdin
 # EOF
 ```
 
+Field errors are batch-validated: a payload is checked for **all** field-level defects in one pass — unknown fields, missing required fields (`phase` / `bundle` / `title` / `scores`), wrong-typed fields, and unresolved `phase` / `bundle` references — and every defect is reported together, so you fix them in one edit instead of one round-trip per error. Unresolved references list the valid values inline (`unknown phase 99 — valid phases: 1`), so there is no need to grep `tasks.toml` for valid phase/bundle names. A mis-named array (`[[tasks]]`) is still walked for the field errors it was hiding, so the typo and the field defects surface together.
+
+```bash
+rmap new --from-stdin
+# exit: 1
+# stdin: <<EOF
+# [[tasks]]
+# title = "x"
+# difficulty = 3
+# bundle = "nope"
+# phase = 99
+# scores = { d = 1, b = 2 }
+# EOF
+```
+
 `rmap new` without `--from-stdin` drops into an interactive `dialoguer` flow (phase → bundle → title → D/B/U → markers → acceptance criteria → out of scope → domains → assignee → linear_id → module → model). Requires a TTY — non-interactive contexts must use `--from-stdin`. Bundles cannot be created on the fly; author the `[bundles.<name>]` table in `tasks.toml` first.
 
 Power-user fields are not prompted interactively — set them via `--from-stdin` or by editing `tasks.toml`: `files_to_modify` (the write target), `touches` (an advisory collision-prediction hint — files the task may read or write, typically a superset of `files_to_modify`; free-text, unvalidated), `cross_repo`, and `branch`. `domains` is prompted interactively and is also accepted in `--from-stdin`; it is advisory routing metadata, free-text and unvalidated.

@@ -1910,6 +1910,30 @@
       "delivered_by": "cursor",
       "verified": true,
       "cross_repo": []
+    },
+    {
+      "id": 50,
+      "phase": 14,
+      "bundle": "import_command",
+      "status": "done",
+      "title": "rmap new --from-stdin: batch-validate all field errors in one pass + scaffold/skeleton",
+      "scores": {
+        "d": 2,
+        "b": 4,
+        "u": 3
+      },
+      "eff": 1.75,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [],
+      "depends_on": [],
+      "body": "Ergonomics of `rmap new --from-stdin` (consumed by Claude/agents). Two friction points\nobserved creating ccxt-distill task 48 (4 rejected round-trips for one task):\n\n1. ONE-ERROR-AT-A-TIME validation. The parser rejected sequentially: `[[tasks]]` (should\n   be `[[task]]`), then `difficulty=3` (should be `scores={d,b,u}`), then missing required\n   `phase`. Each fix surfaced the next error. A single submission should validate the whole\n   `[[task]]` block and report ALL problems at once (unknown field + missing required +\n   wrong-type), so an agent fixes them in one edit instead of N round-trips.\n\n2. `phase` is required with no discoverability. The author had to grep existing tasks to\n   find valid phase numbers. Options: (a) `rmap new --scaffold`/`--template` that prints a\n   fillable skeleton with valid phase/bundle hints; (b) infer phase from the chosen bundle\n   (bundles already appear phase-pinned); (c) clearer error listing valid phases inline.\n\nNote: a chunk of the friction was operator error (the first error already pointed to\nSKILLS.md's worked example). But batch-validation is a genuine win regardless — it turns a\nmulti-round guess-and-check into one shot, which is exactly the agent-consumption path\nrmap is built for.\n\nAcceptance: submitting a `[[task]]` with multiple defects returns all of them in one error\npayload; and there is a documented zero-guess path to a valid skeleton (scaffold or\ninference). Update SKILLS.md accordingly.\n",
+      "created_at": "2026-06-16",
+      "started_at": "2026-06-16",
+      "done_at": "2026-06-16",
+      "scored_at": "2026-06-16",
+      "implemented": "Added a batch field-validator (validate_stdin_payload / validate_stdin_task in main.rs) that runs BEFORE serde's fail-fast deser on rmap new --from-stdin. One pass collects EVERY field-level defect — unknown fields, missing required (phase/bundle/title/scores), wrong types, and unresolved phase/bundle refs — and reports them together, so an agent fixes them in one edit instead of N round-trips. Option (c) shipped as the zero-guess path: unresolved refs list valid values inline (e.g. 'unknown phase 99 — valid phases: 1, 2'), removing the grep-tasks.toml step. A mis-named [[tasks]] array is still walked for the field errors it hid. STDIN_TASK_FIELDS const guarded against StdinTask drift by new_from_stdin_field_list_matches_struct. 4 new cli tests + SKILLS.md example (smoke-tested). Scaffold/inference (options a/b) deliberately descoped — option (c) achieves the same zero-guess goal more cheaply, and infer-phase-from-bundle adds inferred magic the consumer must reverse-engineer.",
+      "cross_repo": []
     }
   ]
 }

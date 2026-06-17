@@ -1620,6 +1620,12 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
         let mut stdin_buf = String::new();
         std::io::Read::read_to_string(&mut std::io::stdin(), &mut stdin_buf)
             .context("read stdin")?;
+        // Collect EVERY field-level defect in one pass (unknown / missing /
+        // wrong-type / unresolved phase-bundle) before serde's fail-fast deser,
+        // so an agent fixes them in one edit instead of N round-trips.
+        let existing =
+            validate_tasks_str(path_label.clone(), &input).context("load existing tasks")?;
+        validate_stdin_payload(&path_label, &stdin_buf, &existing)?;
         let payload: StdinPayload = toml::from_str(&stdin_buf).map_err(|err| {
             anyhow::anyhow!(
                 "parse stdin TOML: {err}\nexpected one-or-more `[[task]]` blocks; see SKILLS.md `rmap new --from-stdin`"
@@ -1720,6 +1726,216 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
     println!("created task {}", ids_csv.join(", "));
 
     Ok(())
+}
+
+/// Field names accepted in a `[[task]]` block by `rmap new --from-stdin`.
+/// Mirrors the `StdinTask` struct fields and is the source for the batch
+/// unknown-field check; kept honest by `stdin_field_list_matches_struct`
+/// (a payload exercising every field must deserialize cleanly).
+const STDIN_TASK_FIELDS: &[&str] = &[
+    "id",
+    "status",
+    "phase",
+    "bundle",
+    "milestone",
+    "title",
+    "scores",
+    "markers",
+    "depends_on",
+    "linear_id",
+    "assignee",
+    "module",
+    "model",
+    "acceptance_criteria",
+    "out_of_scope",
+    "files_to_modify",
+    "touches",
+    "domains",
+    "cross_repo",
+    "branch",
+    "body",
+    "created_at",
+    "scored_at",
+];
+
+/// Required `[[task]]` fields (no serde `default`, not `Option`). `status` is
+/// excluded — it is a tolerated no-op, not required.
+const STDIN_REQUIRED_FIELDS: &[&str] = &["phase", "bundle", "title", "scores"];
+
+/// Pre-validate a `--from-stdin` payload, collecting EVERY field-level defect in
+/// one pass rather than serde's fail-fast first-error. Reports unknown fields,
+/// missing required fields, wrong-typed required fields, and unresolved
+/// phase/bundle references (with the valid values listed inline — the zero-guess
+/// discoverability path). Returns `Ok(())` when the payload is field-clean, so
+/// the caller's serde deser then succeeds. A genuine TOML syntax error is
+/// returned as-is, since field-walking needs a parse tree.
+fn validate_stdin_payload(label: &str, stdin: &str, existing: &rmap::schema::Tasks) -> Result<()> {
+    let value: toml::Value = toml::from_str(stdin).map_err(|err| {
+        anyhow::anyhow!(
+            "parse stdin TOML: {err}\nexpected one-or-more `[[task]]` blocks; see SKILLS.md `rmap new --from-stdin`"
+        )
+    })?;
+
+    let mut defects: Vec<String> = Vec::new();
+
+    let Some(table) = value.as_table() else {
+        bail!("stdin payload must be a TOML table containing `[[task]]` blocks");
+    };
+
+    // Top-level: only `task` is allowed. A mis-named array (`[[tasks]]`) is
+    // still walked for per-task field defects so the typo and the field errors
+    // surface in one pass — not one round-trip for the typo, then more for the
+    // fields it was hiding.
+    for (key, val) in table {
+        if key != "task" {
+            defects.push(format!(
+                "top-level: unknown key `{key}` — tasks are `[[task]]` blocks (not `[[{key}]]`)"
+            ));
+            if let toml::Value::Array(tasks) = val {
+                for (i, task) in tasks.iter().enumerate() {
+                    validate_stdin_task(i, task, existing, &mut defects);
+                }
+            }
+        }
+    }
+
+    match table.get("task") {
+        None if defects.is_empty() => defects.push(
+            "no `[[task]]` blocks found — each task is a `[[task]]` block; see SKILLS.md"
+                .to_string(),
+        ),
+        None => {}
+        Some(toml::Value::Array(tasks)) => {
+            if tasks.is_empty() {
+                defects.push("`[[task]]` array is empty — declare at least one task".to_string());
+            }
+            for (i, task) in tasks.iter().enumerate() {
+                validate_stdin_task(i, task, existing, &mut defects);
+            }
+        }
+        Some(_) => defects.push("`task` must be an array of `[[task]]` blocks".to_string()),
+    }
+
+    if defects.is_empty() {
+        return Ok(());
+    }
+
+    let body = defects
+        .iter()
+        .map(|d| format!("  - {d}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    bail!(
+        "{label}: `rmap new --from-stdin` payload has {} field error(s):\n{body}\nfix all of the above in one edit; see SKILLS.md `rmap new --from-stdin`",
+        defects.len()
+    );
+}
+
+/// Collect field-level defects for a single `[[task]]` block into `defects`.
+fn validate_stdin_task(
+    index: usize,
+    task: &toml::Value,
+    existing: &rmap::schema::Tasks,
+    defects: &mut Vec<String>,
+) {
+    let prefix = format!("task[{index}]");
+    let Some(table) = task.as_table() else {
+        defects.push(format!("{prefix}: must be a `[[task]]` table"));
+        return;
+    };
+
+    for key in table.keys() {
+        if !STDIN_TASK_FIELDS.contains(&key.as_str()) {
+            defects.push(format!("{prefix}: unknown field `{key}`"));
+        }
+    }
+
+    for req in STDIN_REQUIRED_FIELDS {
+        if !table.contains_key(*req) {
+            defects.push(format!("{prefix}: missing required field `{req}`"));
+        }
+    }
+
+    if let Some(phase) = table.get("phase") {
+        match phase.as_integer() {
+            None => defects.push(format!(
+                "{prefix}: `phase` must be an integer — {}",
+                valid_phases_hint(existing)
+            )),
+            Some(n) if !existing.phases.contains_key(&n.to_string()) => defects.push(format!(
+                "{prefix}: unknown phase {n} — {}",
+                valid_phases_hint(existing)
+            )),
+            Some(_) => {}
+        }
+    }
+
+    if let Some(bundle) = table.get("bundle") {
+        match bundle.as_str() {
+            None => defects.push(format!("{prefix}: `bundle` must be a string")),
+            Some(b) if !existing.bundles.contains_key(b) => defects.push(format!(
+                "{prefix}: unknown bundle \"{b}\" — {}",
+                valid_bundles_hint(existing)
+            )),
+            Some(_) => {}
+        }
+    }
+
+    if let Some(title) = table.get("title")
+        && title.as_str().is_none()
+    {
+        defects.push(format!("{prefix}: `title` must be a string"));
+    }
+
+    if let Some(scores) = table.get("scores") {
+        match scores.as_table() {
+            None => defects.push(format!(
+                "{prefix}: `scores` must be an inline table `{{ d = .., b = .., u = .. }}`"
+            )),
+            Some(s) => {
+                for k in ["d", "b", "u"] {
+                    match s.get(k) {
+                        None => defects.push(format!("{prefix}: `scores` missing `{k}`")),
+                        Some(v) if v.as_integer().is_none() => {
+                            defects.push(format!("{prefix}: `scores.{k}` must be an integer"));
+                        }
+                        Some(_) => {}
+                    }
+                }
+                for k in s.keys() {
+                    if !matches!(k.as_str(), "d" | "b" | "u") {
+                        defects.push(format!("{prefix}: `scores` has unknown key `{k}`"));
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// `valid phases: 1, 2, 14` — sorted by phase order, for inline error hints.
+fn valid_phases_hint(existing: &rmap::schema::Tasks) -> String {
+    if existing.phases.is_empty() {
+        return "no phases declared in tasks.toml".to_string();
+    }
+    let mut phases: Vec<(&String, u32)> =
+        existing.phases.iter().map(|(k, p)| (k, p.order)).collect();
+    phases.sort_by_key(|(_, order)| *order);
+    let list = phases
+        .iter()
+        .map(|(k, _)| k.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("valid phases: {list}")
+}
+
+/// `valid bundles: auth, import_command` — sorted by name, for inline error hints.
+fn valid_bundles_hint(existing: &rmap::schema::Tasks) -> String {
+    if existing.bundles.is_empty() {
+        return "no bundles declared in tasks.toml".to_string();
+    }
+    let mut names: Vec<&str> = existing.bundles.keys().map(String::as_str).collect();
+    names.sort_unstable();
+    format!("valid bundles: {}", names.join(", "))
 }
 
 /// Top-level deserialization shape for `rmap new --from-stdin`. Mirrors the

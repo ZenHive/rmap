@@ -39,6 +39,7 @@ gantt
     `rmap depend <src> on <numeric-id>` fails with 'unknown task' when target id is numeric-only :done, 2026-05-17, 2026-05-17
     section Phase 14 — Migration tooling
     rmap import — emit a paste-ready ROADMAP.md→tasks.toml migration prompt :done, 2026-05-15, 2026-05-15
+    rmap new --from-stdin— batch-validate all field errors in one pass + scaffold/skeleton :done, 2026-06-16, 2026-06-16
     section Phase 15 — Schema extensions
     `Task——implemented` field — record what was actually delivered (required when done) :done, 2026-05-17, 2026-05-17
     Milestones — first-class release lines :done, 2026-05-17, 2026-05-17
@@ -95,7 +96,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 🎁 `import_command` — `rmap import` paste-ready ROADMAP.md→tasks.toml migration prompt.
 
 <!-- TASKS:BEGIN phase=14 -->
-> 1 task. See [CHANGELOG.md](CHANGELOG.md#phase-14-migration-tooling).
+> 2 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-14-migration-tooling).
 <!-- TASKS:END -->
 
 ## Phase 15 — Schema extensions (done)
@@ -105,7 +106,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 <!-- TASKS:BEGIN phase=15 -->
 | Task | Status | Notes |
 |------|--------|-------|
-| Task 19 | ✅ | 🎁 **agent_routing** · Task::model field — per-task LLM model pinning [D:3/B:5/U:5 → Eff:1.67] 🚀 |
+| Task 19 | ✅ | 🎁 **agent_routing** · Task::model field — per-task LLM model pinning [D:3/B:5/U:5 → Eff:1.67?] 🚀 |
 | Task 22 | ✅ | 🎁 **schema_implemented** · `Task::implemented` field — record what was actually delivered (required when done) [D:4/B:6/U:7 → Eff:1.62] 🚀 |
 | Task 24 | ✅ | 🎁 **schema_milestones** · Milestones — first-class release lines [D:6/B:8/U:8 → Eff:1.33] 📋 |
 | Task 25 | ✅ | 🎁 **schema_milestones** · 🐛 Backfill creation paths with branch / files_to_modify / cross_repo (converge StdinTask/NewTaskFields mirror) [D:4/B:6/U:6 → Eff:1.5] 🚀 |
