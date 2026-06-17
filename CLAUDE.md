@@ -185,7 +185,7 @@ The relationship also runs the other way: rmap's own roadmap tasks can be dispat
 
 - **`.mcp.json`** registers two HTTP servers against the harness BEAM (user-started `iex -S mix` in `../harness/`; never boot it yourself): `harness` → `mcp__harness__*` (the native flat driver tools — `dispatch__task`, `dispatch__await`, `dispatch__status`, `dispatch__verdict_detail`, `roadmap__*`; **primary surface**) and `harness_eval` → `mcp__harness_eval__project_eval` (arbitrary-Elixir escape hatch into harness's BEAM, for struct-level ops the flat tools omit).
 - **rmap is registered as a harness project** in harness's gitignored `config/dev.local.exs` (`:rust` preset, `roadmap_path` = this repo). Registration changes need a harness BEAM restart (the user does that). Per-project cron autonomy defaults OFF — registration alone does not start autonomous dispatch.
-- **Load on demand when driving** (not eager-imported, per the selective-load philosophy): the `dev-lifecycle:harness-workflow` skill (the delegate → verify → repair → land loop) and `../harness/skills/harness-driver/SKILL.md` (MCP tool shapes, dispatch patterns, sharp edges).
+- **Load on demand when driving** (not eager-imported, per the selective-load philosophy): the `harness:harness-workflow` skill (the delegate → verify → repair → land loop) and `../harness/skills/harness-driver/SKILL.md` (MCP tool shapes, dispatch patterns, sharp edges).
 
 ## Tests
 
