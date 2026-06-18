@@ -1,0 +1,65 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main", "development" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Restore cache
+        id: cache-rust-clippy-ci
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            target
+          key: rust-clippy-ci-${{ runner.os }}
+          
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+        
+      - name: Save cache
+        id: cache-rust-clippy-ci-save
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            target
+          key: ${{ steps.cache-rust-clippy-ci.outputs.cache-primary-key }}
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Restore cache
+        id: cache-rust-tests-ci
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            target
+          key: rust-tests-ci-${{ runner.os }}
+    
+      - name: Run tests
+        run: RUST_BACKTRACE=1 cargo test --all -- --no-capture
+
+      - name: Save cache
+        id: cache-rust-tests-ci-save
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            target
+          key: ${{ steps.cache-rust-tests-ci.outputs.cache-primary-key }}
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Format
+        run: cargo fmt -- --check
