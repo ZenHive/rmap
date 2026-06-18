@@ -174,11 +174,7 @@ fn build_phase_views(tasks: &Tasks) -> Vec<PhaseView<'_>> {
             }
             let total = pending.len() + in_progress.len() + done_tasks.len();
             let done = done_tasks.len();
-            let pct = if total == 0 {
-                0
-            } else {
-                (done * 100 / total) as u32
-            };
+            let pct = pct_of(done, total);
             PhaseView {
                 number,
                 name: &phase.name,
@@ -517,6 +513,9 @@ fn slugify(label: &str, index: usize) -> String {
 }
 
 fn pct_of(part: usize, total: usize) -> u32 {
+    // Silencing warning as the solution proposed by clippy would run (part * 100) even when we
+    // return 0
+    #[allow(clippy::manual_checked_ops)]
     if total == 0 {
         0
     } else {
