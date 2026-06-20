@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Restore cache
         id: cache-rust-clippy-ci
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             target
@@ -26,7 +26,7 @@ jobs:
         
       - name: Save cache
         id: cache-rust-clippy-ci-save
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             target
@@ -36,11 +36,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Restore cache
         id: cache-rust-tests-ci
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             target
@@ -51,7 +51,7 @@ jobs:
 
       - name: Save cache
         id: cache-rust-tests-ci-save
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             target
@@ -60,6 +60,6 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Format
         run: cargo fmt -- --check
