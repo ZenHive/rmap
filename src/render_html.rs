@@ -514,8 +514,8 @@ fn slugify(label: &str, index: usize) -> String {
 
 fn pct_of(part: usize, total: usize) -> u32 {
     // Silencing warning as the solution proposed by clippy would run (part * 100) even when we
-    // return 0
-    #[allow(clippy::manual_checked_ops)]
+    // return 0. `unknown_lints` keeps older toolchains (without `manual_checked_ops`) compiling.
+    #[allow(unknown_lints, clippy::manual_checked_ops)]
     if total == 0 {
         0
     } else {
