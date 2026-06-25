@@ -6,15 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Imports
 
-Universal includes (per `~/.claude/setup-guide.md`). No Rust-specific template exists; rmap takes the universal baseline only — the Elixir/Phoenix includes don't apply. Delegation includes (Linear/cloud-agent) are intentionally omitted — rmap is not in the Linear/cloud-agent queue (it has a GitHub remote, `ZenHive/rmap`, but no cloud-agent PR flow). The harness MCP IS wired (`.mcp.json` — see § "Driving harness from this repo"). `web-command.md` is intentionally NOT imported: per the setup-guide's "Skills vs Includes" rule, situational tool references auto-load as skills — rmap does no browser work, so the `web-command` skill covers the rare case without paying the token cost every session.
+Eager floor per `~/.claude/setup-guide.md` § "Selective-Load Philosophy" (Opus 4.8). Two eager includes only:
 
-@~/.claude/includes/across-instances.md
+- **`critical-rules`** — the portfolio-wide hard-guardrail floor; must stay ambient (a guardrail the model invokes "when relevant" fails exactly when it doesn't realize the rule applies).
+- **`harness-workflow`** — the new default second eager include for harness-registered repos, and rmap IS one (registered in harness's `config/dev.local.exs`, MCP wired via `.mcp.json` — see § "Driving harness from this repo"). The implement→review→land loop and its delegation roster (cursor/codex/grok first, opus last) are load-bearing every session, not on-demand reference.
+
+```markdown
 @~/.claude/includes/critical-rules.md
-@~/.claude/includes/worktree-workflow.md
-@~/.claude/includes/task-prioritization.md
-@~/.claude/includes/task-writing.md
-@~/.claude/includes/rmap.md
-@~/.claude/includes/workflow-philosophy.md
+@~/.claude/includes/harness-workflow.md
+```
+
+Everything else is **skill-on-demand** (Opus 4.8 self-invokes the matching skill): `worktree-workflow` (`workflow:git-worktrees`), `task-prioritization` (`tasks:roadmap-planning`), `task-writing` (`tasks:task-writing`), `rmap` (`tasks:rmap`), `workflow-philosophy` (`workflow:workflow-philosophy`). Re-add an `@`-import per-surface only if you observe Opus failing on it eager.
+
+Deliberately NOT imported: `across-instances` (rmap is a work/tool repo, not a presence repo); Elixir/Phoenix includes (don't apply to a Rust CLI); delegation includes (rmap has a GitHub remote `ZenHive/rmap` but no Linear/cloud-agent PR flow); `web-command` (rmap does no browser work — the skill covers the rare case).
 
 ## Commands
 
@@ -185,7 +189,7 @@ The relationship also runs the other way: rmap's own roadmap tasks can be dispat
 
 - **`.mcp.json`** registers two HTTP servers against the harness BEAM (user-started `iex -S mix` in `../harness/`; never boot it yourself): `harness` → `mcp__harness__*` (the native flat driver tools — `dispatch__task`, `dispatch__await`, `dispatch__status`, `dispatch__verdict_detail`, `roadmap__*`; **primary surface**) and `harness_eval` → `mcp__harness_eval__project_eval` (arbitrary-Elixir escape hatch into harness's BEAM, for struct-level ops the flat tools omit).
 - **rmap is registered as a harness project** in harness's gitignored `config/dev.local.exs` (`:rust` preset, `roadmap_path` = this repo). Registration changes need a harness BEAM restart (the user does that). Per-project cron autonomy defaults OFF — registration alone does not start autonomous dispatch.
-- **Load on demand when driving** (not eager-imported, per the selective-load philosophy): the `harness:harness-workflow` skill (the delegate → verify → repair → land loop) and `../harness/skills/harness-driver/SKILL.md` (MCP tool shapes, dispatch patterns, sharp edges).
+- **The workflow loop is eager** (`@~/.claude/includes/harness-workflow.md` — see § "Imports"): the delegate → verify → repair → land loop and delegation roster are in context every session. **Load on demand when driving:** `../harness/skills/harness-driver/SKILL.md` (MCP tool shapes, dispatch patterns, sharp edges) and the `harness:harness-driver` skill.
 
 ## Tests
 
