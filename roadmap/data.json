@@ -1944,7 +1944,7 @@
       "id": 51,
       "phase": 16,
       "bundle": "doctor_spec_quality",
-      "status": "in_progress",
+      "status": "done",
       "title": "doctor: spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks",
       "scores": {
         "d": 4,
@@ -1979,10 +1979,17 @@
         "CLAUDE.md",
         "SKILLS.md"
       ],
+      "shipped_in": "4fd9640c89b433dbdc7d2430a2442afe6094816a",
       "body": "Add two soft doctor advisory families inspired by spec-kit's /speckit.analyze (https://github.com/github/spec-kit, templates/commands/analyze.md — ambiguity + duplication detection), evaluated from the consuming-agent POV: the acceptance_criteria list is the contract the harness reviewer gates on, and rmap currently only enforces that it is mechanically non-blank.\n\n1. AC quality lint, scoped to live agent-assigned tasks (same predicate as the existing model/acceptance_criteria validate gates): flag unresolved placeholders (TODO, TBD, ???, <...>-style angle-bracket stubs) in any criterion, and criteria consisting only of vague unmeasurable wording (small fixed documented word list — e.g. fast, robust, properly, correctly, works — with no measurable object). Purely mechanical token checks; rmap does not judge meaning (doctor is the soft-signal aggregator, judgment stays with AI authors/reviewers).\n\n2. Near-duplicate detection across open tasks (pending/in_progress/blocked): normalized-token similarity over title+body (e.g. Jaccard), threshold overridable via a CLI flag following the existing --bottleneck-min pattern in doctor.rs. Turns the Refine-Don't-Duplicate convention into a surfaced fact at filing time. Exclude done/superseded tasks from pairing.\n\nAll advisories are soft (exit 0, no auto-mutation), following the existing DoctorFinding pattern: human line citing task id(s) + additive JSON kind. Tune defaults so rmap's own roadmap/tasks.toml and tests/skills_fixture produce zero new findings.\n",
       "created_at": "2026-07-15",
       "started_at": "2026-07-15",
+      "done_at": "2026-07-15",
       "scored_at": "2026-07-15",
+      "implemented": "Landed by grok via merge-train; reviewer-approved (run run-1784100285880-906487d7, 4fd9640c89b433dbdc7d2430a2442afe6094816a).",
+      "delivered_by": "grok",
+      "verified": true,
+      "verified_by": "claude",
+      "verification_ref": "harness-run:run-1784100285880-906487d7",
       "cross_repo": []
     }
   ]
