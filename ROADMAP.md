@@ -107,29 +107,29 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task | Status | Notes |
 |------|--------|-------|
 | Task 19 | ✅ | 🎁 **agent_routing** · Task::model field — per-task LLM model pinning [D:3/B:5/U:5 → Eff:1.67?] 🚀 |
-| Task 22 | ✅ | 🎁 **schema_implemented** · `Task::implemented` field — record what was actually delivered (required when done) [D:4/B:6/U:7 → Eff:1.62] 🚀 |
-| Task 24 | ✅ | 🎁 **schema_milestones** · Milestones — first-class release lines [D:6/B:8/U:8 → Eff:1.33] 📋 |
-| Task 25 | ✅ | 🎁 **schema_milestones** · 🐛 Backfill creation paths with branch / files_to_modify / cross_repo (converge StdinTask/NewTaskFields mirror) [D:4/B:6/U:6 → Eff:1.5] 🚀 |
-| Task 26 | ✅ | 🎁 **deps_schemars** · Upgrade schemars 0.8 → 0.9+ for JSON Schema draft 2020-12 [D:3/B:3/U:3 → Eff:1.0] 📋 |
-| Task 27 | ✅ | 🎁 **schema_milestones** · Active-milestone preference in `rmap next` [D:3/B:5/U:6 → Eff:1.83] 🚀 |
-| Task 28 | ✅ | 🎁 **schema_outcome** · Task outcome layer — delivered_by + verified fields [D:4/B:6/U:6 → Eff:1.5] 🚀 |
-| Task 29 | ✅ | 🎁 **schema_milestones** · 🐛 rmap new allocates a colliding task id on a string-id roadmap [D:3/B:7/U:6 → Eff:2.17] 🎯 |
-| Task 30 | ✅ | 🎁 **schema_milestones** · 🐛 rmap validate does not detect duplicate task ids [D:3/B:6/U:5 → Eff:1.83] 🚀 |
-| Task 31 `[CX]` | ✅ | 🎁 **doctor_state_drift** · rmap doctor: advisories for phase / focus state drift [D:2/B:6/U:7 → Eff:3.25] 🎯 |
-| Task 32 | ✅ | 🎁 **doctor_state_drift** · rmap doctor: milestone status drift advisories [D:2/B:5/U:6 → Eff:2.75] 🎯 |
-| Task 33 | ✅ | 🎁 **schema_outcome** · `--shipped-in` flag on `rmap status` — complete the outcome layer [D:2/B:6/U:6 → Eff:3.0] 🎯 |
-| Task 34 | ✅ | 🎁 **schema_outcome** · `--reason` flag on `rmap status` — settable + rendered + auto-cleared blocked_reason [D:3/B:6/U:6 → Eff:2.0] 🎯 |
-| Task 35 | ✅ | 🎁 **agent_dispatch** · rmap ready — parallel-safe dep-satisfied dispatch set [D:3/B:8/U:9 → Eff:2.83] 🎯 |
-| Task 36 | ✅ | 🎁 **agent_dispatch** · dep_layer — topo depth as a computed --json field [D:3/B:6/U:7 → Eff:2.17] 🎯 |
-| Task 37 | ✅ | 🎁 **agent_dispatch** · touches — advisory collision-prediction field [D:3/B:6/U:8 → Eff:2.33] 🎯 |
-| Task 38 | ✅ | 🎁 **agent_dispatch** · handbuild marker + --dispatchable + --fields JSON projection [D:3/B:6/U:7 → Eff:2.17] 🎯 |
-| Task 39 | ✅ | 🎁 **delegate_targets** · Widen delegate targets + assignee set: add grok, antigravity, pi, droid [D:3/B:6/U:7 → Eff:2.17] 🎯 |
-| Task 40 | ✅ | 🎁 **agent_routing** · Formalize assignee as the agent-routing field; delegate --to defaults to it [D:3/B:7/U:8 → Eff:2.5] 🎯 |
-| Task 41 | ✅ | 🎁 **schema_milestones** · MILESTONES marker pair — render a Release Lines section in ROADMAP.md [D:3/B:6/U:6 → Eff:2.0] 🎯 |
-| Task 42 | ✅ | 🎁 **attempt_history** · Rejection-report / attempt-history writeback: record why a dispatch attempt failed on a task returning to pending [D:4/B:7/U:6 → Eff:1.62] 🚀 |
-| Task 43 | ✅ | 🎁 **agent_routing** · Add `domains` task field: schema + JSON/data.json export (harness CapabilityScore reader is pre-wired, rmap never emits it) [D:2/B:4/U:4 → Eff:2.0] 🎯 |
-| Task 44 | ✅ | 🎁 **doctor_state_drift** · rmap validate: hard error when a live agent-assigned task has no model [D:2/B:4/U:4 → Eff:2.0] 🎯 |
-| Task 49 | ✅ | 🎁 **agent_dispatch** · rmap assign — set assignee + model on an existing task [D:2/B:5/U:5 → Eff:2.5] 🎯 |
+| Task 22 | ✅ | 🎁 **schema_implemented** · `Task::implemented` field — record what was actually delivered (required when done) [D:4/B:6/U:7 → Eff:1.62?] 🚀 |
+| Task 24 | ✅ | 🎁 **schema_milestones** · Milestones — first-class release lines [D:6/B:8/U:8 → Eff:1.33?] 📋 |
+| Task 25 | ✅ | 🎁 **schema_milestones** · 🐛 Backfill creation paths with branch / files_to_modify / cross_repo (converge StdinTask/NewTaskFields mirror) [D:4/B:6/U:6 → Eff:1.5?] 🚀 |
+| Task 26 | ✅ | 🎁 **deps_schemars** · Upgrade schemars 0.8 → 0.9+ for JSON Schema draft 2020-12 [D:3/B:3/U:3 → Eff:1.0?] 📋 |
+| Task 27 | ✅ | 🎁 **schema_milestones** · Active-milestone preference in `rmap next` [D:3/B:5/U:6 → Eff:1.83?] 🚀 |
+| Task 28 | ✅ | 🎁 **schema_outcome** · Task outcome layer — delivered_by + verified fields [D:4/B:6/U:6 → Eff:1.5?] 🚀 |
+| Task 29 | ✅ | 🎁 **schema_milestones** · 🐛 rmap new allocates a colliding task id on a string-id roadmap [D:3/B:7/U:6 → Eff:2.17?] 🎯 |
+| Task 30 | ✅ | 🎁 **schema_milestones** · 🐛 rmap validate does not detect duplicate task ids [D:3/B:6/U:5 → Eff:1.83?] 🚀 |
+| Task 31 `[CX]` | ✅ | 🎁 **doctor_state_drift** · rmap doctor: advisories for phase / focus state drift [D:2/B:6/U:7 → Eff:3.25?] 🎯 |
+| Task 32 | ✅ | 🎁 **doctor_state_drift** · rmap doctor: milestone status drift advisories [D:2/B:5/U:6 → Eff:2.75?] 🎯 |
+| Task 33 | ✅ | 🎁 **schema_outcome** · `--shipped-in` flag on `rmap status` — complete the outcome layer [D:2/B:6/U:6 → Eff:3.0?] 🎯 |
+| Task 34 | ✅ | 🎁 **schema_outcome** · `--reason` flag on `rmap status` — settable + rendered + auto-cleared blocked_reason [D:3/B:6/U:6 → Eff:2.0?] 🎯 |
+| Task 35 | ✅ | 🎁 **agent_dispatch** · rmap ready — parallel-safe dep-satisfied dispatch set [D:3/B:8/U:9 → Eff:2.83?] 🎯 |
+| Task 36 | ✅ | 🎁 **agent_dispatch** · dep_layer — topo depth as a computed --json field [D:3/B:6/U:7 → Eff:2.17?] 🎯 |
+| Task 37 | ✅ | 🎁 **agent_dispatch** · touches — advisory collision-prediction field [D:3/B:6/U:8 → Eff:2.33?] 🎯 |
+| Task 38 | ✅ | 🎁 **agent_dispatch** · handbuild marker + --dispatchable + --fields JSON projection [D:3/B:6/U:7 → Eff:2.17?] 🎯 |
+| Task 39 | ✅ | 🎁 **delegate_targets** · Widen delegate targets + assignee set: add grok, antigravity, pi, droid [D:3/B:6/U:7 → Eff:2.17?] 🎯 |
+| Task 40 | ✅ | 🎁 **agent_routing** · Formalize assignee as the agent-routing field; delegate --to defaults to it [D:3/B:7/U:8 → Eff:2.5?] 🎯 |
+| Task 41 | ✅ | 🎁 **schema_milestones** · MILESTONES marker pair — render a Release Lines section in ROADMAP.md [D:3/B:6/U:6 → Eff:2.0?] 🎯 |
+| Task 42 | ✅ | 🎁 **attempt_history** · Rejection-report / attempt-history writeback: record why a dispatch attempt failed on a task returning to pending [D:4/B:7/U:6 → Eff:1.62?] 🚀 |
+| Task 43 | ✅ | 🎁 **agent_routing** · Add `domains` task field: schema + JSON/data.json export (harness CapabilityScore reader is pre-wired, rmap never emits it) [D:2/B:4/U:4 → Eff:2.0?] 🎯 |
+| Task 44 | ✅ | 🎁 **doctor_state_drift** · rmap validate: hard error when a live agent-assigned task has no model [D:2/B:4/U:4 → Eff:2.0?] 🎯 |
+| Task 49 | ✅ | 🎁 **agent_dispatch** · rmap assign — set assignee + model on an existing task [D:2/B:5/U:5 → Eff:2.5?] 🎯 |
 <!-- TASKS:END -->
 
 ## Phase 16 — Graph queries (in progress)
@@ -139,8 +139,9 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 <!-- TASKS:BEGIN phase=16 -->
 | Task | Status | Notes |
 |------|--------|-------|
-| Task 45 | ✅ | 🎁 **graph_queries** · Reverse-dependency traversal: unlocks computed field + rmap blocks / rmap deps commands [D:3/B:6/U:7 → Eff:2.17] 🎯 |
-| Task 46 | ✅ | 🎁 **graph_queries** · rmap critical-path: longest dependency chain to a milestone/release [D:3/B:5/U:5 → Eff:1.67] 🚀 |
-| Task 47 | ✅ | 🎁 **graph_queries** · rmap doctor graph-health advisories: bottleneck + isolated/unreachable node [D:3/B:4/U:4 → Eff:1.33] 📋 |
-| Task 48 | ✅ | 🎁 **graph_queries** · rmap graph export: rmap export dot (Graphviz) + rmap waves (parallel dispatch schedule) [D:2/B:4/U:4 → Eff:2.0] 🎯 |
+| Task 45 | ✅ | 🎁 **graph_queries** · Reverse-dependency traversal: unlocks computed field + rmap blocks / rmap deps commands [D:3/B:6/U:7 → Eff:2.17?] 🎯 |
+| Task 46 | ✅ | 🎁 **graph_queries** · rmap critical-path: longest dependency chain to a milestone/release [D:3/B:5/U:5 → Eff:1.67?] 🚀 |
+| Task 47 | ✅ | 🎁 **graph_queries** · rmap doctor graph-health advisories: bottleneck + isolated/unreachable node [D:3/B:4/U:4 → Eff:1.33?] 📋 |
+| Task 48 | ✅ | 🎁 **graph_queries** · rmap graph export: rmap export dot (Graphviz) + rmap waves (parallel dispatch schedule) [D:2/B:4/U:4 → Eff:2.0?] 🎯 |
+| Task 51 | ⬜ | 🎁 **doctor_spec_quality** · doctor: spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks [D:4/B:7/U:7 → Eff:1.75] 🚀 |
 <!-- TASKS:END -->
