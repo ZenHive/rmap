@@ -6664,6 +6664,7 @@ fn doctor_command_thresholds_in_json() {
     assert_eq!(default_json["thresholds"]["ac_difficulty"], 5);
     assert_eq!(default_json["thresholds"]["ac_benefit"], 8);
     assert_eq!(default_json["thresholds"]["bottleneck_min"], 3);
+    assert_eq!(default_json["thresholds"]["near_duplicate_min"], 80);
 
     // Overrides flow into the JSON envelope; --ac-threshold collapses both AC fields.
     let override_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
@@ -10361,4 +10362,305 @@ attempts = [{ at = "2026-05-14", by = "claude", report = "reviewer rejected: mis
         stdout.contains("reviewer rejected: missing edge-case test"),
         "{stdout}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// doctor spec-quality advisories (Task 51): placeholder / vague AC + near-dup
+// ---------------------------------------------------------------------------
+
+/// Live agent-assigned task with a placeholder AC, a second live agent task
+/// whose only criterion is vague, and a third with measurable wording that
+/// includes a vague word (control). Human-assigned and done tasks carry bad AC
+/// text but must not fire (predicate scope).
+const DOCTOR_SPEC_QUALITY_AC_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_spec_quality_ac"
+default_branch = "main"
+
+[phases.1]
+name = "Spec quality"
+order = 1
+status = "in_progress"
+
+[bundles.ac]
+phase = 1
+order = 1
+description = "AC quality fixtures"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "ac"
+status = "pending"
+assignee = "cursor"
+model = "composer"
+title = "Placeholder AC task"
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+acceptance_criteria = ["TODO flesh out the API contract"]
+
+[[task]]
+id = 2
+phase = 1
+bundle = "ac"
+status = "pending"
+assignee = "codex"
+model = "o4"
+title = "Vague AC task"
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+acceptance_criteria = ["works properly"]
+
+[[task]]
+id = 3
+phase = 1
+bundle = "ac"
+status = "pending"
+assignee = "claude"
+model = "sonnet"
+title = "Measurable AC with vague word"
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+acceptance_criteria = ["renders in under 200ms so it feels fast"]
+
+[[task]]
+id = 4
+phase = 1
+bundle = "ac"
+status = "pending"
+assignee = "human"
+title = "Human-assigned bad AC — skipped"
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+acceptance_criteria = ["TODO and works properly"]
+
+[[task]]
+id = 5
+phase = 1
+bundle = "ac"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+assignee = "cursor"
+model = "composer"
+title = "Done with bad AC — skipped"
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+acceptance_criteria = ["TBD"]
+"#;
+
+const DOCTOR_NEAR_DUPLICATE_TASKS: &str = r#"
+schema_version = 2
+project = "doctor_near_dup"
+default_branch = "main"
+
+[phases.1]
+name = "Near dup"
+order = 1
+status = "in_progress"
+
+[bundles.dup]
+phase = 1
+order = 1
+description = "Near-duplicate fixtures"
+
+[[task]]
+id = 10
+phase = 1
+bundle = "dup"
+status = "pending"
+title = "Add OAuth login flow for mobile clients"
+body = "Implement OAuth login flow so mobile clients can authenticate via the shared auth service."
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 11
+phase = 1
+bundle = "dup"
+status = "in_progress"
+started_at = "2026-05-10"
+title = "Add OAuth login flow for mobile clients"
+body = "Implement OAuth login flow so mobile clients can authenticate via the shared auth service."
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 12
+phase = 1
+bundle = "dup"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Add OAuth login flow for mobile clients"
+body = "Implement OAuth login flow so mobile clients can authenticate via the shared auth service."
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 13
+phase = 1
+bundle = "dup"
+status = "superseded"
+title = "Add OAuth login flow for mobile clients"
+body = "Implement OAuth login flow so mobile clients can authenticate via the shared auth service."
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+
+[[task]]
+id = 14
+phase = 1
+bundle = "dup"
+status = "blocked"
+blocked_reason = "waiting on design"
+title = "Unrelated blocked task about rendering"
+body = "Fix the mermaid diagram layout for long phase names in ROADMAP.md."
+scores = { d = 2, b = 3, u = 3 }
+scored_at = "2026-05-10"
+"#;
+
+#[test]
+fn doctor_command_surfaces_placeholder_and_vague_criteria() {
+    let path = write_temp_tasks("doctor_spec_quality_ac.toml", DOCTOR_SPEC_QUALITY_AC_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor spec quality");
+
+    assert!(
+        output.status.success(),
+        "doctor advisories must exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Placeholder acceptance criteria") && stdout.contains("task 1"),
+        "expected placeholder advisory for task 1:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("Vague / unmeasurable acceptance criteria") && stdout.contains("task 2"),
+        "expected vague advisory for task 2:\n{stdout}"
+    );
+    // Measurable criterion with a vague word, human-assigned, and done — no fire.
+    assert!(
+        !stdout.contains("task 3"),
+        "measurable 'feels fast' criterion must not flag task 3:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("task 4") && !stdout.contains("task 5"),
+        "human/done tasks must not enter live-agent AC quality lints:\n{stdout}"
+    );
+
+    let json_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor spec quality json");
+    assert!(json_output.status.success(), "expected exit 0");
+    let report: serde_json::Value =
+        serde_json::from_slice(&json_output.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings array");
+    let kinds: Vec<&str> = findings.iter().filter_map(|f| f["kind"].as_str()).collect();
+    assert!(
+        kinds.contains(&"placeholder_criteria"),
+        "expected placeholder_criteria kind:\n{kinds:?}"
+    );
+    assert!(
+        kinds.contains(&"vague_criteria"),
+        "expected vague_criteria kind:\n{kinds:?}"
+    );
+    let placeholder = findings
+        .iter()
+        .find(|f| f["kind"] == "placeholder_criteria")
+        .expect("placeholder finding");
+    assert_eq!(placeholder["id"], "1");
+    let vague = findings
+        .iter()
+        .find(|f| f["kind"] == "vague_criteria")
+        .expect("vague finding");
+    assert_eq!(vague["id"], "2");
+}
+
+#[test]
+fn doctor_command_surfaces_near_duplicate_open_tasks_and_threshold_flag() {
+    let path = write_temp_tasks("doctor_near_dup.toml", DOCTOR_NEAR_DUPLICATE_TASKS);
+
+    let default_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor near-dup default");
+    assert!(
+        default_out.status.success(),
+        "expected exit 0; stderr: {}",
+        String::from_utf8_lossy(&default_out.stderr)
+    );
+    let default_report: serde_json::Value =
+        serde_json::from_slice(&default_out.stdout).expect("valid doctor json");
+    let findings = default_report["findings"].as_array().expect("findings");
+    let dups: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|f| f["kind"] == "near_duplicate_tasks")
+        .collect();
+    assert_eq!(
+        dups.len(),
+        1,
+        "exactly one open pair (10+11); done/superseded never pair:\n{default_report}"
+    );
+    let ids = dups[0]["ids"].as_array().expect("ids array");
+    let id_set: std::collections::HashSet<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
+    assert_eq!(id_set, ["10", "11"].into_iter().collect());
+    assert_eq!(default_report["thresholds"]["near_duplicate_min"], 80);
+
+    // Human output cites both ids and exits 0.
+    let human_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor near-dup human");
+    assert!(human_out.status.success(), "expected exit 0");
+    let stdout = String::from_utf8_lossy(&human_out.stdout);
+    assert!(
+        stdout.contains("Near-duplicate open tasks")
+            && stdout.contains("task 10")
+            && stdout.contains("task 11"),
+        "expected both ids in human near-dup advisory:\n{stdout}"
+    );
+
+    // Raising the threshold above 100% (impossible) suppresses pairing.
+    let high_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--near-duplicate-min")
+        .arg("101")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor near-dup high threshold");
+    assert!(high_out.status.success(), "expected exit 0");
+    let high_report: serde_json::Value =
+        serde_json::from_slice(&high_out.stdout).expect("valid doctor json");
+    let high_findings = high_report["findings"].as_array().expect("findings");
+    assert!(
+        high_findings
+            .iter()
+            .all(|f| f["kind"] != "near_duplicate_tasks"),
+        "threshold 101 must suppress near-duplicate pairing:\n{high_report}"
+    );
+    assert_eq!(high_report["thresholds"]["near_duplicate_min"], 101);
 }

@@ -22,8 +22,28 @@ const AC_BENEFIT_THRESHOLD: u32 = 8;
 /// `bottleneck` doctor finding. Overridable via `rmap doctor --bottleneck-min`.
 const BOTTLENECK_MIN_THRESHOLD: u32 = 3;
 
+/// Minimum Jaccard similarity (percent, 0–100) at which two open tasks' normalized
+/// title+body token sets are treated as near-duplicates. Overridable via
+/// `rmap doctor --near-duplicate-min`. Tuned high so distinct-but-related open
+/// tasks in real roadmaps do not pair by default.
+const NEAR_DUPLICATE_MIN_PERCENT: u32 = 80;
+
+/// Fixed word list for the unmeasurable-criteria lint. A criterion is vague when
+/// every non-stopword token is drawn from this set (purely mechanical — rmap does
+/// not judge meaning). Documented for agents; keep the list short and stable.
+const VAGUE_WORDS: &[&str] = &["fast", "robust", "properly", "correctly", "works"];
+
+/// Stopwords stripped before the vague-word check so connectors alone do not
+/// rescue an otherwise empty criterion ("it works" → `{works}` → vague).
+const VAGUE_STOPWORDS: &[&str] = &[
+    "a", "an", "the", "and", "or", "but", "so", "it", "is", "be", "to", "of", "in", "on", "for",
+    "with", "that", "this", "as", "at", "by", "from", "if", "not", "very", "really", "quite",
+    "just", "also", "too", "more", "most", "than",
+];
+
 /// Effective doctor thresholds for one `rmap doctor` invocation: the constant
-/// defaults above unless overridden by `--threshold-days` / `--ac-threshold`.
+/// defaults above unless overridden by `--threshold-days` / `--ac-threshold` /
+/// `--bottleneck-min` / `--near-duplicate-min`.
 /// `--threshold-days` collapses the stale and score-decay cutoffs into one
 /// `days` value; `--ac-threshold` collapses the distinct D/B defaults into one.
 #[derive(serde::Serialize, Clone, Copy)]
@@ -32,6 +52,8 @@ pub struct DoctorThresholds {
     pub ac_difficulty: u32,
     pub ac_benefit: u32,
     pub bottleneck_min: u32,
+    /// Jaccard similarity percent (0–100) for near-duplicate open-task pairing.
+    pub near_duplicate_min: u32,
 }
 
 impl DoctorThresholds {
@@ -39,12 +61,14 @@ impl DoctorThresholds {
         threshold_days: Option<u32>,
         ac_threshold: Option<u32>,
         bottleneck_min: Option<u32>,
+        near_duplicate_min: Option<u32>,
     ) -> Self {
         Self {
             days: threshold_days.unwrap_or(STALE_THRESHOLD_DAYS),
             ac_difficulty: ac_threshold.unwrap_or(AC_DIFFICULTY_THRESHOLD),
             ac_benefit: ac_threshold.unwrap_or(AC_BENEFIT_THRESHOLD),
             bottleneck_min: bottleneck_min.unwrap_or(BOTTLENECK_MIN_THRESHOLD),
+            near_duplicate_min: near_duplicate_min.unwrap_or(NEAR_DUPLICATE_MIN_PERCENT),
         }
     }
 }
@@ -124,6 +148,25 @@ pub enum DoctorFinding {
     IsolatedNode {
         id: String,
         reason: IsolatedNodeReason,
+    },
+    /// Soft AC-quality advisory: a live agent-assigned task has an
+    /// `acceptance_criteria` entry containing an unresolved placeholder token
+    /// (TODO / TBD / ??? / `<stub>`). Mechanical only — rmap does not judge meaning.
+    PlaceholderCriteria {
+        id: String,
+    },
+    /// Soft AC-quality advisory: a live agent-assigned task has a criterion whose
+    /// non-stopword tokens are drawn entirely from the fixed vague-word list
+    /// (`works` / `properly` / `correctly` / `fast` / `robust`). A criterion that
+    /// mixes those words with measurable content does not fire.
+    VagueCriteria {
+        id: String,
+    },
+    /// Soft near-duplicate advisory: two open (`pending`/`in_progress`/`blocked`)
+    /// tasks have title+body token sets at or above the Jaccard threshold.
+    /// `done` / `superseded` tasks never pair. `ids` is length 2, sorted for stability.
+    NearDuplicateTasks {
+        ids: Vec<String>,
     },
     Drift,
 }
@@ -391,7 +434,56 @@ impl DoctorReport {
             }
         }
 
-        // 10. render drift — only if a roadmap was provided
+        // 10. AC quality on live agent-assigned tasks — soft only. Same live-agent
+        // predicate as validate_dispatch_model: pending/in_progress + assignee set
+        // and != "human". Placeholders and vague-only criteria are token-mechanical.
+        for task in &tasks.task {
+            if !is_live_agent_assigned(task) {
+                continue;
+            }
+            let id = task_id_display(&task.id);
+            let mut saw_placeholder = false;
+            let mut saw_vague = false;
+            for criterion in &task.acceptance_criteria {
+                if !saw_placeholder && criterion_has_placeholder(criterion) {
+                    findings.push(DoctorFinding::PlaceholderCriteria { id: id.clone() });
+                    saw_placeholder = true;
+                }
+                if !saw_vague && criterion_is_vague(criterion) {
+                    findings.push(DoctorFinding::VagueCriteria { id: id.clone() });
+                    saw_vague = true;
+                }
+                if saw_placeholder && saw_vague {
+                    break;
+                }
+            }
+        }
+
+        // 11. near-duplicate open tasks — soft only. Pairwise Jaccard over
+        // normalized title+body tokens; done/superseded never enter the pool.
+        let open: Vec<(&Task, String, HashSet<String>)> = tasks
+            .task
+            .iter()
+            .filter(|task| is_open_for_near_duplicate(task))
+            .map(|task| {
+                let id = task_id_display(&task.id);
+                let tokens = title_body_tokens(task);
+                (task, id, tokens)
+            })
+            .collect();
+        for i in 0..open.len() {
+            for j in (i + 1)..open.len() {
+                let (_, id_a, tokens_a) = &open[i];
+                let (_, id_b, tokens_b) = &open[j];
+                if jaccard_at_least(tokens_a, tokens_b, thresholds.near_duplicate_min) {
+                    let mut ids = vec![id_a.clone(), id_b.clone()];
+                    ids.sort();
+                    findings.push(DoctorFinding::NearDuplicateTasks { ids });
+                }
+            }
+        }
+
+        // 12. render drift — only if a roadmap was provided
         if let Some(roadmap) = roadmap_input
             && let Ok(rendered) = render_roadmap_str_with_today(roadmap, tasks, today)
             && rendered != roadmap
@@ -425,6 +517,181 @@ fn pinned_task_count(tasks: &Tasks, milestone_key: &str) -> usize {
         .iter()
         .filter(|task| task.milestone.as_deref() == Some(milestone_key))
         .count()
+}
+
+/// Live agent-assigned predicate shared with `validate_dispatch_model`:
+/// `status ∈ {pending, in_progress}` AND `assignee` set AND `assignee != "human"`.
+fn is_live_agent_assigned(task: &Task) -> bool {
+    if task.status != "pending" && task.status != "in_progress" {
+        return false;
+    }
+    matches!(task.assignee.as_deref(), Some(a) if !a.is_empty() && a != "human")
+}
+
+fn is_open_for_near_duplicate(task: &Task) -> bool {
+    matches!(task.status.as_str(), "pending" | "in_progress" | "blocked")
+}
+
+/// Strip double-quoted spans and *non-possessive* single-quoted spans so prose
+/// that *mentions* placeholders as examples (e.g. `contains 'TODO'`) does not
+/// trip the lint; unquoted `TODO` still does. Mid-word apostrophes (`task's`)
+/// are kept so they cannot open a span and un-quote a later example token.
+fn strip_quoted_spans(s: &str) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    let mut out = String::with_capacity(s.len());
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '"' {
+            i += 1;
+            while i < chars.len() && chars[i] != '"' {
+                i += 1;
+            }
+            if i < chars.len() {
+                i += 1; // consume closing "
+            }
+            out.push(' ');
+            continue;
+        }
+        if c == '\'' {
+            let prev_is_word =
+                i > 0 && (chars[i - 1].is_ascii_alphanumeric() || chars[i - 1] == '_');
+            if !prev_is_word && let Some(rel) = chars[i + 1..].iter().position(|&x| x == '\'') {
+                i = i + 1 + rel + 1; // skip opening, body, closing
+                out.push(' ');
+                continue;
+            }
+        }
+        out.push(c);
+        i += 1;
+    }
+    out
+}
+
+/// True when a criterion contains an unresolved placeholder after quote-stripping:
+/// whole-word `TODO` / `TBD` (case-insensitive), substring `???`, or `<stub>` angle
+/// brackets whose body is a simple identifier/phrase (no comparison operators).
+fn criterion_has_placeholder(criterion: &str) -> bool {
+    let unquoted = strip_quoted_spans(criterion);
+    let lower = unquoted.to_ascii_lowercase();
+
+    if contains_whole_word(&lower, "todo") || contains_whole_word(&lower, "tbd") {
+        return true;
+    }
+    if unquoted.contains("???") {
+        return true;
+    }
+    has_angle_bracket_stub(&unquoted)
+}
+
+fn contains_whole_word(haystack_lower: &str, word: &str) -> bool {
+    let bytes = haystack_lower.as_bytes();
+    let w = word.as_bytes();
+    let mut i = 0;
+    while i + w.len() <= bytes.len() {
+        if &bytes[i..i + w.len()] == w {
+            let before_ok = i == 0 || !is_word_char(bytes[i - 1]);
+            let after_ok = i + w.len() == bytes.len() || !is_word_char(bytes[i + w.len()]);
+            if before_ok && after_ok {
+                return true;
+            }
+        }
+        i += 1;
+    }
+    false
+}
+
+fn is_word_char(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_'
+}
+
+/// `<feature_name>` / `<todo>` style single-token stubs. Rejects empty `<>` and
+/// multi-token / comparison-like spans.
+fn has_angle_bracket_stub(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'<'
+            && let Some(end) = bytes[i + 1..].iter().position(|&b| b == b'>')
+        {
+            let inner = &s[i + 1..i + 1 + end];
+            if is_stub_body(inner) {
+                return true;
+            }
+            i += 1 + end + 1;
+            continue;
+        }
+        i += 1;
+    }
+    false
+}
+
+fn is_stub_body(inner: &str) -> bool {
+    let trimmed = inner.trim();
+    // Single-token stubs only (`<feature_name>`, `<todo>`). Reject spaces so
+    // comparison prose like `a < b and c > d` never matches.
+    if trimmed.is_empty() || trimmed.len() > 64 || trimmed.contains(' ') {
+        return false;
+    }
+    let mut chars = trimmed.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return false;
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+/// True when every non-stopword token is in [`VAGUE_WORDS`] and at least one such
+/// token exists. "works properly" → true; "renders in under 200ms so it feels fast" → false.
+fn criterion_is_vague(criterion: &str) -> bool {
+    let tokens = alphanumeric_tokens(criterion);
+    let content: Vec<&str> = tokens
+        .iter()
+        .map(String::as_str)
+        .filter(|t| !VAGUE_STOPWORDS.contains(t))
+        .collect();
+    !content.is_empty() && content.iter().all(|t| VAGUE_WORDS.contains(t))
+}
+
+fn alphanumeric_tokens(s: &str) -> Vec<String> {
+    let lower = s.to_ascii_lowercase();
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    for c in lower.chars() {
+        if c.is_ascii_alphanumeric() {
+            current.push(c);
+        } else if !current.is_empty() {
+            tokens.push(std::mem::take(&mut current));
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    tokens
+}
+
+fn title_body_tokens(task: &Task) -> HashSet<String> {
+    let mut text = task.title.clone();
+    if let Some(body) = &task.body {
+        text.push(' ');
+        text.push_str(body);
+    }
+    alphanumeric_tokens(&text).into_iter().collect()
+}
+
+/// Integer Jaccard: `|A∩B| / |A∪B| >= min_percent/100`. Empty sets never pair.
+fn jaccard_at_least(a: &HashSet<String>, b: &HashSet<String>, min_percent: u32) -> bool {
+    if a.is_empty() || b.is_empty() {
+        return false;
+    }
+    let inter = a.intersection(b).count();
+    let union = a.union(b).count();
+    if union == 0 {
+        return false;
+    }
+    inter * 100 >= union * min_percent as usize
 }
 
 impl fmt::Display for DoctorReport {
@@ -761,6 +1028,84 @@ impl fmt::Display for DoctorReport {
             }
         }
 
+        let placeholder_findings: Vec<&str> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::PlaceholderCriteria { id } = fi {
+                    Some(id.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !placeholder_findings.is_empty() {
+            writeln!(
+                f,
+                "\nPlaceholder acceptance criteria (TODO/TBD/???/<stub> on live agent-assigned tasks):"
+            )?;
+            for id in placeholder_findings {
+                writeln!(
+                    f,
+                    "  - task {id} — replace placeholder tokens in acceptance_criteria with measurable criteria"
+                )?;
+            }
+        }
+
+        let vague_findings: Vec<&str> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::VagueCriteria { id } = fi {
+                    Some(id.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !vague_findings.is_empty() {
+            writeln!(
+                f,
+                "\nVague / unmeasurable acceptance criteria (live agent-assigned):"
+            )?;
+            for id in vague_findings {
+                writeln!(
+                    f,
+                    "  - task {id} — criterion uses only vague wording ({}); add a measurable object",
+                    VAGUE_WORDS.join("/")
+                )?;
+            }
+        }
+
+        let near_dup_findings: Vec<&[String]> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::NearDuplicateTasks { ids } = fi {
+                    Some(ids.as_slice())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !near_dup_findings.is_empty() {
+            writeln!(
+                f,
+                "\nNear-duplicate open tasks (title+body Jaccard >= {}%):",
+                self.thresholds.near_duplicate_min
+            )?;
+            for ids in near_dup_findings {
+                writeln!(
+                    f,
+                    "  - tasks {} look near-identical — refine rather than duplicate",
+                    task_refs(ids)
+                )?;
+            }
+        }
+
         let has_drift = self
             .findings
             .iter()
@@ -792,4 +1137,68 @@ fn milestone_refs_with_counts(milestones: &[ActiveMilestone]) -> String {
         .map(|m| format!("{} ({} pinned)", m.milestone, m.task_count))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn placeholder_detects_unquoted_todo_tbd_and_stubs() {
+        assert!(criterion_has_placeholder("TODO finish the API surface"));
+        assert!(criterion_has_placeholder("details are TBD"));
+        assert!(criterion_has_placeholder("still ??? here"));
+        assert!(criterion_has_placeholder(
+            "implement <feature_name> handler"
+        ));
+        assert!(criterion_has_placeholder("todo: lowercase whole word"));
+    }
+
+    #[test]
+    fn placeholder_ignores_quoted_examples_and_non_stubs() {
+        assert!(!criterion_has_placeholder(
+            "quoted examples like 'TODO' or 'TBD' in prose do not count"
+        ));
+        assert!(!criterion_has_placeholder(
+            "contains 'TBD' as prose example"
+        ));
+        // Possessive apostrophe must not open a quote span and un-quote later examples.
+        assert!(!criterion_has_placeholder(
+            "a live agent-assigned task's acceptance_criteria contains 'TODO' or 'TBD'"
+        ));
+        assert!(!criterion_has_placeholder(
+            "compare a < b and c > d without stubs"
+        ));
+        assert!(!criterion_has_placeholder("no placeholders at all"));
+        assert!(!criterion_has_placeholder("empty <> is not a stub"));
+    }
+
+    #[test]
+    fn vague_detects_only_vague_wording() {
+        assert!(criterion_is_vague("works properly"));
+        assert!(criterion_is_vague("it works"));
+        assert!(criterion_is_vague("fast and robust"));
+        assert!(criterion_is_vague("correctly"));
+        assert!(!criterion_is_vague(
+            "renders in under 200ms so it feels fast"
+        ));
+        assert!(!criterion_is_vague("tests pass under cargo test"));
+        assert!(!criterion_is_vague(""));
+    }
+
+    #[test]
+    fn jaccard_threshold_integer_percent() {
+        let a: HashSet<String> = ["add", "auth", "flow", "login"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        let b: HashSet<String> = ["add", "auth", "flow", "signup"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        // |∩|=3, |∪|=5 → 60%
+        assert!(jaccard_at_least(&a, &b, 60));
+        assert!(!jaccard_at_least(&a, &b, 61));
+        assert!(!jaccard_at_least(&a, &HashSet::new(), 50));
+    }
 }

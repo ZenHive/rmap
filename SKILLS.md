@@ -400,11 +400,12 @@ rmap diff --json
 
 ## Health
 
-`rmap doctor` is the soft-signal aggregator. Findings: validate findings + render drift + stale (>30d in-progress) + score-decay (>30d `scored_at` or missing) + degenerate-bundle + missing-`acceptance_criteria` + claimed-not-graded (a `done` task without `verified` set — "claimed, not graded"), plus three drift/graph families:
+`rmap doctor` is the soft-signal aggregator. Findings: validate findings + render drift + stale (>30d in-progress) + score-decay (>30d `scored_at` or missing) + degenerate-bundle + missing-`acceptance_criteria` + claimed-not-graded (a `done` task without `verified` set — "claimed, not graded"), plus four soft families:
 
 - **phase drift** — phase all-done-but-still-open, a pending phase holding ≥1 in-progress task, and focus-phase-closed (`[focus].phase` points at a phase that looks done).
 - **milestone drift** — milestone all-done-but-still-open, and multiple-active-milestones (keep exactly one `active`).
 - **graph health** — bottleneck (a `pending`/`blocked` task whose transitive-dependent count is ≥ the bottleneck threshold), and isolated-node (an orphan with no in-repo deps and no dependents, or a node unreachable forward from any milestone-pinned task).
+- **spec quality** — placeholder/vague `acceptance_criteria` on live agent-assigned tasks (`placeholder_criteria` / `vague_criteria`), and near-duplicate open tasks by title+body Jaccard (`near_duplicate_tasks`). Token-mechanical only; no auto-merge.
 
 All findings are **soft** — `rmap doctor` **always exits 0** on success (no auto-mutation; phase/focus/milestone state is user-curated); it only fails when input is unparseable. CI gates should pipe through `jq`:
 
@@ -418,10 +419,10 @@ rmap doctor
 # exit: 0
 ```
 
-`--threshold-days <N>` overrides the 30d stale + score-decay cutoff; `--ac-threshold <N>` overrides the missing-`acceptance_criteria` D/B bar (default 5/8, collapsed to one value when set); `--bottleneck-min <N>` overrides the transitive-dependent count that trips the graph-bottleneck lint (default 3). The effective thresholds are echoed in the `--json` envelope.
+`--threshold-days <N>` overrides the 30d stale + score-decay cutoff; `--ac-threshold <N>` overrides the missing-`acceptance_criteria` D/B bar (default 5/8, collapsed to one value when set); `--bottleneck-min <N>` overrides the transitive-dependent count that trips the graph-bottleneck lint (default 3); `--near-duplicate-min <N>` overrides the Jaccard similarity percent (0–100) that trips near-duplicate pairing (default 80). The effective thresholds are echoed in the `--json` envelope.
 
 ```bash
-rmap doctor --threshold-days 60 --ac-threshold 6 --bottleneck-min 2
+rmap doctor --threshold-days 60 --ac-threshold 6 --bottleneck-min 2 --near-duplicate-min 90
 # exit: 0
 ```
 
