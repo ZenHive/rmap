@@ -20,10 +20,10 @@ jobs:
           path: |
             target
           key: rust-clippy-ci-${{ runner.os }}
-          
+
       - name: Clippy
         run: cargo clippy -- -D warnings
-        
+
       - name: Save cache
         id: cache-rust-clippy-ci-save
         uses: actions/cache/save@v5
@@ -45,7 +45,7 @@ jobs:
           path: |
             target
           key: rust-tests-ci-${{ runner.os }}
-    
+
       - name: Run tests
         run: RUST_BACKTRACE=1 cargo test --all -- --no-capture
 

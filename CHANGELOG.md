@@ -6,6 +6,14 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Tasks 43, 47, 48, 50, and 51: roadmap authoring and doctor hygiene
+
+**What was done:**
+- Added the optional `domains` task field to the creation, delegate, diff, and JSON/data export surfaces.
+- Extended `rmap doctor` with graph-health advisories (bottlenecks and isolated/unreachable tasks) and spec-quality advisories for placeholder/vague acceptance criteria and near-duplicate open tasks.
+- Added `rmap export dot` for Graphviz dependency output and `rmap waves` for the parallel dependency schedule.
+- Made `rmap new --from-stdin` report all invalid fields in one atomic validation pass, including phase and bundle hints.
+
 ## [0.2.0] — 2026-06-14
 
 ### `rmap assign` — set agent routing on an existing task
