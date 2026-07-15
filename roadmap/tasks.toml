@@ -1364,7 +1364,7 @@ done_at = "2026-06-16"
 id = 51
 phase = 16
 bundle = "doctor_spec_quality"
-status = "pending"
+status = "in_progress"
 title = "doctor: spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks"
 scores = { d = 4, b = 7, u = 7 }
 acceptance_criteria = ["rmap doctor on a roadmap where a live agent-assigned task's acceptance_criteria contains 'TODO' or 'TBD' emits a placeholder advisory citing the task id; exit code stays 0", "A live agent-assigned task whose only criterion is vague wording from the documented list (e.g. 'works properly') emits an unmeasurable-criteria advisory; a measurable criterion containing the same word (e.g. 'renders in under 200ms so it feels fast') does not", "Two open tasks with near-identical title+body emit one near-duplicate advisory citing both ids; done/superseded tasks never pair; the threshold flag changes the pairing outcome in a test", "JSON kinds are additive (placeholder_criteria, vague_criteria, near_duplicate_tasks); existing doctor JSON output for a roadmap without these findings is byte-identical", "rmap doctor on rmap's own roadmap/tasks.toml and on tests/skills_fixture produces zero new findings", "CLAUDE.md gains a doctor-invariant bullet for the three new kinds; SKILLS.md documents the new flag if user-visible (skills_smoke stays green)"]
@@ -1382,4 +1382,5 @@ Add two soft doctor advisory families inspired by spec-kit's /speckit.analyze (h
 All advisories are soft (exit 0, no auto-mutation), following the existing DoctorFinding pattern: human line citing task id(s) + additive JSON kind. Tune defaults so rmap's own roadmap/tasks.toml and tests/skills_fixture produce zero new findings.
 """
 created_at = "2026-07-15"
+started_at = "2026-07-15"
 scored_at = "2026-07-15"

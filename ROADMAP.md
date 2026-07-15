@@ -53,6 +53,8 @@ gantt
     Rejection-report / attempt-history writeback— record why a dispatch attempt failed on a task returning to pending :done, 2026-06-03, 2026-06-03
     Add `domains` task field— schema + JSON/data.json export (harness CapabilityScore reader is pre-wired— rmap never emits it) :done, 2026-06-04, 2026-06-04
     rmap assign — set assignee + model on an existing task :done, 2026-06-14, 2026-06-14
+    section Phase 16 — Graph queries
+    doctor— spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks :active, 2026-07-15, 2026-07-15
 ```
 <!-- MERMAID:END -->
 
@@ -143,5 +145,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 46 | ✅ | 🎁 **graph_queries** · rmap critical-path: longest dependency chain to a milestone/release [D:3/B:5/U:5 → Eff:1.67?] 🚀 |
 | Task 47 | ✅ | 🎁 **graph_queries** · rmap doctor graph-health advisories: bottleneck + isolated/unreachable node [D:3/B:4/U:4 → Eff:1.33?] 📋 |
 | Task 48 | ✅ | 🎁 **graph_queries** · rmap graph export: rmap export dot (Graphviz) + rmap waves (parallel dispatch schedule) [D:2/B:4/U:4 → Eff:2.0?] 🎯 |
-| Task 51 | ⬜ | 🎁 **doctor_spec_quality** · doctor: spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks [D:4/B:7/U:7 → Eff:1.75] 🚀 |
+| Task 51 | 🔄 | 🎁 **doctor_spec_quality** · doctor: spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks [D:4/B:7/U:7 → Eff:1.75] 🚀 |
 <!-- TASKS:END -->
