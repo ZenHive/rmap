@@ -1391,3 +1391,30 @@ started_at = "2026-07-15"
 scored_at = "2026-07-15"
 done_at = "2026-07-15"
 shipped_in = "4fd9640c89b433dbdc7d2430a2442afe6094816a"
+
+[[task]]
+id = 53
+phase = 15
+bundle = "delegate_targets"
+status = "pending"
+title = "Add kimi as a first-class agent target (assignee + delegate --to)"
+scores = { d = 2, b = 6, u = 6 }
+markers = ["parallel"]
+acceptance_criteria = ["rmap delegate <id> --to kimi renders a native prompt (Target: kimi in ## Context), matching the existing per-target rendering pattern", 'assignee = "kimi" passes validation everywhere the agent set is enumerated (validate, assign, new --from-stdin); the live-task model-required rule applies to kimi like any non-human assignee', "CLI tests cover both the delegate render and the assignee round-trip for kimi", "SKILLS.md and CLAUDE.md agent-target lists include kimi (skills_smoke stays green)"]
+out_of_scope = ["Any harness-side adapter work (lives in the harness repo)", "Kimi-specific prompt-template content beyond what other targets get from append_agent_notes"]
+touches = ["src/delegate.rs", "src/validate.rs", "tests/cli.rs", "SKILLS.md", "CLAUDE.md"]
+assignee = "codex"
+model = "gpt-5.5"
+body = """
+Kimi Code (Moonshot's coding CLI, https://moonshotai.github.io/kimi-code/) is being added
+as a harness dispatch agent. rmap renders the delegate prompts harness executes
+(harness shells out to `rmap delegate <id> --to <agent>`), so kimi must join the agent
+vocabulary here first: add a Kimi variant to DelegateTarget in src/delegate.rs and add
+"kimi" to the assignee validation set (src/validate.rs), following exactly the shape pi
+and droid took. Renderable-before-executable is the established order (droid precedent:
+rmap renders it, harness rejects it until an adapter exists), so this task has no harness
+dependency. After landing, the installed rmap binary must be rebuilt for harness to pick
+up the new target — note this in the delivery message.
+"""
+created_at = "2026-07-17"
+scored_at = "2026-07-17"

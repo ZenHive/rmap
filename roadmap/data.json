@@ -1991,6 +1991,48 @@
       "verified_by": "claude",
       "verification_ref": "harness-run:run-1784100285880-906487d7",
       "cross_repo": []
+    },
+    {
+      "id": 53,
+      "phase": 15,
+      "bundle": "delegate_targets",
+      "status": "pending",
+      "title": "Add kimi as a first-class agent target (assignee + delegate --to)",
+      "scores": {
+        "d": 2,
+        "b": 6,
+        "u": 6
+      },
+      "eff": 3.0,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [
+        "parallel"
+      ],
+      "depends_on": [],
+      "assignee": "codex",
+      "model": "gpt-5.5",
+      "acceptance_criteria": [
+        "rmap delegate <id> --to kimi renders a native prompt (Target: kimi in ## Context), matching the existing per-target rendering pattern",
+        "assignee = \"kimi\" passes validation everywhere the agent set is enumerated (validate, assign, new --from-stdin); the live-task model-required rule applies to kimi like any non-human assignee",
+        "CLI tests cover both the delegate render and the assignee round-trip for kimi",
+        "SKILLS.md and CLAUDE.md agent-target lists include kimi (skills_smoke stays green)"
+      ],
+      "out_of_scope": [
+        "Any harness-side adapter work (lives in the harness repo)",
+        "Kimi-specific prompt-template content beyond what other targets get from append_agent_notes"
+      ],
+      "touches": [
+        "src/delegate.rs",
+        "src/validate.rs",
+        "tests/cli.rs",
+        "SKILLS.md",
+        "CLAUDE.md"
+      ],
+      "body": "Kimi Code (Moonshot's coding CLI, https://moonshotai.github.io/kimi-code/) is being added\nas a harness dispatch agent. rmap renders the delegate prompts harness executes\n(harness shells out to `rmap delegate <id> --to <agent>`), so kimi must join the agent\nvocabulary here first: add a Kimi variant to DelegateTarget in src/delegate.rs and add\n\"kimi\" to the assignee validation set (src/validate.rs), following exactly the shape pi\nand droid took. Renderable-before-executable is the established order (droid precedent:\nrmap renders it, harness rejects it until an adapter exists), so this task has no harness\ndependency. After landing, the installed rmap binary must be rebuilt for harness to pick\nup the new target — note this in the delivery message.\n",
+      "created_at": "2026-07-17",
+      "scored_at": "2026-07-17",
+      "cross_repo": []
     }
   ]
 }
