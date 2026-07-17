@@ -147,6 +147,15 @@ enum Commands {
         /// Presence flag (no opposite — to clear, edit `tasks.toml` directly).
         #[arg(long)]
         verified: bool,
+        /// Outcome field: independent evaluator that supplied `--verified`.
+        /// Required with `--verified`; free-text and done-only.
+        #[arg(long)]
+        verified_by: Option<String>,
+        /// Outcome field: durable pointer to verification evidence (for
+        /// example a harness run id, CI URL, or review artifact). Optional,
+        /// free-text, and usable only with `--verified` on `done`.
+        #[arg(long)]
+        verification_ref: Option<String>,
         /// Outcome field: where the work landed (commit SHA / PR ref, free-text
         /// like `delivered_by`). Settable only on `done` transitions; ignored
         /// with a one-line stderr note otherwise. Overwrites any existing value.
@@ -634,6 +643,8 @@ fn run() -> Result<ExitCode> {
             implemented,
             delivered_by,
             verified,
+            verified_by,
+            verification_ref,
             shipped_in,
             reason,
             report,
@@ -651,6 +662,8 @@ fn run() -> Result<ExitCode> {
                     implemented: implemented.as_deref(),
                     delivered_by: delivered_by.as_deref(),
                     verified: if verified { Some(true) } else { None },
+                    verified_by: verified_by.as_deref(),
+                    verification_ref: verification_ref.as_deref(),
                     shipped_in: shipped_in.as_deref(),
                     blocked_reason: reason.as_deref(),
                     attempt_report: report.as_deref(),
@@ -1562,6 +1575,12 @@ fn update_status(
 
     if fields.verified.is_some() && new_status != "done" {
         eprintln!("warning: --verified ignored for status `{new_status}` (only applies to `done`)");
+    }
+
+    if (fields.verified_by.is_some() || fields.verification_ref.is_some()) && new_status != "done" {
+        eprintln!(
+            "warning: --verified-by/--verification-ref ignored for status `{new_status}` (only apply to `done`)"
+        );
     }
 
     if fields.shipped_in.is_some() && new_status != "done" {

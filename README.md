@@ -108,7 +108,7 @@ Optional, all additive:
 - `[phases.<N>]`, `[bundles.<name>]` — grouping and ordering
 - `[focus] phase = N` — bias `rmap next` toward a focus phase; surfaces a FOCUS block in `ROADMAP.md`
 - `[linear] team_key = "ENG"` — opt-in Linear cross-reference (validated only when present)
-- per-task: `markers`, `depends_on`, `cross_repo`, `module`, `assignee`, `model`, `domains`, `linear_id`, `acceptance_criteria`, `blocked_reason`, `started_at`, `done_at`, `shipped_in`, `scored_at`
+- per-task: `markers`, `depends_on`, `cross_repo`, `module`, `assignee`, `model`, `domains`, `linear_id`, `acceptance_criteria`, `blocked_reason`, `started_at`, `done_at`, `shipped_in`, `delivered_by`, `verified`, `verified_by`, `verification_ref`, `scored_at`
 
 **Efficiency** is computed at read time as `(b + u) / (2 * d)`, never stored. Scores older than 30 days get a decay suffix in the rendered view.
 

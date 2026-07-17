@@ -14,6 +14,14 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 - Added `rmap export dot` for Graphviz dependency output and `rmap waves` for the parallel dependency schedule.
 - Made `rmap new --from-stdin` report all invalid fields in one atomic validation pass, including phase and bundle hints.
 
+### Verifiable agent tasks and verification provenance
+
+**What was done:**
+- Live tasks explicitly assigned to a non-human agent now require at least one non-blank `acceptance_criteria` entry, alongside the existing model pin. rmap enforces the mechanical presence of observable results; AI authors and reviewers still judge their quality.
+- `rmap status <id> done --verified` now requires `--verified-by <evaluator>` and optionally accepts `--verification-ref <ref>` for a durable harness-run, CI, or review-artifact pointer. Both fields surface in `show`, JSON exports, projections, and verbose diffs.
+- Existing schema-v2 `verified = true` rows remain valid; `rmap doctor` reports `verified_without_provenance` until they acquire `verified_by`, avoiding a portfolio-wide breaking schema migration.
+- Harness writeback records the reviewer identity and `harness-run:<run-id>` evidence reference; task-writing, integration-testing, and reviewer guidance define live APIs as the ground-truth source for external contracts.
+
 ## [0.2.0] — 2026-06-14
 
 ### `rmap assign` — set agent routing on an existing task

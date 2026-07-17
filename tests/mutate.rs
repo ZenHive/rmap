@@ -108,6 +108,70 @@ fn update_status_rejects_invalid_status() {
 }
 
 #[test]
+fn update_status_verified_requires_evaluator_provenance() {
+    let err = update_status_str(
+        "roadmap/tasks.toml",
+        TASKS,
+        "74",
+        "done",
+        TransitionFields {
+            implemented: Some("shipped"),
+            verified: Some(true),
+            ..TransitionFields::default()
+        },
+    )
+    .expect_err("provenance-free verification is rejected");
+
+    assert!(err.to_string().contains("--verified-by"), "{err}");
+}
+
+#[test]
+fn update_status_writes_verification_provenance() {
+    let updated = update_status_str(
+        "roadmap/tasks.toml",
+        TASKS,
+        "74",
+        "done",
+        TransitionFields {
+            implemented: Some("shipped"),
+            verified: Some(true),
+            verified_by: Some("grok/grok-4.5"),
+            verification_ref: Some("harness-run:run-123"),
+            ..TransitionFields::default()
+        },
+    )
+    .expect("verified transition with provenance");
+
+    assert!(updated.contains("verified = true"), "{updated}");
+    assert!(
+        updated.contains("verified_by = \"grok/grok-4.5\""),
+        "{updated}"
+    );
+    assert!(
+        updated.contains("verification_ref = \"harness-run:run-123\""),
+        "{updated}"
+    );
+}
+
+#[test]
+fn update_status_rejects_provenance_without_verification() {
+    let err = update_status_str(
+        "roadmap/tasks.toml",
+        TASKS,
+        "74",
+        "done",
+        TransitionFields {
+            implemented: Some("shipped"),
+            verified_by: Some("reviewer"),
+            ..TransitionFields::default()
+        },
+    )
+    .expect_err("provenance without --verified is rejected");
+
+    assert!(err.to_string().contains("require --verified"), "{err}");
+}
+
+#[test]
 fn update_status_blocked_writes_then_auto_clears_reason() {
     // Blocking writes the reason...
     let blocked = update_status_str(

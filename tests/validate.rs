@@ -157,6 +157,72 @@ fn rejects_invalid_assignee() {
 }
 
 #[test]
+fn rejects_agent_assigned_live_task_without_acceptance_criteria() {
+    let input = VALID_TASKS.replace(
+        "linear_id = \"INE-300\"",
+        "linear_id = \"INE-300\"\nassignee = \"codex\"\nmodel = \"gpt-5.5\"",
+    );
+
+    let err = validate_tasks_str("roadmap/tasks.toml", &input)
+        .expect_err("dispatchable task without acceptance criteria is rejected");
+
+    assert!(
+        err.to_string().contains("missing acceptance_criteria"),
+        "{err}"
+    );
+}
+
+#[test]
+fn rejects_blank_acceptance_criterion_on_agent_assigned_live_task() {
+    let input = VALID_TASKS.replace(
+        "linear_id = \"INE-300\"",
+        "linear_id = \"INE-300\"\nassignee = \"codex\"\nmodel = \"gpt-5.5\"\nacceptance_criteria = [\"  \"]",
+    );
+
+    let err = validate_tasks_str("roadmap/tasks.toml", &input)
+        .expect_err("blank acceptance criterion is rejected");
+
+    assert!(
+        err.to_string().contains("missing acceptance_criteria"),
+        "{err}"
+    );
+}
+
+#[test]
+fn permits_missing_acceptance_criteria_for_human_or_unassigned_tasks() {
+    let human = VALID_TASKS.replace(
+        "linear_id = \"INE-300\"",
+        "linear_id = \"INE-300\"\nassignee = \"human\"",
+    );
+
+    validate_tasks_str("roadmap/tasks.toml", &human).expect("human task is not dispatchable");
+    validate_tasks_str("roadmap/tasks.toml", VALID_TASKS).expect("unassigned task is valid");
+}
+
+#[test]
+fn rejects_blank_or_contradictory_verification_provenance() {
+    let blank = VALID_TASKS.replace(
+        "shipped_in = \"PR #21\"",
+        "shipped_in = \"PR #21\"\nverified = true\nverified_by = \"  \"",
+    );
+    let err = validate_tasks_str("roadmap/tasks.toml", &blank)
+        .expect_err("blank verified_by is rejected");
+    assert!(err.to_string().contains("empty verified_by"), "{err}");
+
+    let contradictory = VALID_TASKS.replace(
+        "shipped_in = \"PR #21\"",
+        "shipped_in = \"PR #21\"\nverification_ref = \"harness-run:123\"",
+    );
+    let err = validate_tasks_str("roadmap/tasks.toml", &contradictory)
+        .expect_err("provenance without verification is rejected");
+    assert!(
+        err.to_string()
+            .contains("verification_ref but is not verified"),
+        "{err}"
+    );
+}
+
+#[test]
 fn rejects_linear_id_that_does_not_match_team_key() {
     let input = VALID_TASKS.replace("linear_id = \"INE-300\"", "linear_id = \"OPS-300\"");
 

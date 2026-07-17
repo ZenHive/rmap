@@ -1757,6 +1757,7 @@ status = "pending"
 title = "Assigned task"
 assignee = "{agent}"
 model = "some-model"
+acceptance_criteria = ["The requested behavior is covered by a passing test"]
 scores = {{ d = 2, b = 5, u = 5 }}
 "#
         );
@@ -1825,6 +1826,7 @@ status = "{status}"
 title = "Routed task"
 assignee = "{assignee}"
 {model_line}
+acceptance_criteria = ["The routed task has a verifiable result"]
 implemented = "done"
 blocked_reason = "waiting"
 scores = {{ d = 2, b = 5, u = 5 }}
@@ -6042,6 +6044,7 @@ bundle = "secondary"
 status = "done"
 implemented = "fixture"
 verified = true
+verified_by = "fixture-reviewer"
 title = "Clean task B"
 scores = { d = 1, b = 3, u = 3 }
 scored_at = "2026-04-20"
@@ -6338,6 +6341,7 @@ bundle = "everything"
 status = "done"
 implemented = "fixture"
 verified = true
+verified_by = "fixture-reviewer"
 title = "Substantive but done — should be skipped"
 scores = { d = 6, b = 9, u = 7 }
 scored_at = "2026-04-20"
@@ -8779,6 +8783,7 @@ phase = 1
 bundle = "alpha"
 status = "pending"
 title = "Unassigned task"
+acceptance_criteria = ["The task can be assigned with an explicit model"]
 scores = { d = 2, b = 5, u = 5 }
 
 [[task]]
@@ -8789,6 +8794,7 @@ status = "pending"
 title = "Assigned task"
 assignee = "codex"
 model = "gpt-5.4"
+acceptance_criteria = ["The assigned task remains valid"]
 scores = { d = 2, b = 5, u = 5 }
 "#;
 
@@ -9313,6 +9319,8 @@ bundle = "core"
 status = "done"
 implemented = "fixture"
 verified = true
+verified_by = "grok/grok-4.5"
+verification_ref = "harness-run:existing"
 delivered_by = "codex"
 done_at = "2026-05-10"
 title = "Already-shipped task"
@@ -9338,6 +9346,10 @@ fn status_done_with_delivered_by_and_verified_persists_both_fields() {
         .arg("--delivered-by")
         .arg("claude")
         .arg("--verified")
+        .arg("--verified-by")
+        .arg("grok/grok-4.5")
+        .arg("--verification-ref")
+        .arg("harness-run:run-123")
         .arg("--tasks-path")
         .arg(&tasks_path)
         .env("RMAP_TODAY", "2026-05-14")
@@ -9364,6 +9376,8 @@ fn status_done_with_delivered_by_and_verified_persists_both_fields() {
         task_1_section.contains("verified = true"),
         "verified missing on task 1:\n{task_1_section}"
     );
+    assert!(task_1_section.contains("verified_by = \"grok/grok-4.5\""));
+    assert!(task_1_section.contains("verification_ref = \"harness-run:run-123\""));
     assert!(
         task_1_section.contains("implemented = \"shipped\""),
         "implemented missing on task 1:\n{task_1_section}"
@@ -9371,7 +9385,7 @@ fn status_done_with_delivered_by_and_verified_persists_both_fields() {
 }
 
 #[test]
-fn status_done_verified_alone_writes_only_verified() {
+fn status_done_verified_with_evaluator_writes_provenance() {
     let dir = temp_dir();
     fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
     let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
@@ -9384,6 +9398,8 @@ fn status_done_verified_alone_writes_only_verified() {
         .arg("--implemented")
         .arg("shipped")
         .arg("--verified")
+        .arg("--verified-by")
+        .arg("grok/grok-4.5")
         .arg("--tasks-path")
         .arg(&tasks_path)
         .env("RMAP_TODAY", "2026-05-14")
@@ -9406,9 +9422,42 @@ fn status_done_verified_alone_writes_only_verified() {
         task_1_section.contains("verified = true"),
         "verified missing on task 1: {task_1_section}"
     );
+    assert!(task_1_section.contains("verified_by = \"grok/grok-4.5\""));
     assert!(
         !task_1_section.contains("delivered_by"),
         "delivered_by unexpectedly written for task 1: {task_1_section}"
+    );
+}
+
+#[test]
+fn status_done_verified_without_evaluator_fails_without_mutating() {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", OUTCOME_TASKS);
+    write_file(&dir, "ROADMAP.md", OUTCOME_ROADMAP);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("done")
+        .arg("--implemented")
+        .arg("shipped")
+        .arg("--verified")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status");
+
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("--verified-by"),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        fs::read_to_string(&tasks_path).expect("read tasks"),
+        OUTCOME_TASKS
     );
 }
 
@@ -9426,6 +9475,10 @@ fn status_non_done_with_delivered_by_emits_warning_and_skips_write() {
         .arg("--delivered-by")
         .arg("claude")
         .arg("--verified")
+        .arg("--verified-by")
+        .arg("ignored-reviewer")
+        .arg("--verification-ref")
+        .arg("ignored-ref")
         .arg("--tasks-path")
         .arg(&tasks_path)
         .env("RMAP_TODAY", "2026-05-14")
@@ -9448,6 +9501,7 @@ fn status_non_done_with_delivered_by_emits_warning_and_skips_write() {
         stderr.contains("--verified ignored for status `in_progress`"),
         "expected verified warning:\n{stderr}"
     );
+    assert!(stderr.contains("--verified-by/--verification-ref ignored"));
 
     let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
     let task_1_section = tasks
@@ -9480,6 +9534,10 @@ fn status_done_with_shipped_in_persists_field() {
         .arg("--delivered-by")
         .arg("claude")
         .arg("--verified")
+        .arg("--verified-by")
+        .arg("grok/grok-4.5")
+        .arg("--verification-ref")
+        .arg("harness-run:run-123")
         .arg("--shipped-in")
         .arg("abc123")
         .arg("--tasks-path")
@@ -9513,6 +9571,8 @@ fn status_done_with_shipped_in_persists_field() {
         task_1_section.contains("verified = true"),
         "verified missing on task 1:\n{task_1_section}"
     );
+    assert!(task_1_section.contains("verified_by = \"grok/grok-4.5\""));
+    assert!(task_1_section.contains("verification_ref = \"harness-run:run-123\""));
     assert!(
         task_1_section.contains("implemented = \"shipped\""),
         "implemented missing on task 1:\n{task_1_section}"
@@ -9851,6 +9911,11 @@ fn show_command_renders_delivered_by_and_verified() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("delivered_by: codex"), "{stdout}");
     assert!(stdout.contains("verified: yes"), "{stdout}");
+    assert!(stdout.contains("verified_by: grok/grok-4.5"), "{stdout}");
+    assert!(
+        stdout.contains("verification_ref: harness-run:existing"),
+        "{stdout}"
+    );
 
     // JSON surface carries both as native types.
     let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
@@ -9864,6 +9929,8 @@ fn show_command_renders_delivered_by_and_verified() {
     let value: serde_json::Value = serde_json::from_slice(&json.stdout).expect("valid json");
     assert_eq!(value["delivered_by"], "codex");
     assert_eq!(value["verified"], true);
+    assert_eq!(value["verified_by"], "grok/grok-4.5");
+    assert_eq!(value["verification_ref"], "harness-run:existing");
 }
 
 #[test]
@@ -9906,8 +9973,21 @@ bundle = "adjunct"
 status = "done"
 implemented = "fixture"
 verified = true
+verified_by = "grok/grok-4.5"
 done_at = "2026-05-10"
 title = "Done and verified"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+
+[[task]]
+id = 3
+phase = 1
+bundle = "adjunct"
+status = "done"
+implemented = "fixture"
+verified = true
+done_at = "2026-05-10"
+title = "Legacy verified without provenance"
 scores = { d = 2, b = 4, u = 4 }
 scored_at = "2026-05-01"
 "#;
@@ -9936,6 +10016,11 @@ scored_at = "2026-05-01"
         !stdout.contains("task 2"),
         "task 2 has verified=true; should not appear:\n{stdout}"
     );
+    assert!(
+        stdout.contains("Verified without provenance"),
+        "expected provenance section:\n{stdout}"
+    );
+    assert!(stdout.contains("task 3"), "{stdout}");
 
     // JSON surface carries the discriminant directly.
     let json_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
@@ -9955,6 +10040,12 @@ scored_at = "2026-05-01"
         .collect();
     assert_eq!(claimed.len(), 1);
     assert_eq!(claimed[0]["id"], "1");
+    let provenance: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|finding| finding["kind"] == "verified_without_provenance")
+        .collect();
+    assert_eq!(provenance.len(), 1);
+    assert_eq!(provenance[0]["id"], "3");
 }
 
 #[test]
@@ -10008,6 +10099,8 @@ status = "done"
 implemented = "fixture"
 delivered_by = "claude"
 verified = true
+verified_by = "independent-reviewer"
+verification_ref = "harness-run:abc123"
 done_at = "2026-05-10"
 title = "Task"
 scores = { d = 2, b = 4, u = 4 }
@@ -10080,6 +10173,8 @@ scored_at = "2026-05-01"
 
     let has_delivered_by = values.iter().any(|v| v["field"] == "delivered_by");
     let has_verified = values.iter().any(|v| v["field"] == "verified");
+    let has_verified_by = values.iter().any(|v| v["field"] == "verified_by");
+    let has_verification_ref = values.iter().any(|v| v["field"] == "verification_ref");
     assert!(
         has_delivered_by,
         "expected delivered_by in --verbose values: {value}"
@@ -10087,6 +10182,14 @@ scored_at = "2026-05-01"
     assert!(
         has_verified,
         "expected verified in --verbose values: {value}"
+    );
+    assert!(
+        has_verified_by,
+        "expected verified_by in --verbose values: {value}"
+    );
+    assert!(
+        has_verification_ref,
+        "expected verification_ref in --verbose values: {value}"
     );
 }
 
@@ -10335,6 +10438,7 @@ scored_at = "2026-05-01"
 assignee = "claude"
 model = "claude-opus-4-8"
 body = "do the thing"
+acceptance_criteria = ["The prior failure is fixed and verified"]
 attempts = [{ at = "2026-05-14", by = "claude", report = "reviewer rejected: missing edge-case test" }]
 "#;
     let path = write_temp_tasks("delegate_attempt.toml", with_attempt);
@@ -10441,6 +10545,7 @@ bundle = "ac"
 status = "done"
 implemented = "fixture"
 verified = true
+verified_by = "fixture-reviewer"
 done_at = "2026-05-10"
 assignee = "cursor"
 model = "composer"
@@ -10493,6 +10598,7 @@ bundle = "dup"
 status = "done"
 implemented = "fixture"
 verified = true
+verified_by = "fixture-reviewer"
 done_at = "2026-05-10"
 title = "Add OAuth login flow for mobile clients"
 body = "Implement OAuth login flow so mobile clients can authenticate via the shared auth service."

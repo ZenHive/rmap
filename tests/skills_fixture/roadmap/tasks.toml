@@ -65,3 +65,4 @@ title = "polish & cleanup"
 scores = { d = 2, b = 3, u = 3 }
 scored_at = "2026-05-10"
 depends_on = [2]
+acceptance_criteria = ["cleanup is covered by the existing check stack"]

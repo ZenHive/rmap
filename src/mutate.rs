@@ -38,6 +38,14 @@ pub enum MutateError {
     /// Numeric id space exhausted — the highest existing id is `u32::MAX`.
     #[error("cannot auto-allocate task id: u32 id space exhausted (highest existing id = {0})")]
     IdExhausted(u32),
+    /// A new positive verification claim lacked independent-evaluator provenance.
+    #[error(
+        "--verified requires a non-empty --verified-by; provenance-free verification claims are not allowed"
+    )]
+    MissingVerifiedBy,
+    /// Provenance was supplied without the positive verification it explains.
+    #[error("--verified-by/--verification-ref require --verified")]
+    ProvenanceWithoutVerification,
 }
 
 /// A single marker operation parsed from `mark`'s positional arguments.
@@ -107,7 +115,8 @@ impl CrossRepoSpec {
 /// so the status mutators stay under clippy's argument-count ceiling as the
 /// outcome layer grows. All are optional; `None` leaves the field untouched.
 /// Each field is gated on its matching transition: the first four (`implemented`,
-/// `delivered_by`, `verified`, `shipped_in`) apply only on a `done` transition;
+/// `delivered_by`, `verified`, `verified_by`, `verification_ref`, `shipped_in`)
+/// apply only on a `done` transition;
 /// `blocked_reason` applies only on a `blocked` transition; `attempt_report` /
 /// `attempt_by` apply only on a `pending` transition. On any other transition
 /// the relevant fields are ignored. `Default` yields all-`None` (the common
@@ -122,6 +131,12 @@ pub struct TransitionFields<'a> {
     /// Independent-evaluator confirmation. `Some(true)` = a grader agreed.
     /// Done-only.
     pub verified: Option<bool>,
+    /// Independent evaluator behind `verified = true`. Done-only and required
+    /// whenever this transition writes a positive verification claim.
+    pub verified_by: Option<&'a str>,
+    /// Durable pointer to verification evidence (harness run, CI URL, review
+    /// artifact). Done-only and meaningful only with `verified = true`.
+    pub verification_ref: Option<&'a str>,
     /// Where the work landed — commit SHA / PR ref (free-text). Done-only.
     pub shipped_in: Option<&'a str>,
     /// Why the task is blocked (free-text). Blocked-only: written on a `blocked`
@@ -158,7 +173,8 @@ pub struct TransitionFields<'a> {
 /// `validate_implemented` check will reject the transition unless the task
 /// already carries an `implemented` field.
 ///
-/// `fields.delivered_by` / `fields.verified` / `fields.shipped_in`: outcome-layer
+/// `fields.delivered_by` / `fields.verified` / `fields.verified_by` /
+/// `fields.verification_ref` / `fields.shipped_in`: outcome-layer
 /// transition-time fields. Mirror `implemented`'s semantics — write on `done`
 /// transitions when `Some`, overwrite any existing value, ignored on non-`done`
 /// transitions. `verified = Some(true)` means an independent check passed; absent
@@ -190,6 +206,21 @@ pub fn update_status_many_str(
         return Err(MutateError::EmptyIds);
     }
 
+    if new_status == "done"
+        && fields.verified == Some(true)
+        && fields
+            .verified_by
+            .is_none_or(|verified_by| verified_by.trim().is_empty())
+    {
+        return Err(MutateError::MissingVerifiedBy);
+    }
+    if new_status == "done"
+        && fields.verified != Some(true)
+        && (fields.verified_by.is_some() || fields.verification_ref.is_some())
+    {
+        return Err(MutateError::ProvenanceWithoutVerification);
+    }
+
     let path = path.into();
     let mut document =
         DocumentMut::from_str(input).map_err(|err| MutateError::Toml(err.to_string()))?;
@@ -211,16 +242,26 @@ pub fn update_status_many_str(
         implemented,
         delivered_by,
         verified,
+        verified_by,
+        verification_ref,
         shipped_in,
         blocked_reason,
         attempt_report,
         attempt_by,
     } = fields;
-    let (implemented, delivered_by, verified, shipped_in) = if new_status == "done" {
-        (implemented, delivered_by, verified, shipped_in)
-    } else {
-        (None, None, None, None)
-    };
+    let (implemented, delivered_by, verified, verified_by, verification_ref, shipped_in) =
+        if new_status == "done" {
+            (
+                implemented,
+                delivered_by,
+                verified,
+                verified_by,
+                verification_ref,
+                shipped_in,
+            )
+        } else {
+            (None, None, None, None, None, None)
+        };
     let blocked_reason = if new_status == "blocked" {
         blocked_reason
     } else {
@@ -275,6 +316,22 @@ pub fn update_status_many_str(
             if let Some(value) = verified {
                 let was_present = task.contains_key("verified");
                 task.insert("verified", Item::Value(Value::from(value)));
+                if !was_present {
+                    needs_sort = true;
+                }
+            }
+
+            if let Some(value) = verified_by {
+                let was_present = task.contains_key("verified_by");
+                task.insert("verified_by", Item::Value(Value::from(value)));
+                if !was_present {
+                    needs_sort = true;
+                }
+            }
+
+            if let Some(value) = verification_ref {
+                let was_present = task.contains_key("verification_ref");
+                task.insert("verification_ref", Item::Value(Value::from(value)));
                 if !was_present {
                     needs_sort = true;
                 }
@@ -644,12 +701,14 @@ fn canonical_task_key_index(key: &str) -> u32 {
         "implemented" => 22,
         "delivered_by" => 23,
         "verified" => 24,
-        "created_at" => 25,
-        "started_at" => 26,
-        "scored_at" => 27,
-        "done_at" => 28,
-        "shipped_in" => 29,
-        "attempts" => 30,
+        "verified_by" => 25,
+        "verification_ref" => 26,
+        "created_at" => 27,
+        "started_at" => 28,
+        "scored_at" => 29,
+        "done_at" => 30,
+        "shipped_in" => 31,
+        "attempts" => 32,
         _ => u32::MAX,
     }
 }
@@ -1064,6 +1123,7 @@ bundle = "b"
 status = "pending"
 title = "Task One"
 scores = { d = 1, b = 5, u = 5 }
+acceptance_criteria = ["Observable result"]
 "#;
 
     #[test]

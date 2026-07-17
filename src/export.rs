@@ -87,6 +87,10 @@ struct ExportedTask<'a> {
     delivered_by: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verified_by: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verification_ref: Option<&'a String>,
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
     attempts: &'a [Attempt],
     cross_repo: &'a [CrossRepo],
@@ -129,6 +133,8 @@ pub const EXPORTED_TASK_FIELDS: &[&str] = &[
     "implemented",
     "delivered_by",
     "verified",
+    "verified_by",
+    "verification_ref",
     "attempts",
     "cross_repo",
 ];
@@ -337,6 +343,8 @@ fn exported_task<'a>(task: &'a Task, metrics: &GraphMetrics) -> ExportedTask<'a>
         implemented: task.implemented.as_ref(),
         delivered_by: task.delivered_by.as_ref(),
         verified: task.verified,
+        verified_by: task.verified_by.as_ref(),
+        verification_ref: task.verification_ref.as_ref(),
         attempts: &task.attempts,
         cross_repo: &task.cross_repo,
     }
@@ -400,6 +408,8 @@ blocked_reason = "was blocked"
 implemented = "what shipped"
 delivered_by = "codex"
 verified = true
+verified_by = "grok/grok-4.5"
+verification_ref = "harness-run:run-123"
 attempts = [{ at = "2026-01-02", by = "claude", report = "reviewer rejected: tests red" }]
 cross_repo = [{ repo = "other", task_id = 5, relation = "blocks" }]
 "#;

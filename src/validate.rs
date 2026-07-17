@@ -85,6 +85,12 @@ pub fn collect_findings(tasks: &Tasks, path: &str, input: &str) -> Vec<ValidateE
     if let Err(e) = validate_dispatch_model(path, input, tasks) {
         findings.push(e);
     }
+    if let Err(e) = validate_dispatch_acceptance_criteria(path, input, tasks) {
+        findings.push(e);
+    }
+    if let Err(e) = validate_verification_provenance(path, input, tasks) {
+        findings.push(e);
+    }
     if let Err(e) = validate_linear_ids(path, input, tasks) {
         findings.push(e);
     }
@@ -135,6 +141,8 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_scores(&path, input, &tasks)?;
     validate_assignees(&path, input, &tasks)?;
     validate_dispatch_model(&path, input, &tasks)?;
+    validate_dispatch_acceptance_criteria(&path, input, &tasks)?;
+    validate_verification_provenance(&path, input, &tasks)?;
     validate_linear_ids(&path, input, &tasks)?;
     validate_timestamps(&path, input, &tasks)?;
     validate_blocked_reasons(&path, input, &tasks)?;
@@ -310,6 +318,86 @@ fn validate_dispatch_model(path: &str, input: &str, tasks: &Tasks) -> Result<(),
                 task.id
             ),
         ));
+    }
+
+    Ok(())
+}
+
+/// A live task explicitly routed to an agent must define observable completion.
+///
+/// This mirrors `validate_dispatch_model`: terminal, unassigned, and human tasks
+/// are exempt. rmap validates only the mechanical contract (at least one
+/// non-blank criterion); an AI author/reviewer judges whether the criteria are
+/// meaningful and grounded in reality.
+fn validate_dispatch_acceptance_criteria(
+    path: &str,
+    input: &str,
+    tasks: &Tasks,
+) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        let live = task.status == "pending" || task.status == "in_progress";
+        let agent_assigned = task
+            .assignee
+            .as_deref()
+            .is_some_and(|assignee| !assignee.is_empty() && assignee != "human");
+        if !live || !agent_assigned {
+            continue;
+        }
+
+        if !task.acceptance_criteria.is_empty()
+            && task
+                .acceptance_criteria
+                .iter()
+                .all(|criterion| !criterion.trim().is_empty())
+        {
+            continue;
+        }
+
+        return Err(semantic_error(
+            path,
+            line_containing(input, &format!("id = {}", task.id)).unwrap_or(FIRST_LINE_NUMBER),
+            format!(
+                "task {} is assigned to an agent but missing acceptance_criteria (a dispatchable task must define at least one non-empty observable result)",
+                task.id
+            ),
+        ));
+    }
+
+    Ok(())
+}
+
+/// Provenance fields are meaningful only alongside a positive verification.
+///
+/// Legacy `verified = true` rows without `verified_by` remain schema-v2-valid;
+/// `rmap doctor` surfaces them while the status mutator prevents creating new
+/// provenance-free claims. This validator still rejects contradictory or blank
+/// provenance authored directly in TOML.
+fn validate_verification_provenance(
+    path: &str,
+    input: &str,
+    tasks: &Tasks,
+) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        for (field, value) in [
+            ("verified_by", task.verified_by.as_deref()),
+            ("verification_ref", task.verification_ref.as_deref()),
+        ] {
+            let Some(value) = value else { continue };
+            if value.trim().is_empty() {
+                return Err(semantic_error(
+                    path,
+                    line_containing(input, &format!("{field} =")).unwrap_or(FIRST_LINE_NUMBER),
+                    format!("task {} has empty {field}", task.id),
+                ));
+            }
+            if task.verified != Some(true) {
+                return Err(semantic_error(
+                    path,
+                    line_containing(input, &format!("{field} =")).unwrap_or(FIRST_LINE_NUMBER),
+                    format!("task {} has {field} but is not verified", task.id),
+                ));
+            }
+        }
     }
 
     Ok(())

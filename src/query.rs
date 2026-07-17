@@ -161,6 +161,14 @@ pub fn format_task(task: &Task) -> String {
         lines.push(format!("verified: {}", if verified { "yes" } else { "no" }));
     }
 
+    if let Some(verified_by) = &task.verified_by {
+        lines.push(format!("verified_by: {verified_by}"));
+    }
+
+    if let Some(verification_ref) = &task.verification_ref {
+        lines.push(format!("verification_ref: {verification_ref}"));
+    }
+
     if !task.attempts.is_empty() {
         lines.push(format!("attempts ({}):", task.attempts.len()));
         for attempt in &task.attempts {

@@ -51,7 +51,7 @@ title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }              # eff = (b+u)/(2d) computed by rmap, never stored
 scored_at = "2026-04-15"                      # last D/B/U revision; >30d renders with `?` suffix
 markers = ["parallel"]                        # subset of: parallel | cx | csr
-assignee = "claude"                           # human | claude | codex | cursor (optional)
+assignee = "claude"                           # execution target (optional; see delegate targets)
 model = "claude-opus-4-7"                     # LLM model to use (optional, free-text); rmap delegate surfaces it
 domains = ["rust", "otp"]                     # optional free-text capability tags; downstream owns vocabulary
 linear_id = "INE-247"                         # optional — when a Linear issue tracks this task
@@ -61,6 +61,8 @@ done_at    = "2026-04-30"                     # set when status → done
 shipped_in = "PR #21"                         # PR title/number or commit SHA
 delivered_by = "claude"                       # outcome layer — agent that actually shipped (free-text, optional)
 verified = true                               # outcome layer — independent evaluator confirmed (optional bool)
+verified_by = "codex-reviewer"                # required when a new verified outcome is written
+verification_ref = "harness-run:abc123"       # optional evidence pointer (run, CI, PR, report)
 
 [[task]]
 id = 75
@@ -244,10 +246,10 @@ Read this section before changing anything. The schema example above IS the cont
 - `status` must be one of `{"pending", "in_progress", "blocked", "done", "superseded"}`. When `status = "blocked"`, `blocked_reason` is required.
 - `[milestones.<name>].status` must be one of `{"pending", "active", "done"}` — distinct vocabulary from task status. `task.milestone`, when present, must reference a declared `[milestones.<name>]` key. Milestones are flat-namespace (no nesting) and a task pins to at most one.
 - `linear_id` (when present) must match `<team_key>-<integer>` per `[linear].team_key`. Skip the format check entirely if the `[linear]` table is absent — Linear is opt-in.
-- `assignee` (when present) must be one of `{"human", "claude", "codex", "cursor"}`.
+- A live (`pending` / `in_progress`) task assigned to a non-`human` agent must pin a non-empty `model` and contain at least one non-empty `acceptance_criteria` entry. This is the dispatch boundary: an AI coder must receive observable completion results before work starts.
 - `domains` is an optional free-text list for advisory capability/routing metadata. rmap validates shape only; downstream consumers own the vocabulary.
 - Timestamps (`created_at`, `started_at`, `done_at`, `scored_at`) are ISO-8601 dates (`YYYY-MM-DD`). All optional — presence is what unlocks decay / stale / recently-shipped features.
-- **Outcome layer** (`delivered_by`, `verified`) is two queryable facts about a completed task, distinct from the implementer's `implemented` prose. `delivered_by` (free-text, like `model`) records which agent actually executed the task; it answers "who shipped this?" without parsing prose. `verified` (optional bool) encodes evaluator separation per `workflow-philosophy.md`: `true` = an independent check passed (verification stack green, code-review approved); absent = not yet graded (hand-built, bootstrap, merged directly). Both are optional, both transition-time, both set by `rmap status <id> done --delivered-by <agent> --verified` (overwriting on re-set, like `implemented`). `rmap doctor` surfaces `done && verified.is_none()` as a soft `ClaimedNotGraded` advisory and never fails — hand-built tasks are legitimate. Adding a composite score / agent leaderboard / agent registry is out of scope; ranking is the consumer's job.
+- **Outcome layer** (`delivered_by`, `verified`, `verified_by`, `verification_ref`) records completion separately from the implementer's `implemented` prose. `delivered_by` identifies who shipped; `verified = true` says an independent evaluator checked it; `verified_by` identifies that evaluator; optional `verification_ref` points to durable evidence such as a harness run, CI job, PR, or report. New verified transitions use `rmap status <id> done --verified --verified-by <evaluator> [--verification-ref <ref>]`; provenance without `--verified` is rejected. Legacy schema-v2 rows with `verified = true` but no evaluator remain valid and surface as the soft `VerifiedWithoutProvenance` doctor advisory. `done && verified.is_none()` remains the soft `ClaimedNotGraded` advisory. Adding a composite score / agent leaderboard / agent registry is out of scope; ranking is the consumer's job.
 - `<!-- TASKS:BEGIN phase=N -->` / `<!-- TASKS:END -->` are preservation boundaries. Render replaces ONLY contents between matching markers; everything else in `ROADMAP.md` is hand-edited prose and must be byte-preserved. Same rule for `<!-- FOCUS:BEGIN -->` / `<!-- FOCUS:END -->`, `<!-- MERMAID:BEGIN -->` / `<!-- MERMAID:END -->`, and `<!-- MILESTONES:BEGIN -->` / `<!-- MILESTONES:END -->`.
 - Task ids are unique. `validate_unique_ids` rejects any `tasks.toml` with two `[[task]]` entries sharing an id, including cross-form collisions where one is written as a TOML integer and the other as a TOML string of the same digits (`id = 1` vs `id = "1"`). `TaskId`'s `Eq` and `Hash` are deliberately normalizing for this reason — identity is identity, and the disk form doesn't change which task an id names. The same normalization makes `validate_dependencies` and `validate_dependency_cycles` correct on mixed-form files: a `depends_on = ["1"]` entry resolves to a peer with `id = 1` (and a self-loop with `id = 1, depends_on = ["1"]` is caught as a cycle). Text ids that do not parse as `u32` (e.g. `"INE-5"`, `"alpha"`) keep their own canonical key and never collide with a numeric id.
 

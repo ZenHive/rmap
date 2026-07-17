@@ -111,6 +111,11 @@ pub enum DoctorFinding {
     ClaimedNotGraded {
         id: String,
     },
+    /// Migration advisory for legacy positive verification claims that predate
+    /// evaluator provenance. New CLI transitions reject this shape.
+    VerifiedWithoutProvenance {
+        id: String,
+    },
     PhaseFullyDoneButOpen {
         phase: u32,
         status: String,
@@ -287,6 +292,17 @@ impl DoctorReport {
         for task in &tasks.task {
             if task.status == "done" && task.verified.is_none() {
                 findings.push(DoctorFinding::ClaimedNotGraded {
+                    id: task_id_display(&task.id),
+                });
+            }
+            if task.status == "done"
+                && task.verified == Some(true)
+                && task
+                    .verified_by
+                    .as_deref()
+                    .is_none_or(|verified_by| verified_by.trim().is_empty())
+            {
+                findings.push(DoctorFinding::VerifiedWithoutProvenance {
                     id: task_id_display(&task.id),
                 });
             }
@@ -842,6 +858,31 @@ impl fmt::Display for DoctorReport {
                 writeln!(
                     f,
                     "  - task {id} — set `--verified` on `rmap status done` once an independent check passes"
+                )?;
+            }
+        }
+
+        let provenance_findings: Vec<&str> = self
+            .findings
+            .iter()
+            .filter_map(|finding| {
+                if let DoctorFinding::VerifiedWithoutProvenance { id } = finding {
+                    Some(id.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !provenance_findings.is_empty() {
+            writeln!(
+                f,
+                "\nVerified without provenance (`verified = true` but no `verified_by`):"
+            )?;
+            for id in provenance_findings {
+                writeln!(
+                    f,
+                    "  - task {id} — record the independent evaluator in `verified_by`"
                 )?;
             }
         }

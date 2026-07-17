@@ -90,7 +90,7 @@ pub struct Milestone {
 /// timestamps + `implemented` + outcome layer, etc.) + surfaces 4–6. Stays
 /// absent from `StdinTask` / `NewTaskFields` on purpose. Today: `started_at`,
 /// `done_at`, `blocked_reason`, `shipped_in`, `implemented`, `delivered_by`,
-/// `verified`, `attempts`.
+/// `verified`, `verified_by`, `verification_ref`, `attempts`.
 #[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Task {
@@ -137,6 +137,13 @@ pub struct Task {
     pub implemented: Option<String>,
     pub delivered_by: Option<String>,
     pub verified: Option<bool>,
+    /// Independent evaluator that supplied `verified = true`. Free-text and
+    /// transition-time; new verified transitions require a non-empty value.
+    pub verified_by: Option<String>,
+    /// Durable pointer to the evidence behind verification (for example a
+    /// harness run id, CI URL, or review artifact). Optional, free-text, and
+    /// meaningful only when `verified = true`.
+    pub verification_ref: Option<String>,
     /// Append-only history of dispatch attempts that failed and returned the
     /// task to the queue, each carrying its failure evidence (e.g. a reviewer's
     /// rejection report). A transition-time field — appended by
