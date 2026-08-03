@@ -16,7 +16,7 @@ This file is the **design contract** — schema, CLI surface, invariants, deferr
 ```toml
 schema_version = 1
 project = "ccxt_extract"
-default_branch = "development"
+default_branch = "main"
 
 [focus]
 phase = 12                                    # active phase — `rmap next` and dashboards key off this

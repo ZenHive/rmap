@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "project": "rmap",
-  "default_branch": "development",
+  "default_branch": "main",
   "phases": {
     "13": {
       "name": "Skills-parity polish",
