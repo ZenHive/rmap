@@ -24,6 +24,7 @@ description = "Unified ticker fields across all exchanges"
 id = 74
 phase = 12
 bundle = "ticker_normalization"
+target_repo = "ccxt_client"
 status = "done"
 implemented = "fixture"
 title = "parseTicker field map + coercion + enums"
@@ -61,6 +62,7 @@ fn exports_validated_tasks_with_computed_efficiency() {
     assert_eq!(value["task"][0]["id"], 74);
     assert_eq!(value["task"][0]["eff"], 1.6);
     assert_eq!(value["task"][0]["assignee"], "codex");
+    assert_eq!(value["task"][0]["target_repo"], "ccxt_client");
     assert_eq!(value["task"][0]["model"], "claude-opus-4-7");
     assert_eq!(
         value["task"][0]["domains"],
@@ -94,6 +96,10 @@ fn exports_validated_tasks_with_computed_efficiency() {
     assert!(
         value["task"][1].get("model").is_none(),
         "task 75 should omit model when unset, got {value}"
+    );
+    assert!(
+        value["task"][1].get("target_repo").is_none(),
+        "task 75 should omit target_repo when it defaults to project, got {value}"
     );
     // domains skips serialization when empty.
     assert!(

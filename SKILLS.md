@@ -33,7 +33,7 @@ rmap show 1 --json
 # exit: 0
 ```
 
-`rmap list` filters across the whole tasks file via `--status`, `--phase`, `--marker`, `--bundle`, `--milestone`, `--delivered-by`, and `--dispatchable` (excludes `handbuild`-marked tasks); flags compose with AND semantics. The `--json` envelope mirrors `data.json` (computed `eff` included).
+`rmap list` filters across the whole tasks file via `--status`, `--phase`, `--marker`, `--bundle`, `--target-repo`, `--milestone`, `--delivered-by`, and `--dispatchable` (excludes `handbuild`-marked tasks); flags compose with AND semantics. `target_repo` names where this task's own work lands; when omitted on a task it defaults to the roadmap's top-level `project`. This is distinct from `cross_repo`, which links a task to related tasks in other roadmaps. The `--json` envelope mirrors `data.json` (computed `eff` included).
 
 ```bash
 rmap list --status pending
@@ -42,6 +42,11 @@ rmap list --status pending
 
 ```bash
 rmap list --phase 1 --json
+# exit: 0
+```
+
+```bash
+rmap list --target-repo skills_demo --status pending --bundle alpha --json
 # exit: 0
 ```
 
@@ -321,6 +326,21 @@ rmap new --from-stdin
 # EOF
 ```
 
+`target_repo` is a free-text creation field for a task whose change lands outside the roadmap repository. Omit it to use the roadmap's `project`. A blank value is invalid. It does not replace `cross_repo`: the latter records relationships to tasks in other roadmaps.
+
+```bash
+rmap new --from-stdin
+# exit: 0
+# stdin: <<EOF
+# [[task]]
+# phase = 1
+# bundle = "alpha"
+# target_repo = "public_library"
+# title = "update the extracted library"
+# scores = { d = 2, b = 5, u = 4 }
+# EOF
+```
+
 `status = "pending"` is tolerated (no-op); a non-pending status is rejected — transition the task with `rmap status` after creating it.
 
 ```bash
@@ -373,7 +393,7 @@ rmap new --from-stdin
 
 `rmap new` without `--from-stdin` drops into an interactive `dialoguer` flow (phase → bundle → title → D/B/U → markers → acceptance criteria → out of scope → domains → assignee → linear_id → module → model). Requires a TTY — non-interactive contexts must use `--from-stdin`. Bundles cannot be created on the fly; author the `[bundles.<name>]` table in `tasks.toml` first.
 
-Power-user fields are not prompted interactively — set them via `--from-stdin` or by editing `tasks.toml`: `files_to_modify` (the write target), `touches` (an advisory collision-prediction hint — files the task may read or write, typically a superset of `files_to_modify`; free-text, unvalidated), `cross_repo`, and `branch`. `domains` is prompted interactively and is also accepted in `--from-stdin`; it is advisory routing metadata, free-text and unvalidated.
+Power-user fields are not prompted interactively — set them via `--from-stdin` or by editing `tasks.toml`: `files_to_modify` (the write target), `touches` (an advisory collision-prediction hint — files the task may read or write, typically a superset of `files_to_modify`; free-text, unvalidated), `target_repo` (this task's landing repository), `cross_repo` (related tasks in other roadmaps), and `branch`. `domains` is prompted interactively and is also accepted in `--from-stdin`; it is advisory routing metadata, free-text and unvalidated.
 
 ## Reading change signal
 
@@ -455,7 +475,7 @@ Adding fields to `schema::Task` is additive (safe); renaming or removing a field
 
 ## Delegation
 
-`rmap delegate <id> [--to claude|codex|cursor|grok|antigravity|pi|droid|kimi]` emits a paste-ready Markdown prompt: title, body, in-repo dep context, acceptance criteria, plus a per-agent environment-notes footer tailored to that agent's runtime constraints (Codex sandbox / Cursor full-network / Claude·Grok·Pi·Droid·Kimi local / Antigravity local-with-cwd-caveat). Pure read — never calls Linear/GitHub/Slack.
+`rmap delegate <id> [--to claude|codex|cursor|grok|antigravity|pi|droid|kimi]` emits a paste-ready Markdown prompt: title, body, target repository, in-repo dep context, acceptance criteria, plus a per-agent environment-notes footer tailored to that agent's runtime constraints (Codex sandbox / Cursor full-network / Claude·Grok·Pi·Droid·Kimi local / Antigravity local-with-cwd-caveat). Pure read — never calls Linear/GitHub/Slack. The prompt renders the effective `target_repo` even when the task defaults to the roadmap's `project`.
 
 `--to` is optional. Without it, the prompt targets the task's stored `assignee` — the agent-routing field; explicit `--to` is the render-time override (the prompt then carries a `Stored assignee: ... (overridden)` bullet). A task with no `assignee`, or with `assignee = "human"`, requires an explicit `--to` — exit 1 otherwise. Routing metadata is split: `assignee` chooses the agent, `model` pins that agent's LLM, `domains` carries free-text capability tags for downstream scoring, and `--to` overrides at render time.
 

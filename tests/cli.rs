@@ -464,6 +464,35 @@ fn export_json_command_prints_json_to_stdout() {
     assert_eq!(value["task"][0]["eff"], 4.0);
 }
 
+#[test]
+fn target_repo_is_documented_in_schema_and_list_help() {
+    let schema = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("schema")
+        .output()
+        .expect("run rmap schema");
+    assert!(schema.status.success());
+    let schema = String::from_utf8_lossy(&schema.stdout);
+    assert!(schema.contains("target_repo"), "{schema}");
+    assert!(
+        schema.contains("where this task's own work lands"),
+        "schema must describe target_repo: {schema}"
+    );
+    assert!(
+        schema.contains("links this task to related tasks in other roadmaps"),
+        "schema must distinguish cross_repo: {schema}"
+    );
+
+    let help = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["list", "--help"])
+        .output()
+        .expect("run rmap list --help");
+    assert!(help.status.success());
+    let help = String::from_utf8_lossy(&help.stdout);
+    assert!(help.contains("--target-repo <REPO>"), "{help}");
+    assert!(help.contains("own work lands"), "{help}");
+    assert!(help.contains("cross_repo"), "{help}");
+}
+
 const WAVES_TASKS: &str = r#"
 schema_version = 2
 project = "waves_demo"
@@ -2220,6 +2249,67 @@ fn list_command_filters_by_bundle() {
 }
 
 #[test]
+fn list_command_filters_by_target_repo_and_composes_with_status_and_bundle() {
+    let input = PHASE4_TASKS.replace(
+        "bundle = \"orders\"\nstatus = \"pending\"",
+        "bundle = \"orders\"\ntarget_repo = \"ccxt_client\"\nstatus = \"pending\"",
+    );
+    let path = write_temp_tasks("target_repo_tasks.toml", &input);
+
+    let external = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args([
+            "list",
+            "--target-repo",
+            "ccxt_client",
+            "--status",
+            "pending",
+            "--bundle",
+            "orders",
+            "--json",
+            "--tasks-path",
+        ])
+        .arg(&path)
+        .output()
+        .expect("run rmap list --target-repo");
+    assert!(
+        external.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&external.stderr)
+    );
+    let external: serde_json::Value =
+        serde_json::from_slice(&external.stdout).expect("external result json");
+    assert_eq!(external["task"].as_array().expect("task array").len(), 1);
+    assert_eq!(external["task"][0]["id"], 75);
+
+    let own_repo_default = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args([
+            "list",
+            "--target-repo",
+            "ccxt_extract",
+            "--status",
+            "done",
+            "--bundle",
+            "simple",
+            "--json",
+            "--tasks-path",
+        ])
+        .arg(&path)
+        .output()
+        .expect("run rmap list with roadmap-project default");
+    assert!(own_repo_default.status.success());
+    let own_repo_default: serde_json::Value =
+        serde_json::from_slice(&own_repo_default.stdout).expect("local result json");
+    assert_eq!(
+        own_repo_default["task"]
+            .as_array()
+            .expect("task array")
+            .len(),
+        1
+    );
+    assert_eq!(own_repo_default["task"][0]["id"], 74);
+}
+
+#[test]
 fn next_command_filters_by_bundle() {
     let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
 
@@ -3684,6 +3774,136 @@ model = "claude-opus-4-7"
 }
 
 #[test]
+fn new_from_stdin_round_trips_target_repo_across_read_and_render_surfaces() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+target_repo = "public_library"
+title = "Cross-repository task"
+scores = { d = 2, b = 6, u = 6 }
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(
+        tasks.contains("bundle = \"foundation\"\ntarget_repo = \"public_library\""),
+        "target_repo should follow bundle in canonical order:\n{tasks}"
+    );
+
+    let rerender = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("render")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .arg("--roadmap-path")
+        .arg(&roadmap_path)
+        .arg("--data-path")
+        .arg(&data_path)
+        .env("RMAP_TODAY", "2026-05-12")
+        .output()
+        .expect("re-render target-repo fixture");
+    assert!(
+        rerender.status.success(),
+        "re-render failed: {}",
+        String::from_utf8_lossy(&rerender.stderr)
+    );
+    assert!(
+        fs::read_to_string(&tasks_path)
+            .expect("read tasks after render")
+            .contains("target_repo = \"public_library\""),
+        "render must not drop the source field"
+    );
+
+    let data: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&data_path).expect("read data json"))
+            .expect("valid data json");
+    assert_eq!(data["task"][1]["target_repo"], "public_library");
+
+    let show = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["show", "2", "--json", "--tasks-path"])
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show --json");
+    assert!(show.status.success());
+    let shown: serde_json::Value = serde_json::from_slice(&show.stdout).expect("show json");
+    assert_eq!(shown["target_repo"], "public_library");
+
+    let human_show = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["show", "2", "--tasks-path"])
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show");
+    assert!(human_show.status.success());
+    assert!(String::from_utf8_lossy(&human_show.stdout).contains("target_repo: public_library"));
+
+    let exported = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["export", "json", "--tasks-path"])
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap export json");
+    assert!(exported.status.success());
+    let exported: serde_json::Value =
+        serde_json::from_slice(&exported.stdout).expect("export json");
+    assert_eq!(exported["task"][1]["target_repo"], "public_library");
+
+    let delegated = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["delegate", "2", "--to", "codex", "--tasks-path"])
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap delegate");
+    assert!(delegated.status.success());
+    assert!(String::from_utf8_lossy(&delegated.stdout).contains("- Target repo: public_library"));
+}
+
+#[test]
+fn new_from_stdin_rejects_blank_target_repo_without_writing() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+    let before = fs::read(&tasks_path).expect("read tasks before rejected mutation");
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+target_repo = ""
+title = "Invalid target"
+scores = { d = 2, b = 6, u = 6 }
+"#;
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+
+    assert!(!output.status.success(), "blank target_repo must fail");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("blank target_repo"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        fs::read(&tasks_path).expect("read tasks after rejected mutation"),
+        before,
+        "failed validate-then-write mutation must leave tasks.toml byte-equal"
+    );
+}
+
+#[test]
 fn new_from_stdin_round_trips_kimi_assignee() {
     let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
 
@@ -4315,6 +4535,7 @@ id = 77
 status = "pending"
 phase = 1
 bundle = "foundation"
+target_repo = "public_library"
 title = "Every field"
 scores = { d = 1, b = 2, u = 3 }
 markers = ["parallel"]

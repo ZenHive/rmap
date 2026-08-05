@@ -97,6 +97,10 @@ pub struct Task {
     pub id: TaskId,
     pub phase: u32,
     pub bundle: String,
+    /// Repository where this task's own work lands. When omitted, consumers
+    /// use the roadmap's top-level `project`. This is distinct from
+    /// `cross_repo`, which links this task to related tasks in other roadmaps.
+    pub target_repo: Option<String>,
     pub milestone: Option<String>,
     pub status: String,
     pub title: String,
@@ -154,6 +158,8 @@ pub struct Task {
     /// every output surface so untouched tasks round-trip byte-identically).
     #[serde(default)]
     pub attempts: Vec<Attempt>,
+    /// Links this task to related tasks in other roadmaps. These relationships
+    /// do not choose where this task's own work lands; `target_repo` does that.
     #[serde(default)]
     pub cross_repo: Vec<CrossRepo>,
 }

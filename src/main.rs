@@ -240,6 +240,11 @@ enum Commands {
         phase: Option<u32>,
         #[arg(long)]
         bundle: Option<String>,
+        /// Repository where this task's own work lands. An omitted task field
+        /// targets the roadmap's top-level `project`. Unlike `cross_repo`, this
+        /// does not link related tasks in other roadmaps.
+        #[arg(long, value_name = "REPO")]
+        target_repo: Option<String>,
         #[arg(long)]
         milestone: Option<String>,
         /// Filter to tasks whose `delivered_by` matches this agent id.
@@ -429,6 +434,9 @@ enum Commands {
     ///
     /// With `--from-stdin`, reads a TOML fragment from stdin (one or more
     /// `[[task]]` blocks, accepting the same field set as `schema::Task`).
+    /// `target_repo` names where this task's own work lands and defaults to the
+    /// roadmap's `project`; `cross_repo` instead links related tasks in other
+    /// roadmaps.
     /// Without `--from-stdin`, drops into an interactive `dialoguer` prompt
     /// flow — requires a TTY. In both modes, the id is auto-allocated
     /// (numeric `max + 1`) unless the caller supplies one explicitly, and
@@ -686,6 +694,7 @@ fn run() -> Result<ExitCode> {
                 marker,
                 phase: None,
                 bundle,
+                target_repo: None,
                 milestone,
                 delivered_by: None,
             };
@@ -766,6 +775,7 @@ fn run() -> Result<ExitCode> {
             marker,
             phase,
             bundle,
+            target_repo,
             milestone,
             delivered_by,
             dispatchable,
@@ -780,6 +790,7 @@ fn run() -> Result<ExitCode> {
                 marker,
                 phase,
                 bundle,
+                target_repo,
                 milestone,
                 delivered_by,
             };
@@ -816,6 +827,7 @@ fn run() -> Result<ExitCode> {
                 marker,
                 phase,
                 bundle,
+                target_repo: None,
                 milestone,
                 delivered_by: None,
             };
@@ -1715,6 +1727,7 @@ fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
             id: explicit_id,
             phase: task.phase,
             bundle: task.bundle.as_str(),
+            target_repo: task.target_repo.as_deref(),
             milestone: task.milestone.as_deref(),
             title: task.title.as_str(),
             scores: (task.scores.d, task.scores.b, task.scores.u),
@@ -1764,6 +1777,7 @@ const STDIN_TASK_FIELDS: &[&str] = &[
     "status",
     "phase",
     "bundle",
+    "target_repo",
     "milestone",
     "title",
     "scores",
@@ -1986,7 +2000,7 @@ struct StdinPayload {
 /// `shipped_in`, `implemented`, `attempts`) remain excluded; `rmap status`
 /// owns those transitions.
 ///
-/// `branch`, `files_to_modify`, `touches`, and `cross_repo` are the documented
+/// `branch`, `files_to_modify`, `touches`, `target_repo`, and `cross_repo` are the documented
 /// power-user fields — only reachable via `--from-stdin`, not via the
 /// interactive `prompt_task_fields` flow. `domains` is prompted interactively
 /// and also accepted here. See the `MIRROR SURFACES` block on `schema::Task`
@@ -2000,6 +2014,7 @@ struct StdinTask {
     pub status: Option<String>,
     pub phase: u32,
     pub bundle: String,
+    pub target_repo: Option<String>,
     pub milestone: Option<String>,
     pub title: String,
     pub scores: Scores,
@@ -2221,6 +2236,7 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         status: None,
         phase: phase_number,
         bundle,
+        target_repo: None,
         milestone,
         title,
         scores: Scores { d, b, u },

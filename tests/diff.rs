@@ -52,6 +52,7 @@ description = "Simple normalization tasks"
 id = 75
 phase = 12
 bundle = "simple"
+target_repo = "ccxt_client"
 status = "done"
 implemented = "fixture"
 title = "parseOrder field map"
@@ -79,7 +80,10 @@ fn classifies_added_removed_and_changed_tasks() {
     assert_eq!(diff[0].changed_fields, Vec::<String>::new());
     assert_eq!(diff[1].id.to_string(), "75");
     assert_eq!(diff[1].status, DiffStatus::Changed);
-    assert_eq!(diff[1].changed_fields, ["status", "implemented"]);
+    assert_eq!(
+        diff[1].changed_fields,
+        ["target_repo", "status", "implemented"]
+    );
     assert_eq!(diff[2].id.to_string(), "78b");
     assert_eq!(diff[2].status, DiffStatus::Added);
 }
@@ -284,6 +288,7 @@ description = "Simple normalization tasks"
 id = 75
 phase = 12
 bundle = "simple"
+target_repo = "ccxt_client"
 status = "done"
 implemented = "fixture"
 title = "parseOrder field map"
@@ -306,6 +311,7 @@ fn verbose_emits_before_after_for_whitelisted_changed_fields() {
     assert_eq!(
         entry.changed_fields,
         [
+            "target_repo",
             "status",
             "scores",
             "out_of_scope",
@@ -322,18 +328,24 @@ fn verbose_emits_before_after_for_whitelisted_changed_fields() {
     let fields: Vec<&str> = values.iter().map(|v| v.field.as_str()).collect();
     // Whitelist excludes `body`, `out_of_scope`, and `files_to_modify`;
     // declaration order from `diff_fields!` is preserved for the remaining
-    // whitelisted entries (status, scores, implemented).
-    assert_eq!(fields, ["status", "scores", "implemented"]);
+    // whitelisted entries (target_repo, status, scores, implemented).
+    assert_eq!(fields, ["target_repo", "status", "scores", "implemented"]);
+    let target_repo = values
+        .iter()
+        .find(|value| value.field == "target_repo")
+        .expect("target_repo verbose value");
+    assert_eq!(target_repo.before, serde_json::Value::Null);
+    assert_eq!(target_repo.after, "ccxt_client");
 
-    assert_eq!(values[0].before, serde_json::json!("in_progress"));
-    assert_eq!(values[0].after, serde_json::json!("done"));
+    assert_eq!(values[1].before, serde_json::json!("in_progress"));
+    assert_eq!(values[1].after, serde_json::json!("done"));
     assert_eq!(
-        values[1].before,
+        values[2].before,
         serde_json::json!({"d": 5, "b": 8, "u": 8})
     );
-    assert_eq!(values[1].after, serde_json::json!({"d": 5, "b": 9, "u": 9}));
-    assert_eq!(values[2].before, serde_json::Value::Null);
-    assert_eq!(values[2].after, serde_json::json!("fixture"));
+    assert_eq!(values[2].after, serde_json::json!({"d": 5, "b": 9, "u": 9}));
+    assert_eq!(values[3].before, serde_json::Value::Null);
+    assert_eq!(values[3].after, serde_json::json!("fixture"));
 }
 
 #[test]

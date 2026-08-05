@@ -7,6 +7,7 @@ pub struct TaskFilter {
     pub marker: Option<String>,
     pub phase: Option<u32>,
     pub bundle: Option<String>,
+    pub target_repo: Option<String>,
     pub milestone: Option<String>,
     pub delivered_by: Option<String>,
 }
@@ -23,6 +24,7 @@ pub fn list_tasks<'a>(tasks: &'a Tasks, filter: &TaskFilter) -> Vec<&'a Task> {
         .filter(|task| matches_marker(task, filter.marker.as_deref()))
         .filter(|task| matches_phase(task, filter.phase))
         .filter(|task| matches_bundle(task, filter.bundle.as_deref()))
+        .filter(|task| matches_target_repo(task, &tasks.project, filter.target_repo.as_deref()))
         .filter(|task| matches_milestone(task, filter.milestone.as_deref()))
         .filter(|task| matches_delivered_by(task, filter.delivered_by.as_deref()))
         .collect()
@@ -34,6 +36,18 @@ pub(crate) fn matches_marker(task: &Task, marker: Option<&str>) -> bool {
 
 pub(crate) fn matches_bundle(task: &Task, bundle: Option<&str>) -> bool {
     bundle.is_none_or(|bundle| task.bundle == bundle)
+}
+
+pub(crate) fn matches_target_repo(
+    task: &Task,
+    roadmap_repo: &str,
+    target_repo: Option<&str>,
+) -> bool {
+    target_repo.is_none_or(|repo| effective_target_repo(task, roadmap_repo) == repo)
+}
+
+pub fn effective_target_repo<'a>(task: &'a Task, roadmap_repo: &'a str) -> &'a str {
+    task.target_repo.as_deref().unwrap_or(roadmap_repo)
 }
 
 pub(crate) fn matches_milestone(task: &Task, milestone: Option<&str>) -> bool {
@@ -64,6 +78,10 @@ pub fn format_task(task: &Task) -> String {
 
     if let Some(milestone) = &task.milestone {
         lines.push(format!("milestone: {milestone}"));
+    }
+
+    if let Some(target_repo) = &task.target_repo {
+        lines.push(format!("target_repo: {target_repo}"));
     }
 
     lines.push(format!(

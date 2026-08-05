@@ -32,6 +32,8 @@ struct ExportedTask<'a> {
     phase: u32,
     bundle: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
+    target_repo: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     milestone: Option<&'a String>,
     status: &'a str,
     title: &'a str,
@@ -104,6 +106,7 @@ pub const EXPORTED_TASK_FIELDS: &[&str] = &[
     "id",
     "phase",
     "bundle",
+    "target_repo",
     "milestone",
     "status",
     "title",
@@ -314,6 +317,7 @@ fn exported_task<'a>(task: &'a Task, metrics: &GraphMetrics) -> ExportedTask<'a>
         id: &task.id,
         phase: task.phase,
         bundle: &task.bundle,
+        target_repo: task.target_repo.as_ref(),
         milestone: task.milestone.as_ref(),
         status: &task.status,
         title: &task.title,
@@ -382,6 +386,7 @@ target_version = "0.1.0"
 id = 7
 phase = 1
 bundle = "alpha"
+target_repo = "public-demo"
 milestone = "v0_1"
 status = "done"
 title = "fully populated"

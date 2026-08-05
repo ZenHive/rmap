@@ -38,6 +38,7 @@ scores = { d = 4, b = 8, u = 8 }
 id = 75
 phase = 12
 bundle = "orders"
+target_repo = "ccxt_client"
 status = "pending"
 title = "parseOrder field map"
 scores = { d = 5, b = 9, u = 9 }
@@ -134,6 +135,7 @@ fn formats_full_delegate_prompt_for_agent_target() {
         "{prompt}"
     );
     assert!(prompt.contains("- Project: ccxt_extract"), "{prompt}");
+    assert!(prompt.contains("- Target repo: ccxt_client"), "{prompt}");
     assert!(prompt.contains("- Model: claude-opus-4-7"), "{prompt}");
     assert!(
         prompt.contains("- Domains: rust, agent-routing"),
@@ -179,6 +181,15 @@ fn formats_full_delegate_prompt_for_agent_target() {
         prompt.contains("Inspect the repo before editing."),
         "{prompt}"
     );
+}
+
+#[test]
+fn delegate_defaults_target_repo_to_roadmap_project() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");
+    let prompt = format_delegate_prompt(&tasks, "75", DelegateTarget::Codex).expect("task 75");
+
+    assert!(prompt.contains("- Project: ccxt_extract"), "{prompt}");
+    assert!(prompt.contains("- Target repo: ccxt_extract"), "{prompt}");
 }
 
 #[test]

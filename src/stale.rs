@@ -56,6 +56,7 @@ mod tests {
             id: TaskId::Number(id),
             phase: 1,
             bundle: "test".to_string(),
+            target_repo: None,
             milestone: None,
             status: status.to_string(),
             title: format!("Task {id}"),

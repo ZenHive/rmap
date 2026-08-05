@@ -34,6 +34,7 @@ scores = { d = 4, b = 8, u = 8 }
 id = 75
 phase = 12
 bundle = "orders"
+target_repo = "ccxt_client"
 status = "pending"
 title = "parseOrder field map"
 scores = { d = 5, b = 9, u = 9 }
@@ -73,6 +74,7 @@ fn lists_tasks_matching_all_filters_in_toml_order() {
         marker: Some("parallel".to_string()),
         phase: Some(12),
         bundle: None,
+        target_repo: None,
         milestone: None,
         delivered_by: None,
     };
@@ -81,6 +83,41 @@ fn lists_tasks_matching_all_filters_in_toml_order() {
 
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id.to_string(), "75");
+}
+
+#[test]
+fn target_repo_filter_uses_explicit_value_and_roadmap_project_default() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
+
+    let external = list_tasks(
+        &tasks,
+        &TaskFilter {
+            target_repo: Some("ccxt_client".to_string()),
+            ..Default::default()
+        },
+    );
+    assert_eq!(
+        external
+            .iter()
+            .map(|task| task.id.to_string())
+            .collect::<Vec<_>>(),
+        ["75"]
+    );
+
+    let local = list_tasks(
+        &tasks,
+        &TaskFilter {
+            target_repo: Some("ccxt_extract".to_string()),
+            ..Default::default()
+        },
+    );
+    assert_eq!(
+        local
+            .iter()
+            .map(|task| task.id.to_string())
+            .collect::<Vec<_>>(),
+        ["74", "78b"]
+    );
 }
 
 #[test]

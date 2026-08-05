@@ -157,6 +157,19 @@ fn rejects_invalid_assignee() {
 }
 
 #[test]
+fn rejects_blank_target_repo() {
+    let input = VALID_TASKS.replace(
+        "bundle = \"ticker_normalization\"\nstatus = \"pending\"",
+        "bundle = \"ticker_normalization\"\ntarget_repo = \"  \"\nstatus = \"pending\"",
+    );
+
+    let err = validate_tasks_str("roadmap/tasks.toml", &input)
+        .expect_err("blank target_repo is rejected");
+
+    assert!(err.to_string().contains("blank target_repo"), "{err}");
+}
+
+#[test]
 fn accepts_kimi_assignee_with_model_and_acceptance_criteria() {
     let input = VALID_TASKS.replace(
         "linear_id = \"INE-300\"",

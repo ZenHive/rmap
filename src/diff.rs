@@ -55,6 +55,7 @@ impl TomlDiff {
 const TASK_VERBOSE_WHITELIST: &[&str] = &[
     "phase",
     "bundle",
+    "target_repo",
     "milestone",
     "status",
     "title",
@@ -402,6 +403,7 @@ fn task_changes(
     diff_fields!(
         phase,
         bundle,
+        target_repo,
         milestone,
         status,
         title,

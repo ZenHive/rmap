@@ -83,6 +83,9 @@ pub fn collect_findings(tasks: &Tasks, path: &str, input: &str) -> Vec<ValidateE
     if let Err(e) = validate_assignees(path, input, tasks) {
         findings.push(e);
     }
+    if let Err(e) = validate_target_repos(path, input, tasks) {
+        findings.push(e);
+    }
     if let Err(e) = validate_dispatch_model(path, input, tasks) {
         findings.push(e);
     }
@@ -141,6 +144,7 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_markers(&path, input, &tasks)?;
     validate_scores(&path, input, &tasks)?;
     validate_assignees(&path, input, &tasks)?;
+    validate_target_repos(&path, input, &tasks)?;
     validate_dispatch_model(&path, input, &tasks)?;
     validate_dispatch_acceptance_criteria(&path, input, &tasks)?;
     validate_verification_provenance(&path, input, &tasks)?;
@@ -268,6 +272,30 @@ fn validate_assignees(path: &str, input: &str, tasks: &Tasks) -> Result<(), Vali
             line_containing(input, &format!("assignee = \"{assignee}\""))
                 .unwrap_or(FIRST_LINE_NUMBER),
             format!("invalid assignee \"{assignee}\""),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_target_repos(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    for task in &tasks.task {
+        let Some(target_repo) = task.target_repo.as_deref() else {
+            continue;
+        };
+
+        if !target_repo.trim().is_empty() {
+            continue;
+        }
+
+        return Err(semantic_error(
+            path,
+            line_containing(input, &format!("target_repo = \"{target_repo}\""))
+                .unwrap_or(FIRST_LINE_NUMBER),
+            format!(
+                "task {} has blank target_repo (omit it to target the roadmap project)",
+                task.id
+            ),
         ));
     }
 

@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use clap::ValueEnum;
 
-use crate::query::find_task;
+use crate::query::{effective_target_repo, find_task};
 use crate::schema::{Task, Tasks};
 use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 
@@ -107,6 +107,11 @@ fn append_context(prompt: &mut String, tasks: &Tasks, task: &Task, target: Deleg
     line!(prompt, "## Context");
     line!(prompt, "- Target: {target}");
     line!(prompt, "- Project: {}", tasks.project);
+    line!(
+        prompt,
+        "- Target repo: {}",
+        effective_target_repo(task, &tasks.project)
+    );
     if let Some(assignee) = &task.assignee
         && assignee != target.as_str()
     {
