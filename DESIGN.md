@@ -133,7 +133,7 @@ rmap new                             # interactive task creation (dialoguer)
 rmap new --from-stdin                # non-interactive — agent piping
 
 # delegation — cloud-agent workflow
-rmap delegate <id> --to claude|codex|cursor|grok|antigravity|pi|droid   # emit paste-ready Markdown prompt: title + body + deps + AC + per-agent environment-notes footer
+rmap delegate <id> --to claude|codex|cursor|grok|antigravity|pi|droid|kimi   # emit paste-ready Markdown prompt: title + body + deps + AC + per-agent environment-notes footer
 
 # live dev — planned
 rmap watch                           # FS watch on tasks.toml, render on change
