@@ -2033,6 +2033,61 @@
       "created_at": "2026-07-17",
       "scored_at": "2026-07-17",
       "cross_repo": []
+    },
+    {
+      "id": 54,
+      "phase": 16,
+      "bundle": "schema_parity",
+      "status": "pending",
+      "title": "Per-task target repo: let one roadmap schedule work that lands in a different repository",
+      "scores": {
+        "d": 3,
+        "b": 5,
+        "u": 5
+      },
+      "eff": 1.67,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [
+        "parallel"
+      ],
+      "depends_on": [],
+      "assignee": "codex",
+      "model": "gpt-5.6-sol",
+      "acceptance_criteria": [
+        "A task can declare the repository its work lands in; the field is settable via `rmap new --from-stdin`, round-trips through `rmap show --json`, and appears in `rmap export json` / `data.json`",
+        "The field is optional and defaults to the roadmap's own repo: rmap's existing `roadmap/tasks.toml` and `tests/skills_fixture` re-render byte-identically and produce zero new `rmap doctor` findings",
+        "A read command filters by it — asking for the tasks targeting one repo returns only those, without the caller post-filtering JSON — and the filter composes with the existing status/bundle selectors",
+        "`rmap delegate <id>` surfaces the target repo in the rendered prompt's `## Context`, alongside the existing Model/Milestone bullets",
+        "Schema docs and `--help` state the distinction explicitly: `cross_repo` links a task to related tasks in other roadmaps; the new field names where this task's own work lands",
+        "`rmap validate` rejects a blank/empty value and leaves `tasks.toml` byte-equal on rejection, matching the validate-then-write contract of every other mutation",
+        "The six creation-time mirror surfaces documented on `Task` are all updated (stdin parse shape, mutator args, TOML writer, canonical key ordering, diff drift surface, export JSON shape); a test creates a task with the field and asserts it survives a write/read/render round-trip",
+        "SKILLS.md, CLAUDE.md and the rmap skill doc document the field; `skills_smoke` stays green"
+      ],
+      "out_of_scope": [
+        "Harness-side consumption — resolving the value to a checkout and routing dispatch per target repo is a harness roadmap task; renderable is not executable, so note the harness-side gap rather than implying end-to-end support",
+        "Validating the value against a known repo list or registry (free string, like `model`)",
+        "Moving, copying or merging tasks between roadmaps",
+        "Any change to how `cross_repo` behaves"
+      ],
+      "files_to_modify": [
+        "src/main.rs",
+        "src/mutate.rs",
+        "src/diff.rs",
+        "src/export.rs",
+        "src/schema.rs",
+        "src/query.rs",
+        "src/delegate.rs"
+      ],
+      "touches": [
+        "SKILLS.md",
+        "CLAUDE.md",
+        "DESIGN.md"
+      ],
+      "body": "A roadmap currently cannot say where a task's work lands. The repo is implicit: a\ntask belongs to whatever repository holds the `roadmap/tasks.toml` it lives in.\nThat assumption breaks the moment the planning repo and the code repo are not the\nsame one.\n\nThe concrete case that surfaced this: a library was extracted into its own public\nrepository and published, while its roadmap — 500+ tasks carrying D/B/U scores,\nagent assignees, model pins, and inbound consumer bug reports — has to stay in a\nprivate repo. Neither placement works today. Keep the roadmap private and it can\nno longer name the repo its tasks target; move it next to the code and the whole\nplanning apparatus becomes public. Splitting into two roadmaps fragments the queue,\ncollides ids, and breaks the one-session-equals-one-task merge discipline.\n\n`cross_repo` does not solve this and should not be stretched to: it links a task to\na *related task in another roadmap* (`{repo, task_id, relation}`). What is missing is\na statement about this task itself — the repository its change lands in.\n\nAdd that as a task field, with the value defaulting to the roadmap's own repository\nso every existing roadmap is unaffected. Make it usable rather than inert: a\nconsumer must be able to ask a read command for the tasks targeting one repo without\npost-filtering JSON, and `rmap delegate` should carry it into the rendered prompt the\nway `model` and `milestone` already are, so the agent knows which checkout it is\nworking in.\n\nPick the name and shape yourself, under one constraint: it must not be confusable\nwith `cross_repo` in the schema, `--help`, or the docs. Free-text value, like\n`model` — repo naming is a consumer concern and rmap validates no closed set.\n",
+      "created_at": "2026-08-05",
+      "scored_at": "2026-08-05",
+      "cross_repo": []
     }
   ]
 }

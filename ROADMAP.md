@@ -147,4 +147,5 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 47 | ✅ | 🎁 **graph_queries** · rmap doctor graph-health advisories: bottleneck + isolated/unreachable node [D:3/B:4/U:4 → Eff:1.33?] 📋 |
 | Task 48 | ✅ | 🎁 **graph_queries** · rmap graph export: rmap export dot (Graphviz) + rmap waves (parallel dispatch schedule) [D:2/B:4/U:4 → Eff:2.0?] 🎯 |
 | Task 51 | ✅ | 🎁 **doctor_spec_quality** · doctor: spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks [D:4/B:7/U:7 → Eff:1.75] 🚀 |
+| Task 54 `[P]` | ⬜ | 🎁 **schema_parity** · Per-task target repo: let one roadmap schedule work that lands in a different repository [D:3/B:5/U:5 → Eff:1.67] 🚀 |
 <!-- TASKS:END -->
