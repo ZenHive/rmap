@@ -6,6 +6,13 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Tasks 53 and 54: kimi delegate target, per-task target repo, and `--version`
+
+**What was done:**
+- Added `kimi` as an eighth `rmap delegate --to` target and a valid `assignee`. Renderable only — harness has no `AgentAdapter` for it yet, so it is rejected at harness's dispatch boundary like `droid`.
+- Added the optional `target_repo` task field, naming the repository a task's own work lands in (defaulting to the roadmap's top-level `project`), distinct from `cross_repo`'s links to related tasks in other roadmaps. Wired through all six creation-time mirror surfaces, a `--target-repo` filter on `rmap list`, a `Target repo` bullet in `rmap delegate`'s `## Context`, and non-blank validation.
+- `rmap --version` now reports the crate version; previously the flag did not exist.
+
 ### Tasks 43, 47, 48, 50, and 51: roadmap authoring and doctor hygiene
 
 **What was done:**

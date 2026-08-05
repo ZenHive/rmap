@@ -65,6 +65,7 @@ struct TaskNotFound(String);
 #[derive(Debug, Parser)]
 #[command(name = "rmap")]
 #[command(about = "Manage portable roadmap data")]
+#[command(version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

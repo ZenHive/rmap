@@ -179,6 +179,25 @@ markers = ["handbuild"]
 "#;
 
 #[test]
+fn version_flag_prints_crate_version() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("--version")
+        .output()
+        .expect("run rmap --version");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains(env!("CARGO_PKG_VERSION")),
+        "expected crate version in stdout, got: {stdout}"
+    );
+}
+
+#[test]
 fn validate_command_accepts_valid_tasks_file() {
     let path = write_temp_tasks("valid_tasks.toml", VALID_TASKS);
 
