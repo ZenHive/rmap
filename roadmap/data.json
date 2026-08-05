@@ -1996,7 +1996,7 @@
       "id": 53,
       "phase": 15,
       "bundle": "delegate_targets",
-      "status": "pending",
+      "status": "done",
       "title": "Add kimi as a first-class agent target (assignee + delegate --to)",
       "scores": {
         "d": 2,
@@ -2011,7 +2011,7 @@
       ],
       "depends_on": [],
       "assignee": "codex",
-      "model": "gpt-5.5",
+      "model": "gpt-5.6-sol",
       "acceptance_criteria": [
         "rmap delegate <id> --to kimi renders a native prompt (Target: kimi in ## Context), matching the existing per-target rendering pattern",
         "assignee = \"kimi\" passes validation everywhere the agent set is enumerated (validate, assign, new --from-stdin); the live-task model-required rule applies to kimi like any non-human assignee",
@@ -2029,16 +2029,23 @@
         "SKILLS.md",
         "CLAUDE.md"
       ],
+      "shipped_in": "8f88d257b0df255a68b94bbdc0b280cccafadffd",
       "body": "Kimi Code (Moonshot's coding CLI, https://moonshotai.github.io/kimi-code/) is being added\nas a harness dispatch agent. rmap renders the delegate prompts harness executes\n(harness shells out to `rmap delegate <id> --to <agent>`), so kimi must join the agent\nvocabulary here first: add a Kimi variant to DelegateTarget in src/delegate.rs and add\n\"kimi\" to the assignee validation set (src/validate.rs), following exactly the shape pi\nand droid took. Renderable-before-executable is the established order (droid precedent:\nrmap renders it, harness rejects it until an adapter exists), so this task has no harness\ndependency. After landing, the installed rmap binary must be rebuilt for harness to pick\nup the new target — note this in the delivery message.\n",
       "created_at": "2026-07-17",
+      "done_at": "2026-08-05",
       "scored_at": "2026-07-17",
+      "implemented": "Added DelegateTarget::Kimi (variant, as_str, append_agent_notes footer) in src/delegate.rs, \"kimi\" in VALID_ASSIGNEES (src/validate.rs) and the interactive assignee list (src/main.rs); CLI tests cover delegate render + assignee round-trip; SKILLS.md, CLAUDE.md and DESIGN.md target lists updated.",
+      "delivered_by": "codex (gpt-5.6-sol)",
+      "verified": true,
+      "verified_by": "claude (claude-opus-4-8) via harness reviewer gate",
+      "verification_ref": "harness-run:run-1785889534260-fc424f54",
       "cross_repo": []
     },
     {
       "id": 54,
       "phase": 16,
       "bundle": "schema_parity",
-      "status": "pending",
+      "status": "done",
       "title": "Per-task target repo: let one roadmap schedule work that lands in a different repository",
       "scores": {
         "d": 3,
@@ -2084,9 +2091,13 @@
         "CLAUDE.md",
         "DESIGN.md"
       ],
+      "shipped_in": "c390eb56590bda27d378fa1d51541f85e85a522f",
       "body": "A roadmap currently cannot say where a task's work lands. The repo is implicit: a\ntask belongs to whatever repository holds the `roadmap/tasks.toml` it lives in.\nThat assumption breaks the moment the planning repo and the code repo are not the\nsame one.\n\nThe concrete case that surfaced this: a library was extracted into its own public\nrepository and published, while its roadmap — 500+ tasks carrying D/B/U scores,\nagent assignees, model pins, and inbound consumer bug reports — has to stay in a\nprivate repo. Neither placement works today. Keep the roadmap private and it can\nno longer name the repo its tasks target; move it next to the code and the whole\nplanning apparatus becomes public. Splitting into two roadmaps fragments the queue,\ncollides ids, and breaks the one-session-equals-one-task merge discipline.\n\n`cross_repo` does not solve this and should not be stretched to: it links a task to\na *related task in another roadmap* (`{repo, task_id, relation}`). What is missing is\na statement about this task itself — the repository its change lands in.\n\nAdd that as a task field, with the value defaulting to the roadmap's own repository\nso every existing roadmap is unaffected. Make it usable rather than inert: a\nconsumer must be able to ask a read command for the tasks targeting one repo without\npost-filtering JSON, and `rmap delegate` should carry it into the rendered prompt the\nway `model` and `milestone` already are, so the agent knows which checkout it is\nworking in.\n\nPick the name and shape yourself, under one constraint: it must not be confusable\nwith `cross_repo` in the schema, `--help`, or the docs. Free-text value, like\n`model` — repo naming is a consumer concern and rmap validates no closed set.\n",
       "created_at": "2026-08-05",
+      "done_at": "2026-08-05",
       "scored_at": "2026-08-05",
+      "implemented": "Added optional Task.target_repo (src/schema.rs) naming the repository a task's own work lands in, defaulting to the roadmap's top-level project and explicitly distinguished from cross_repo. Wired through all six creation-time mirror surfaces (StdinTask, NewTaskFields, add_task_str, canonical_task_key_index, diff_fields!, ExportedTask/EXPORTED_TASK_FIELDS), a --target-repo filter on the list read path (src/query.rs), a Target repo bullet in delegate's ## Context (src/delegate.rs), and non-blank validation (src/validate.rs). Docs updated in CLAUDE.md + SKILLS.md; 221 lines of CLI tests.",
+      "delivered_by": "codex (gpt-5.6-sol)",
       "cross_repo": []
     }
   ]

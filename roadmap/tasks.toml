@@ -1396,7 +1396,7 @@ shipped_in = "4fd9640c89b433dbdc7d2430a2442afe6094816a"
 id = 53
 phase = 15
 bundle = "delegate_targets"
-status = "pending"
+status = "done"
 title = "Add kimi as a first-class agent target (assignee + delegate --to)"
 scores = { d = 2, b = 6, u = 6 }
 markers = ["parallel"]
@@ -1404,7 +1404,7 @@ acceptance_criteria = ["rmap delegate <id> --to kimi renders a native prompt (Ta
 out_of_scope = ["Any harness-side adapter work (lives in the harness repo)", "Kimi-specific prompt-template content beyond what other targets get from append_agent_notes"]
 touches = ["src/delegate.rs", "src/validate.rs", "tests/cli.rs", "SKILLS.md", "CLAUDE.md"]
 assignee = "codex"
-model = "gpt-5.5"
+model = "gpt-5.6-sol"
 body = """
 Kimi Code (Moonshot's coding CLI, https://moonshotai.github.io/kimi-code/) is being added
 as a harness dispatch agent. rmap renders the delegate prompts harness executes
@@ -1416,14 +1416,21 @@ rmap renders it, harness rejects it until an adapter exists), so this task has n
 dependency. After landing, the installed rmap binary must be rebuilt for harness to pick
 up the new target — note this in the delivery message.
 """
+implemented = 'Added DelegateTarget::Kimi (variant, as_str, append_agent_notes footer) in src/delegate.rs, "kimi" in VALID_ASSIGNEES (src/validate.rs) and the interactive assignee list (src/main.rs); CLI tests cover delegate render + assignee round-trip; SKILLS.md, CLAUDE.md and DESIGN.md target lists updated.'
+delivered_by = "codex (gpt-5.6-sol)"
+verified = true
+verified_by = "claude (claude-opus-4-8) via harness reviewer gate"
+verification_ref = "harness-run:run-1785889534260-fc424f54"
 created_at = "2026-07-17"
 scored_at = "2026-07-17"
+done_at = "2026-08-05"
+shipped_in = "8f88d257b0df255a68b94bbdc0b280cccafadffd"
 
 [[task]]
 id = 54
 phase = 16
 bundle = "schema_parity"
-status = "pending"
+status = "done"
 title = "Per-task target repo: let one roadmap schedule work that lands in a different repository"
 scores = { d = 3, b = 5, u = 5 }
 markers = ["parallel"]
@@ -1462,5 +1469,9 @@ Pick the name and shape yourself, under one constraint: it must not be confusabl
 with `cross_repo` in the schema, `--help`, or the docs. Free-text value, like
 `model` — repo naming is a consumer concern and rmap validates no closed set.
 """
+implemented = "Added optional Task.target_repo (src/schema.rs) naming the repository a task's own work lands in, defaulting to the roadmap's top-level project and explicitly distinguished from cross_repo. Wired through all six creation-time mirror surfaces (StdinTask, NewTaskFields, add_task_str, canonical_task_key_index, diff_fields!, ExportedTask/EXPORTED_TASK_FIELDS), a --target-repo filter on the list read path (src/query.rs), a Target repo bullet in delegate's ## Context (src/delegate.rs), and non-blank validation (src/validate.rs). Docs updated in CLAUDE.md + SKILLS.md; 221 lines of CLI tests."
+delivered_by = "codex (gpt-5.6-sol)"
 created_at = "2026-08-05"
 scored_at = "2026-08-05"
+done_at = "2026-08-05"
+shipped_in = "c390eb56590bda27d378fa1d51541f85e85a522f"
