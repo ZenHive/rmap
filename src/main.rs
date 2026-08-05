@@ -2173,6 +2173,7 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
         "antigravity",
         "pi",
         "droid",
+        "kimi",
     ];
     let assignee_index = Select::with_theme(&theme)
         .with_prompt("Assignee")

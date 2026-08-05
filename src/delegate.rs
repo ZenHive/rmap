@@ -26,6 +26,7 @@ pub enum DelegateTarget {
     Antigravity,
     Pi,
     Droid,
+    Kimi,
 }
 
 impl DelegateTarget {
@@ -38,6 +39,7 @@ impl DelegateTarget {
             Self::Antigravity => "antigravity",
             Self::Pi => "pi",
             Self::Droid => "droid",
+            Self::Kimi => "kimi",
         }
     }
 }
@@ -407,6 +409,16 @@ fn append_agent_notes(prompt: &mut String, target: DelegateTarget) {
             line!(
                 prompt,
                 "- Not yet a harness executor — this prompt is for the Factory Droid CLI or manual paste."
+            );
+            line!(
+                prompt,
+                "- Run verification commands and report the actual output, not a summary."
+            );
+        }
+        DelegateTarget::Kimi => {
+            line!(
+                prompt,
+                "- Local execution: full toolchain, internet, and project state available."
             );
             line!(
                 prompt,

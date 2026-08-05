@@ -157,6 +157,19 @@ fn rejects_invalid_assignee() {
 }
 
 #[test]
+fn accepts_kimi_assignee_with_model_and_acceptance_criteria() {
+    let input = VALID_TASKS.replace(
+        "linear_id = \"INE-300\"",
+        "linear_id = \"INE-300\"\nassignee = \"kimi\"\nmodel = \"kimi-for-coding\"\nacceptance_criteria = [\"Kimi can execute the task\"]",
+    );
+
+    let tasks = validate_tasks_str("roadmap/tasks.toml", &input).expect("kimi assignee is valid");
+
+    assert_eq!(tasks.task[1].assignee.as_deref(), Some("kimi"));
+    assert_eq!(tasks.task[1].model.as_deref(), Some("kimi-for-coding"));
+}
+
+#[test]
 fn rejects_agent_assigned_live_task_without_acceptance_criteria() {
     let input = VALID_TASKS.replace(
         "linear_id = \"INE-300\"",

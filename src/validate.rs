@@ -27,6 +27,7 @@ const VALID_ASSIGNEES: &[&str] = &[
     "antigravity",
     "pi",
     "droid",
+    "kimi",
 ];
 const VALID_CROSS_REPO_RELATIONS: &[&str] = &["blocks", "blocked_by", "related"];
 const MIN_SCORE: u32 = 1;

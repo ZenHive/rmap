@@ -1500,6 +1500,31 @@ fn delegate_command_prints_agent_prompt() {
 }
 
 #[test]
+fn delegate_command_prints_kimi_prompt() {
+    let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("75")
+        .arg("--to")
+        .arg("kimi")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("run rmap delegate --to kimi");
+
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("- Target: kimi"), "{stdout}");
+    assert!(stdout.contains("## Environment notes"), "{stdout}");
+    assert!(stdout.contains("Local execution"), "{stdout}");
+}
+
+#[test]
 fn delegate_unknown_task_exits_task_not_found() {
     let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
 
@@ -1731,8 +1756,8 @@ assignee = "human"
 
 #[test]
 fn validate_accepts_new_agent_assignees() {
-    // The four added agents are now valid `assignee` values.
-    for agent in ["grok", "antigravity", "pi", "droid"] {
+    // The added agents are valid `assignee` values.
+    for agent in ["grok", "antigravity", "pi", "droid", "kimi"] {
         let tasks = format!(
             r#"
 schema_version = 2
@@ -3656,6 +3681,54 @@ model = "claude-opus-4-7"
     let value: serde_json::Value =
         serde_json::from_slice(&json.stdout).expect("stdout is valid json");
     assert_eq!(value["model"], "claude-opus-4-7");
+}
+
+#[test]
+fn new_from_stdin_round_trips_kimi_assignee() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Kimi-assigned task"
+scores = { d = 2, b = 6, u = 6 }
+assignee = "kimi"
+model = "kimi-for-coding"
+acceptance_criteria = ["Kimi is preserved as the task assignee"]
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(tasks.contains("assignee = \"kimi\""), "tasks: {tasks}");
+    assert!(
+        tasks.contains("model = \"kimi-for-coding\""),
+        "tasks: {tasks}"
+    );
+
+    let data: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&data_path).expect("read data json"))
+            .expect("valid data json");
+    let new_row = data["task"]
+        .as_array()
+        .expect("task array")
+        .iter()
+        .find(|row| row["id"] == 2)
+        .expect("new row in data.json");
+    assert_eq!(new_row["assignee"], "kimi");
+    assert_eq!(new_row["model"], "kimi-for-coding");
 }
 
 #[test]
@@ -8799,7 +8872,7 @@ scores = { d = 2, b = 5, u = 5 }
 "#;
 
 #[test]
-fn assign_command_sets_agent_and_model() {
+fn assign_command_sets_kimi_agent_and_model() {
     let dir = temp_dir();
     fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
     let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", ASSIGN_TASKS);
@@ -8815,14 +8888,14 @@ fn assign_command_sets_agent_and_model() {
     let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
         .arg("assign")
         .arg("1")
-        .arg("cursor")
+        .arg("kimi")
         .arg("--model")
-        .arg("composer-2.5-fast")
+        .arg("kimi-for-coding")
         .arg("--tasks-path")
         .arg(&tasks_path)
         .current_dir(&dir)
         .output()
-        .expect("run rmap assign 1 cursor");
+        .expect("run rmap assign 1 kimi");
 
     assert!(
         output.status.success(),
@@ -8832,11 +8905,11 @@ fn assign_command_sets_agent_and_model() {
 
     let after = fs::read_to_string(&tasks_path).expect("read tasks.toml");
     assert!(
-        after.contains("assignee = \"cursor\""),
+        after.contains("assignee = \"kimi\""),
         "assignee set:\n{after}"
     );
     assert!(
-        after.contains("model = \"composer-2.5-fast\""),
+        after.contains("model = \"kimi-for-coding\""),
         "model set:\n{after}"
     );
 }
@@ -8860,12 +8933,12 @@ fn assign_command_rejects_missing_model() {
     let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
         .arg("assign")
         .arg("1")
-        .arg("claude")
+        .arg("kimi")
         .arg("--tasks-path")
         .arg(&tasks_path)
         .current_dir(&dir)
         .output()
-        .expect("run rmap assign 1 claude");
+        .expect("run rmap assign 1 kimi");
 
     assert!(!output.status.success(), "missing model is a hard error");
     let stderr = String::from_utf8_lossy(&output.stderr);
