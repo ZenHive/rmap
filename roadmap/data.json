@@ -110,6 +110,11 @@
       "order": 1,
       "description": "rmap import: emit a paste-ready ROADMAP.md→tasks.toml migration prompt (the delegate pattern, applied to migration)"
     },
+    "render_changelog_link": {
+      "phase": 15,
+      "order": 40,
+      "description": "Archive-collapse CHANGELOG link — make the target path configurable and omit the link when no anchor can exist (monorepo roots with per-package changelogs render dead links today)"
+    },
     "schema_implemented": {
       "phase": 15,
       "order": 2,
@@ -2098,6 +2103,46 @@
       "scored_at": "2026-08-05",
       "implemented": "Added optional Task.target_repo (src/schema.rs) naming the repository a task's own work lands in, defaulting to the roadmap's top-level project and explicitly distinguished from cross_repo. Wired through all six creation-time mirror surfaces (StdinTask, NewTaskFields, add_task_str, canonical_task_key_index, diff_fields!, ExportedTask/EXPORTED_TASK_FIELDS), a --target-repo filter on the list read path (src/query.rs), a Target repo bullet in delegate's ## Context (src/delegate.rs), and non-blank validation (src/validate.rs). Docs updated in CLAUDE.md + SKILLS.md; 221 lines of CLI tests.",
       "delivered_by": "codex (gpt-5.6-sol)",
+      "cross_repo": []
+    },
+    {
+      "id": 55,
+      "phase": 15,
+      "bundle": "render_changelog_link",
+      "status": "pending",
+      "title": "Archive-collapse CHANGELOG link: configurable target path, omitted when no anchor can exist",
+      "scores": {
+        "d": 3,
+        "b": 5,
+        "u": 4
+      },
+      "eff": 1.5,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [],
+      "depends_on": [],
+      "assignee": "codex",
+      "model": "gpt-6-astra",
+      "acceptance_criteria": [
+        "A project can configure where the archive-collapse link points (per-phase and/or project-level, per the settled decision); unknown or blank values are rejected by rmap validate before any write",
+        "With nothing configured, the rendered collapsed line follows the settled decision (unchanged link, or no link) and is golden-tested",
+        "With a path configured, the rendered line links to that path plus the phase anchor; a golden fixture covers a nested path like packages/x/CHANGELOG.md",
+        "Existing goldens without configuration render byte-identically under the keep-link decision, or change only in the link segment under the omit decision",
+        "SKILLS.md carries a runnable example and ~/.claude/includes/rmap.md documents the field; CHANGELOG entry under the phase 15 section"
+      ],
+      "out_of_scope": [
+        "Generating or validating the anchor headings inside the target changelog",
+        "Any change to how phases are marked done or how tasks are counted"
+      ],
+      "touches": [
+        "src/render.rs",
+        "src/schema.rs",
+        "SKILLS.md",
+        "CHANGELOG.md"
+      ],
+      "body": "Open decisions to settle with the human before dispatch: (1) is the target a per-phase field (`[phases.N] changelog = \"packages/onchain_evm/CHANGELOG.md\"`) or a project-level `changelog_path`, or both with phase overriding project? (2) When nothing is configured, keep today's `CHANGELOG.md#phase-<n>-<slug>` link, or render the bare `> N tasks.` line with no link?\n\nObserved 2026-09-06 in onchain-stack (root roadmap for eight packages, every changelog under packages/<pkg>/CHANGELOG.md, root CHANGELOG.md is a 20-line migration note with no phase headings): every done phase renders `> 15 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-6003-onchain-evm-standalone-release)`. The file resolves, the anchor never does, and three cross-family reviewers flagged it as a broken link in one review pass. src/render.rs:435 hardcodes the root-relative path and a phase-slug anchor (slug helper at render.rs:548); nothing in tasks.toml can redirect it. Per-package changelogs there use Keep-a-Changelog version headings, so even a per-package path only helps if the consumer chooses to add phase headings — which is why the omit-when-unconfigured option exists.\n\nMake the target configurable and never emit a link the project cannot satisfy. Keep the collapsed line's shape otherwise byte-identical so existing goldens only change where a path is configured.",
+      "created_at": "2026-09-06",
+      "scored_at": "2026-09-06",
       "cross_repo": []
     }
   ]

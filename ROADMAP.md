@@ -132,7 +132,8 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 43 | ✅ | 🎁 **agent_routing** · Add `domains` task field: schema + JSON/data.json export (harness CapabilityScore reader is pre-wired, rmap never emits it) [D:2/B:4/U:4 → Eff:2.0?] 🎯 |
 | Task 44 | ✅ | 🎁 **doctor_state_drift** · rmap validate: hard error when a live agent-assigned task has no model [D:2/B:4/U:4 → Eff:2.0?] 🎯 |
 | Task 49 | ✅ | 🎁 **agent_dispatch** · rmap assign — set assignee + model on an existing task [D:2/B:5/U:5 → Eff:2.5?] 🎯 |
-| Task 53 `[P]` | ✅ | 🎁 **delegate_targets** · Add kimi as a first-class agent target (assignee + delegate --to) [D:2/B:6/U:6 → Eff:3.0] 🎯 |
+| Task 53 `[P]` | ✅ | 🎁 **delegate_targets** · Add kimi as a first-class agent target (assignee + delegate --to) [D:2/B:6/U:6 → Eff:3.0?] 🎯 |
+| Task 55 | ⬜ | 🎁 **render_changelog_link** · Archive-collapse CHANGELOG link: configurable target path, omitted when no anchor can exist [D:3/B:5/U:4 → Eff:1.5] 🚀 |
 <!-- TASKS:END -->
 
 ## Phase 16 — Graph queries (in progress)
@@ -146,6 +147,6 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 46 | ✅ | 🎁 **graph_queries** · rmap critical-path: longest dependency chain to a milestone/release [D:3/B:5/U:5 → Eff:1.67?] 🚀 |
 | Task 47 | ✅ | 🎁 **graph_queries** · rmap doctor graph-health advisories: bottleneck + isolated/unreachable node [D:3/B:4/U:4 → Eff:1.33?] 📋 |
 | Task 48 | ✅ | 🎁 **graph_queries** · rmap graph export: rmap export dot (Graphviz) + rmap waves (parallel dispatch schedule) [D:2/B:4/U:4 → Eff:2.0?] 🎯 |
-| Task 51 | ✅ | 🎁 **doctor_spec_quality** · doctor: spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks [D:4/B:7/U:7 → Eff:1.75] 🚀 |
-| Task 54 `[P]` | ✅ | 🎁 **schema_parity** · Per-task target repo: let one roadmap schedule work that lands in a different repository [D:3/B:5/U:5 → Eff:1.67] 🚀 |
+| Task 51 | ✅ | 🎁 **doctor_spec_quality** · doctor: spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks [D:4/B:7/U:7 → Eff:1.75?] 🚀 |
+| Task 54 `[P]` | ✅ | 🎁 **schema_parity** · Per-task target repo: let one roadmap schedule work that lands in a different repository [D:3/B:5/U:5 → Eff:1.67?] 🚀 |
 <!-- TASKS:END -->
