@@ -2149,7 +2149,7 @@
       "id": 56,
       "phase": 15,
       "bundle": "schema_outcome",
-      "status": "in_progress",
+      "status": "done",
       "title": "landing_ref — record an open PR on an in_progress task so a PR-landed run is visible in the roadmap, not only in harness",
       "scores": {
         "d": 4,
@@ -2197,10 +2197,17 @@
         "cli",
         "schema"
       ],
+      "shipped_in": "f2d957735e27d9b08d38148bfcdd2847282471ab",
       "body": "harness task 426 adds `landing_policy: :pr`: after the reviewer approves, the lander opens a GitHub pull request instead of ff-pushing to the target, and rmap writeback (`done --shipped-in <merge sha>`) is deferred until the PR merges. Between PR-open and merge the task sits in `in_progress` with nothing in the roadmap saying why: `rmap show`, `ROADMAP.md`, `data.json`, and `rmap stale` all read it as a stalled implementation, and every orchestrator session has to go to the harness ResultStore to learn a PR exists.\n\nAdd one transition-time field, `landing_ref` (free-text, unvalidated, e.g. a PR URL), settable on an `in_progress` task and carried into `done` as provenance next to `shipped_in`.\n\nDecisions (vetoable):\n- Name `landing_ref`, not `pr_url` — free text so a Linear/GitLab/Gerrit ref fits later without a schema change; the value is never parsed.\n- Set via `rmap status <id> in_progress --landing-ref <ref>`. An in_progress → in_progress transition with only `--landing-ref` is accepted as a field update (no timestamp churn: `started_at` unchanged). The flag is rejected on any other target status. `--landing-ref \"\"` clears it.\n- Lifecycle: kept on `done` (provenance, alongside `shipped_in`); kept on `blocked` (a PR closed unmerged is exactly when the ref matters); cleared on `pending` (the work is being redone — the old ref belongs in the appended `attempts` report, which harness supplies via `--report`).\n- Surfaces per the schema.rs MIRROR SURFACES note for a transition-time field: `set_status_str`, `canonical_task_key_index`, `diff_fields!` (+ `TASK_VERBOSE_WHITELIST`), `ExportedTask`. Absent from `StdinTask` / `NewTaskFields`.\n- Render: `rmap show` prints `landing_ref:` when present; the `ROADMAP.md` task row gets a conditional `🔗 <landing_ref>` segment (rows without it render byte-identically).\n- `rmap stale --over <dur>` and the `doctor` fold exclude in_progress tasks carrying a `landing_ref` from the stalled list and report them under a separate `awaiting landing (N)` line — an open PR is waiting on a human merge, not on an implementer.\n",
       "created_at": "2026-09-13",
       "started_at": "2026-09-13",
+      "done_at": "2026-09-13",
       "scored_at": "2026-09-13",
+      "implemented": "Landed by grok via merge-train; reviewer-approved (run run-1789261369490-c83c1e98, f2d957735e27d9b08d38148bfcdd2847282471ab).",
+      "delivered_by": "grok",
+      "verified": true,
+      "verified_by": "cursor",
+      "verification_ref": "harness-run:run-1789261369490-c83c1e98",
       "cross_repo": [
         {
           "repo": "harness",

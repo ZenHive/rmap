@@ -1506,7 +1506,7 @@ scored_at = "2026-09-06"
 id = 56
 phase = 15
 bundle = "schema_outcome"
-status = "in_progress"
+status = "done"
 title = "landing_ref — record an open PR on an in_progress task so a PR-landed run is visible in the roadmap, not only in harness"
 scores = { d = 4, b = 6, u = 6 }
 acceptance_criteria = ["`rmap status <id> in_progress --landing-ref <ref>` on a pending or in_progress task persists `landing_ref` in tasks.toml; on an already-in_progress task `started_at` is unchanged; `--landing-ref` with any other target status exits non-zero with a message naming the rule; an empty value clears the field", "`done` and `blocked` transitions preserve `landing_ref`; a `pending` transition clears it; `rmap new --from-stdin` rejects `landing_ref` with `unknown field` like the other transition-time fields", "`rmap show`, `--json` envelopes, `data.json`, `rmap diff --verbose` surface the field; a tasks.toml without any landing_ref renders ROADMAP.md and data.json byte-identically to before (golden test)", "ROADMAP.md rows carrying a landing_ref show a `🔗 <ref>` segment; `rmap stale` and `rmap doctor` list such in_progress tasks under an `awaiting landing` count instead of as stalled", "SKILLS.md documents the flag and the lifecycle (kept on done/blocked, cleared on pending); `rmap schema` describes the field as transition-time; CHANGELOG entry", "Unit tests cover set/clear/reject/preserve/clear-on-pending and the stale exclusion"]
@@ -1530,6 +1530,13 @@ Decisions (vetoable):
 - Render: `rmap show` prints `landing_ref:` when present; the `ROADMAP.md` task row gets a conditional `🔗 <landing_ref>` segment (rows without it render byte-identically).
 - `rmap stale --over <dur>` and the `doctor` fold exclude in_progress tasks carrying a `landing_ref` from the stalled list and report them under a separate `awaiting landing (N)` line — an open PR is waiting on a human merge, not on an implementer.
 """
+implemented = "Landed by grok via merge-train; reviewer-approved (run run-1789261369490-c83c1e98, f2d957735e27d9b08d38148bfcdd2847282471ab)."
+delivered_by = "grok"
+verified = true
+verified_by = "cursor"
+verification_ref = "harness-run:run-1789261369490-c83c1e98"
 created_at = "2026-09-13"
 started_at = "2026-09-13"
 scored_at = "2026-09-13"
+done_at = "2026-09-13"
+shipped_in = "f2d957735e27d9b08d38148bfcdd2847282471ab"
