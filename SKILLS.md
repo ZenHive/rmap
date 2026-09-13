@@ -19,6 +19,40 @@ rmap dogfoods itself — its own roadmap lives in `roadmap/tasks.toml` and rende
 
 `ROADMAP.md` lives at the project root, **not** inside `roadmap/`. The renderer walks ancestors of `cwd` to find `roadmap/tasks.toml`; pass `--tasks-path` / `--roadmap-path` / `--data-path` to override.
 
+## Archive-collapse changelog links
+
+Done phases use the per-phase `changelog`, then top-level `changelog_path`, then
+`CHANGELOG.md`. Set either field to `false` to omit the link; a phase path can
+override a project-wide `false`. Paths must be nonblank strings; `true` and other
+types are invalid. Links display the basename and append `#phase-N-<slug>`.
+The target must have matching phase headings; rmap does not generate or check them.
+
+This standalone example validates and previews a nested path:
+
+```sh
+mkdir -p changelog-demo/roadmap
+cat > changelog-demo/roadmap/tasks.toml <<'EOF'
+schema_version = 2
+project = "demo"
+default_branch = "main"
+changelog_path = "packages/x/CHANGELOG.md"
+
+[phases.3]
+name = "Foo"
+order = 3
+status = "done"
+# changelog = false  # Uncomment to omit this phase's link.
+EOF
+cat > changelog-demo/ROADMAP.md <<'EOF'
+<!-- TASKS:BEGIN phase=3 -->
+<!-- TASKS:END -->
+EOF
+rmap validate --tasks-path changelog-demo/roadmap/tasks.toml
+rmap render --stdout --tasks-path changelog-demo/roadmap/tasks.toml --roadmap-path changelog-demo/ROADMAP.md
+```
+
+The collapsed line is `> 0 tasks. See [CHANGELOG.md](packages/x/CHANGELOG.md#phase-3-foo).`
+
 ## Reading state
 
 `rmap show <id>` for the human view, `rmap show <id> --json` for the agent contract envelope. IDs can be numeric (`74`) or text (`"78b"`).

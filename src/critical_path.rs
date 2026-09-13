@@ -187,6 +187,7 @@ mod tests {
             schema_version: 2,
             project: "demo".to_string(),
             default_branch: "main".to_string(),
+            changelog_path: None,
             vision: None,
             focus: None,
             linear: None,

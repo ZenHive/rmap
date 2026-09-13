@@ -4,7 +4,8 @@ use serde::Serialize;
 
 use crate::next_bundle::BundlePick;
 use crate::schema::{
-    Attempt, Bundle, CrossRepo, Focus, Linear, Milestone, Phase, Scores, Task, TaskId, Tasks,
+    Attempt, Bundle, Changelog, CrossRepo, Focus, Linear, Milestone, Phase, Scores, Task, TaskId,
+    Tasks,
 };
 use crate::scoring::rounded_efficiency;
 use crate::topo::{compute_layers, compute_unlocks};
@@ -14,6 +15,8 @@ struct ExportedTasks<'a> {
     schema_version: u32,
     project: &'a str,
     default_branch: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    changelog_path: Option<&'a Changelog>,
     #[serde(skip_serializing_if = "Option::is_none")]
     vision: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -283,6 +286,7 @@ fn exported_tasks_with<'a>(
         schema_version: tasks.schema_version,
         project: &tasks.project,
         default_branch: &tasks.default_branch,
+        changelog_path: tasks.changelog_path.as_ref(),
         vision: tasks.vision.as_ref(),
         focus: tasks.focus.as_ref(),
         linear: tasks.linear.as_ref(),

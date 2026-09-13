@@ -171,6 +171,14 @@ pub fn diff_metadata(base: &Tasks, current: &Tasks, verbose: bool) -> Vec<Metada
         ));
     }
     if let Some(entry) = diff_optional(
+        "changelog_path",
+        base.changelog_path.as_ref(),
+        current.changelog_path.as_ref(),
+        verbose,
+    ) {
+        diff.push(entry);
+    }
+    if let Some(entry) = diff_optional(
         "vision",
         base.vision.as_ref(),
         current.vision.as_ref(),

@@ -12,6 +12,9 @@ pub struct Tasks {
     pub schema_version: u32,
     pub project: String,
     pub default_branch: String,
+    /// Default archive-collapse link path; false omits the link. Defaults to CHANGELOG.md.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub changelog_path: Option<Changelog>,
     pub vision: Option<String>,
     pub focus: Option<Focus>,
     pub linear: Option<Linear>,
@@ -44,6 +47,54 @@ pub struct Phase {
     pub name: String,
     pub order: u32,
     pub status: String,
+    /// Archive-collapse link override; false omits the link, absent inherits the project default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub changelog: Option<Changelog>,
+}
+
+/// A nonblank changelog path or false to omit the archive link.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum Changelog {
+    Path(String),
+    Disabled(bool),
+}
+
+impl<'de> Deserialize<'de> for Changelog {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Value {
+            Path(String),
+            Disabled(bool),
+        }
+        let value = Value::deserialize(deserializer).map_err(|_| {
+            serde::de::Error::custom("changelog must be a nonblank string path or false")
+        })?;
+        match value {
+            Value::Path(path) if !path.trim().is_empty() => Ok(Self::Path(path)),
+            Value::Disabled(false) => Ok(Self::Disabled(false)),
+            _ => Err(serde::de::Error::custom(
+                "changelog must be a nonblank string path or false",
+            )),
+        }
+    }
+}
+
+impl JsonSchema for Changelog {
+    fn schema_name() -> Cow<'static, str> {
+        "Changelog".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "description": "A nonblank changelog path, or false to omit the archive-collapse link.",
+            "anyOf": [
+                { "type": "string", "pattern": r"\S" },
+                { "const": false }
+            ]
+        })
+    }
 }
 
 #[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]

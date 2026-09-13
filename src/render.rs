@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::milestones::{MilestoneFilter, MilestoneSummary, list_milestones};
 use crate::next::next_task;
 use crate::query::TaskFilter;
-use crate::schema::{Task, Tasks};
+use crate::schema::{Changelog, Task, Tasks};
 use crate::scoring::{days_since, efficiency, format_efficiency, score_decay_suffix, tier_glyph};
 
 const BEGIN_MARKER: &str = "<!-- TASKS:BEGIN phase=";
@@ -430,10 +430,18 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
     {
         let count = tasks.task.iter().filter(|task| task.phase == phase).count();
         let noun = if count == 1 { "task" } else { "tasks" };
+        let path = match phase_entry
+            .changelog
+            .as_ref()
+            .or(tasks.changelog_path.as_ref())
+        {
+            Some(Changelog::Disabled(_)) => return format!("> {count} {noun}.\n"),
+            Some(Changelog::Path(path)) => path.as_str(),
+            None => "CHANGELOG.md",
+        };
+        let basename = path.rsplit('/').next().unwrap_or(path);
         let slug = phase_slug(&phase_entry.name);
-        return format!(
-            "> {count} {noun}. See [CHANGELOG.md](CHANGELOG.md#phase-{phase}-{slug}).\n"
-        );
+        return format!("> {count} {noun}. See [{basename}]({path}#phase-{phase}-{slug}).\n");
     }
 
     let mut table = String::new();
