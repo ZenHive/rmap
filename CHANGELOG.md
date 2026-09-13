@@ -6,6 +6,13 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Task 56: open landing references
+
+**What was done:**
+- Added `rmap status <id> in_progress --landing-ref <ref>` to record an open PR or other free-text landing pointer without changing an existing `started_at`. An empty value clears it; other target statuses reject the flag. Later transitions retain the pointer on `done` and `blocked`, and clear it on `pending`.
+- Surfaced `landing_ref` in `show`, JSON exports, verbose diffs, and roadmap rows (`🔗` before any blocked reason). In-progress tasks with a non-blank pointer appear under `awaiting landing` in text `stale` and `doctor` output instead of as stalled; `doctor --json` reports `awaiting_landing` findings.
+- Patch 0.4.1 completes the release notes and optional-field reference, and corrects the transition-field documentation.
+
 ### Tasks 53 and 54: kimi delegate target, per-task target repo, and `--version`
 
 **What was done:**

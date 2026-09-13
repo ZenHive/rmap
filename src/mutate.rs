@@ -119,7 +119,7 @@ impl CrossRepoSpec {
 /// Transition-time fields written by a status change, grouped into one argument
 /// so the status mutators stay under clippy's argument-count ceiling as the
 /// outcome layer grows. All are optional; `None` leaves the field untouched.
-/// Each field is gated on its matching transition: the first four (`implemented`,
+/// Each field is gated on its matching transition: the outcome fields (`implemented`,
 /// `delivered_by`, `verified`, `verified_by`, `verification_ref`, `shipped_in`)
 /// apply only on a `done` transition;
 /// `blocked_reason` applies only on a `blocked` transition; `attempt_report` /
