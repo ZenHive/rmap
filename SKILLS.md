@@ -270,6 +270,18 @@ rmap status 3,4 in_progress
 # exit: 0
 ```
 
+Record an open landing pointer (PR URL, Linear issue, GitLab MR, or any other free-text ref) on an `in_progress` task with `--landing-ref <ref>`. The value is never parsed or fetched — rmap records the fact; the caller owns the PR lifecycle. An `in_progress` → `in_progress` call with only this flag is a field update (`started_at` unchanged). `--landing-ref ""` clears it. The flag is rejected on any other target status. Lifecycle without the flag: **kept on `done`** (provenance next to `shipped_in`) and **kept on `blocked`** (a PR closed unmerged is when the ref matters); **cleared on `pending`** (the work is being redone — put the old ref in the `--report` attempt). `rmap show` prints `landing_ref:` when present; ROADMAP.md rows get a `🔗 <ref>` segment; `rmap stale` / `rmap doctor` list these in_progress tasks under `awaiting landing (N)` instead of as stalled.
+
+```bash
+rmap status 2 in_progress --landing-ref https://github.com/org/repo/pull/42
+# exit: 0
+```
+
+```bash
+rmap status 3 pending --landing-ref https://github.com/org/repo/pull/42
+# exit: 1
+```
+
 When flipping to `done`, supply `--implemented "<what shipped>"` (required when the task lacks the field). Add `--delivered-by <agent>`, `--verified --verified-by <evaluator> [--verification-ref <ref>]`, and `--shipped-in <sha>` to record outcome facts — who shipped it, which independent evaluator confirmed it, the optional durable evidence pointer (harness run / CI URL / review artifact), and where it landed. A new `--verified` claim without non-empty `--verified-by` is rejected without writing. Outcome flags apply only on `done`; non-`done` transitions emit a stderr warning and skip the write.
 
 ```bash
@@ -312,7 +324,7 @@ rmap depend 4 on 3
 
 ## Creating tasks
 
-`rmap new --from-stdin` reads one-or-more `[[task]]` blocks as TOML from stdin and appends them to `tasks.toml`. Omitting `id` auto-allocates the next numeric id (`max + 1`) — only numeric ids auto-allocate; a `TaskId::Text` id (e.g. `"78b"`, `"INE-5"`) is never auto-generated and must be supplied explicitly. `created_at` and `scored_at` default to today if not provided. A created task is always `pending`: `status` is accepted but only as `"pending"` (a tolerated no-op so agents can echo the default without a rejected round-trip); any other value is rejected with a pointer to `rmap status`. A live task explicitly assigned to a non-human agent must carry at least one non-blank `acceptance_criteria` entry as well as its pinned `model`; unassigned and human tasks are exempt. Lifecycle / transition fields (`started_at`, `done_at`, `blocked_reason`, `shipped_in`, `implemented`) cannot be set on creation — those transitions belong to `rmap status`.
+`rmap new --from-stdin` reads one-or-more `[[task]]` blocks as TOML from stdin and appends them to `tasks.toml`. Omitting `id` auto-allocates the next numeric id (`max + 1`) — only numeric ids auto-allocate; a `TaskId::Text` id (e.g. `"78b"`, `"INE-5"`) is never auto-generated and must be supplied explicitly. `created_at` and `scored_at` default to today if not provided. A created task is always `pending`: `status` is accepted but only as `"pending"` (a tolerated no-op so agents can echo the default without a rejected round-trip); any other value is rejected with a pointer to `rmap status`. A live task explicitly assigned to a non-human agent must carry at least one non-blank `acceptance_criteria` entry as well as its pinned `model`; unassigned and human tasks are exempt. Lifecycle / transition fields (`started_at`, `done_at`, `blocked_reason`, `shipped_in`, `landing_ref`, `implemented`) cannot be set on creation — those transitions belong to `rmap status`.
 
 ```bash
 rmap new --from-stdin
@@ -420,7 +432,7 @@ rmap diff --json
 
 ## Health
 
-`rmap doctor` is the soft-signal aggregator. Findings: validate findings + render drift + stale (>30d in-progress) + score-decay (>30d `scored_at` or missing) + degenerate-bundle + missing-`acceptance_criteria` + claimed-not-graded (a `done` task without `verified` set — "claimed, not graded") + verified-without-provenance (legacy `verified = true` without `verified_by`), plus four soft families:
+`rmap doctor` is the soft-signal aggregator. Findings: validate findings + render drift + stale (>30d in-progress) + awaiting-landing (`in_progress` tasks carrying a `landing_ref` — waiting on a human merge, not an implementer; excluded from the stalled list and reported under `awaiting landing (N)`, JSON kind `awaiting_landing`) + score-decay (>30d `scored_at` or missing) + degenerate-bundle + missing-`acceptance_criteria` + claimed-not-graded (a `done` task without `verified` set — "claimed, not graded") + verified-without-provenance (legacy `verified = true` without `verified_by`), plus four soft families:
 
 - **phase drift** — phase all-done-but-still-open, a pending phase holding ≥1 in-progress task, and focus-phase-closed (`[focus].phase` points at a phase that looks done).
 - **milestone drift** — milestone all-done-but-still-open, and multiple-active-milestones (keep exactly one `active`).

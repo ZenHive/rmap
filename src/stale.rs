@@ -28,20 +28,42 @@ pub fn parse_duration(input: &str) -> Result<u32, StaleError> {
         .ok_or_else(|| StaleError::InvalidDuration(input.into()))
 }
 
+/// True when the task carries a non-blank `landing_ref` (an open PR or other
+/// landing pointer). Empty/whitespace values do not count — they are not a
+/// recorded landing.
+pub fn has_landing_ref(task: &Task) -> bool {
+    task.landing_ref
+        .as_deref()
+        .is_some_and(|s| !s.trim().is_empty())
+}
+
 /// Returns in-progress tasks whose `started_at` is older than `max_age_days` from `today`.
 /// Tasks without `started_at`, or with malformed dates, are skipped (validation rejects malformed
-/// dates upstream — defensive skip rather than panic).
+/// dates upstream — defensive skip rather than panic). In-progress tasks that
+/// carry a `landing_ref` are excluded — they are waiting on a human merge, not
+/// on an implementer; see [`find_awaiting_landing`].
 pub fn find_stale<'a>(tasks: &'a Tasks, max_age_days: u32, today: &str) -> Vec<&'a Task> {
     tasks
         .task
         .iter()
         .filter(|t| t.status == "in_progress")
+        .filter(|t| !has_landing_ref(t))
         .filter(|t| match t.started_at.as_deref() {
             Some(s) => days_since(today, s)
                 .map(|d| d > i64::from(max_age_days))
                 .unwrap_or(false),
             None => false,
         })
+        .collect()
+}
+
+/// In-progress tasks that carry a `landing_ref` — waiting on a human merge,
+/// not on an implementer. Independent of `started_at` age.
+pub fn find_awaiting_landing(tasks: &Tasks) -> Vec<&Task> {
+    tasks
+        .task
+        .iter()
+        .filter(|t| t.status == "in_progress" && has_landing_ref(t))
         .collect()
 }
 
@@ -74,6 +96,7 @@ mod tests {
             touches: vec![],
             domains: vec![],
             shipped_in: None,
+            landing_ref: None,
             body: None,
             created_at: None,
             started_at: started_at.map(String::from),
@@ -208,5 +231,50 @@ mod tests {
         let tasks = make_tasks(vec![make_task(1, "in_progress", Some("2026-04-10"))]);
         let stale = find_stale(&tasks, 30, "2026-05-11");
         assert_eq!(stale.len(), 1);
+    }
+
+    fn with_landing_ref(mut task: Task, landing_ref: &str) -> Task {
+        task.landing_ref = Some(landing_ref.to_string());
+        task
+    }
+
+    #[test]
+    fn find_stale_excludes_in_progress_with_landing_ref() {
+        let tasks = make_tasks(vec![
+            with_landing_ref(
+                make_task(1, "in_progress", Some("2026-03-01")),
+                "https://example.com/pr/1",
+            ),
+            make_task(2, "in_progress", Some("2026-03-01")),
+        ]);
+        let stale = find_stale(&tasks, 30, "2026-05-11");
+        assert_eq!(stale.len(), 1);
+        assert_eq!(stale[0].id, 2u32);
+
+        let awaiting = find_awaiting_landing(&tasks);
+        assert_eq!(awaiting.len(), 1);
+        assert_eq!(awaiting[0].id, 1u32);
+    }
+
+    #[test]
+    fn find_awaiting_landing_ignores_blank_and_non_in_progress() {
+        let tasks = make_tasks(vec![
+            with_landing_ref(make_task(1, "in_progress", Some("2026-03-01")), "  "),
+            with_landing_ref(
+                make_task(2, "done", Some("2026-03-01")),
+                "https://example.com/pr/2",
+            ),
+            with_landing_ref(
+                make_task(3, "in_progress", Some("2026-05-10")),
+                "https://example.com/pr/3",
+            ),
+        ]);
+        let awaiting = find_awaiting_landing(&tasks);
+        assert_eq!(awaiting.len(), 1);
+        assert_eq!(awaiting[0].id, 3u32);
+        // blank landing_ref does not exclude from stale
+        let stale = find_stale(&tasks, 30, "2026-05-11");
+        assert_eq!(stale.len(), 1);
+        assert_eq!(stale[0].id, 1u32);
     }
 }

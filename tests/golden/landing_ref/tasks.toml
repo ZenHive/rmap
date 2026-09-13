@@ -1,0 +1,46 @@
+schema_version = 2
+project = "onchain"
+default_branch = "main"
+
+[phases.7]
+name = "ERC20 + Subscription"
+order = 7
+status = "in_progress"
+
+[bundles.module_split]
+phase = 7
+order = 1
+description = "Split monolithic Onchain into per-module crates"
+
+[[task]]
+id = 101
+phase = 7
+bundle = "module_split"
+status = "done"
+implemented = "fixture"
+title = "extract token-name lookup"
+module = "Onchain.ERC20"
+scores = { d = 3, b = 6, u = 6 }
+scored_at = "2026-05-10"
+done_at = "2026-05-08"
+
+[[task]]
+id = 102
+phase = 7
+bundle = "module_split"
+status = "in_progress"
+title = "split subscription registry"
+module = "Onchain.Subscription"
+scores = { d = 4, b = 6, u = 6 }
+scored_at = "2026-05-10"
+started_at = "2026-05-09"
+landing_ref = "https://github.com/org/repo/pull/42"
+
+[[task]]
+id = 103
+phase = 7
+bundle = "module_split"
+status = "pending"
+title = "shared helpers — no module yet"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-10"

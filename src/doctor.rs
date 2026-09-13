@@ -4,7 +4,7 @@ use std::fmt;
 use crate::render::render_roadmap_str_with_today;
 use crate::schema::{Scores, Task, TaskId, Tasks};
 use crate::scoring::days_since;
-use crate::stale::find_stale;
+use crate::stale::{find_awaiting_landing, find_stale};
 use crate::topo::{compute_unlocks, forward_adjacency, milestone_reachable_ids};
 use crate::validate;
 
@@ -90,6 +90,13 @@ pub enum DoctorFinding {
         id: String,
         started_at: String,
         days_idle: i64,
+    },
+    /// Soft advisory: an `in_progress` task carries a `landing_ref` (open PR
+    /// or other landing pointer). Waiting on a human merge, not an implementer
+    /// — excluded from the stalled list.
+    AwaitingLanding {
+        id: String,
+        landing_ref: String,
     },
     ScoreDecay {
         id: String,
@@ -216,7 +223,7 @@ impl DoctorReport {
             });
         }
 
-        // 2. stale in-progress tasks
+        // 2. stale in-progress tasks (landing_ref tasks are excluded here)
         for task in find_stale(tasks, thresholds.days, today) {
             let started_at = task.started_at.clone().unwrap_or_default();
             let days_idle = days_since(today, &started_at).unwrap_or(0);
@@ -224,6 +231,14 @@ impl DoctorReport {
                 id: task_id_display(&task.id),
                 started_at,
                 days_idle,
+            });
+        }
+
+        // 2b. in-progress tasks waiting on a human merge (open PR / landing_ref)
+        for task in find_awaiting_landing(tasks) {
+            findings.push(DoctorFinding::AwaitingLanding {
+                id: task_id_display(&task.id),
+                landing_ref: task.landing_ref.clone().unwrap_or_default(),
             });
         }
 
@@ -763,6 +778,25 @@ impl fmt::Display for DoctorReport {
             writeln!(f, "\nStale (in-progress > {}d):", self.thresholds.days)?;
             for (id, started_at, days) in stale_findings {
                 writeln!(f, "  - task {id} — started {started_at} ({days} days idle)")?;
+            }
+        }
+
+        let awaiting_findings: Vec<(&str, &str)> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::AwaitingLanding { id, landing_ref } = fi {
+                    Some((id.as_str(), landing_ref.as_str()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !awaiting_findings.is_empty() {
+            writeln!(f, "\nawaiting landing ({})", awaiting_findings.len())?;
+            for (id, landing_ref) in awaiting_findings {
+                writeln!(f, "  - task {id} — {landing_ref}")?;
             }
         }
 

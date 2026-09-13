@@ -11083,3 +11083,637 @@ fn doctor_command_surfaces_near_duplicate_open_tasks_and_threshold_flag() {
     );
     assert_eq!(high_report["thresholds"]["near_duplicate_min"], 101);
 }
+
+// ---------------------------------------------------------------------------
+// landing_ref: open-PR pointer on in_progress
+// ---------------------------------------------------------------------------
+
+const LANDING_REF_TASKS: &str = r#"
+schema_version = 2
+project = "landing_ref_test"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Open a PR"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "in_progress"
+title = "Already in progress"
+scores = { d = 2, b = 4, u = 4 }
+scored_at = "2026-05-01"
+started_at = "2026-05-01"
+"#;
+
+const LANDING_REF_ROADMAP: &str =
+    "# Roadmap\n\n<!-- TASKS:BEGIN phase=1 -->\nstale\n<!-- TASKS:END -->\n";
+
+const LANDING_REF_URL: &str = "https://github.com/org/repo/pull/42";
+
+fn landing_ref_workspace() -> (PathBuf, PathBuf) {
+    let dir = temp_dir();
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", LANDING_REF_TASKS);
+    write_file(&dir, "ROADMAP.md", LANDING_REF_ROADMAP);
+    (dir, tasks_path)
+}
+
+#[test]
+fn status_in_progress_landing_ref_persists_and_does_not_churn_started_at() {
+    let (dir, tasks_path) = landing_ref_workspace();
+
+    let first = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("in_progress")
+        .arg("--landing-ref")
+        .arg(LANDING_REF_URL)
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status in_progress --landing-ref");
+    assert!(
+        first.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read tasks");
+    let task_1 = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 1\n"))
+        .expect("task 1");
+    assert!(
+        task_1.contains(&format!("landing_ref = \"{LANDING_REF_URL}\"")),
+        "landing_ref missing:\n{task_1}"
+    );
+    assert!(
+        task_1.contains("started_at = \"2026-05-14\""),
+        "started_at missing:\n{task_1}"
+    );
+
+    let second = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("2")
+        .arg("in_progress")
+        .arg("--landing-ref")
+        .arg(LANDING_REF_URL)
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .env("RMAP_TODAY", "2026-05-14")
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status in_progress --landing-ref on existing");
+    assert!(
+        second.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    let tasks = fs::read_to_string(&tasks_path).expect("read tasks");
+    let task_2 = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 2\n"))
+        .expect("task 2");
+    assert!(
+        task_2.contains("started_at = \"2026-05-01\""),
+        "existing started_at must not churn:\n{task_2}"
+    );
+    assert!(
+        !task_2.contains("2026-05-14"),
+        "today must not appear on already-in-progress task:\n{task_2}"
+    );
+    assert!(
+        task_2.contains(&format!("landing_ref = \"{LANDING_REF_URL}\"")),
+        "landing_ref missing on already-in-progress:\n{task_2}"
+    );
+}
+
+#[test]
+fn status_landing_ref_rejected_on_other_statuses() {
+    let (dir, tasks_path) = landing_ref_workspace();
+    let before = fs::read_to_string(&tasks_path).expect("read before");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("1")
+        .arg("pending")
+        .arg("--landing-ref")
+        .arg(LANDING_REF_URL)
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap status pending --landing-ref");
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit for --landing-ref on pending"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--landing-ref") && stderr.contains("in_progress"),
+        "error must name the rule:\n{stderr}"
+    );
+    let after = fs::read_to_string(&tasks_path).expect("read after");
+    assert_eq!(before, after, "rejected landing_ref must not write");
+}
+
+#[test]
+fn status_empty_landing_ref_clears_field() {
+    let (dir, tasks_path) = landing_ref_workspace();
+    let set = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("2")
+        .arg("in_progress")
+        .arg("--landing-ref")
+        .arg(LANDING_REF_URL)
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("set landing_ref");
+    assert!(
+        set.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&set.stderr)
+    );
+
+    let clear = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("2")
+        .arg("in_progress")
+        .arg("--landing-ref")
+        .arg("")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("clear landing_ref");
+    assert!(
+        clear.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&clear.stderr)
+    );
+    let tasks = fs::read_to_string(&tasks_path).expect("read tasks");
+    let task_2 = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 2\n"))
+        .expect("task 2");
+    assert!(
+        !task_2.contains("landing_ref"),
+        "empty --landing-ref must drop the field:\n{task_2}"
+    );
+}
+
+#[test]
+fn status_done_and_blocked_keep_landing_ref_pending_clears() {
+    let (dir, tasks_path) = landing_ref_workspace();
+    let set = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("2")
+        .arg("in_progress")
+        .arg("--landing-ref")
+        .arg(LANDING_REF_URL)
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("set landing_ref");
+    assert!(set.status.success());
+
+    let blocked = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("2")
+        .arg("blocked")
+        .arg("--reason")
+        .arg("pr closed unmerged")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("block");
+    assert!(
+        blocked.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    let tasks = fs::read_to_string(&tasks_path).expect("read");
+    let task_2 = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 2\n"))
+        .expect("task 2");
+    assert!(
+        task_2.contains(&format!("landing_ref = \"{LANDING_REF_URL}\"")),
+        "blocked must keep landing_ref:\n{task_2}"
+    );
+
+    // Reset to in_progress with the ref, then done.
+    let reopen = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("2")
+        .arg("in_progress")
+        .arg("--landing-ref")
+        .arg(LANDING_REF_URL)
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("reopen");
+    assert!(reopen.status.success());
+    let done = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("2")
+        .arg("done")
+        .arg("--implemented")
+        .arg("shipped")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("done");
+    assert!(
+        done.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&done.stderr)
+    );
+    let tasks = fs::read_to_string(&tasks_path).expect("read");
+    let task_2 = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 2\n"))
+        .expect("task 2");
+    assert!(
+        task_2.contains(&format!("landing_ref = \"{LANDING_REF_URL}\"")),
+        "done must keep landing_ref:\n{task_2}"
+    );
+
+    // pending clears
+    let pending = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("2")
+        .arg("pending")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("pending");
+    assert!(pending.status.success());
+    let tasks = fs::read_to_string(&tasks_path).expect("read");
+    let task_2 = tasks
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 2\n"))
+        .expect("task 2");
+    assert!(
+        !task_2.contains("landing_ref"),
+        "pending must clear landing_ref:\n{task_2}"
+    );
+}
+
+#[test]
+fn new_from_stdin_rejects_landing_ref_as_unknown_field() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+    let before = fs::read_to_string(&tasks_path).expect("read before");
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Tries to set landing_ref at creation"
+scores = { d = 2, b = 5, u = 5 }
+landing_ref = "https://github.com/org/repo/pull/1"
+"#;
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        !output.status.success(),
+        "landing_ref at creation must fail"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("unknown field `landing_ref`"),
+        "stderr: {stderr}"
+    );
+    let after = fs::read_to_string(&tasks_path).expect("read after");
+    assert_eq!(before, after, "tasks.toml unchanged on unknown field");
+}
+
+#[test]
+fn show_and_json_surface_landing_ref() {
+    let (dir, tasks_path) = landing_ref_workspace();
+    let set = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("status")
+        .arg("2")
+        .arg("in_progress")
+        .arg("--landing-ref")
+        .arg(LANDING_REF_URL)
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("set landing_ref");
+    assert!(set.status.success());
+
+    let show = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("rmap show");
+    assert!(show.status.success());
+    let stdout = String::from_utf8_lossy(&show.stdout);
+    assert!(
+        stdout.contains(&format!("landing_ref: {LANDING_REF_URL}")),
+        "{stdout}"
+    );
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("rmap show --json");
+    let value: serde_json::Value = serde_json::from_slice(&json.stdout).expect("valid json");
+    assert_eq!(value["landing_ref"], LANDING_REF_URL);
+
+    let export = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("export")
+        .arg("json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("rmap export json");
+    let exported: serde_json::Value =
+        serde_json::from_slice(&export.stdout).expect("valid export json");
+    assert_eq!(exported["task"][1]["landing_ref"], LANDING_REF_URL);
+    assert!(
+        exported["task"][0].get("landing_ref").is_none(),
+        "task without landing_ref must omit the key: {}",
+        exported["task"][0]
+    );
+}
+
+#[test]
+fn schema_describes_landing_ref_as_transition_time() {
+    let schema = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("schema")
+        .output()
+        .expect("run rmap schema");
+    assert!(schema.status.success());
+    let schema = String::from_utf8_lossy(&schema.stdout);
+    assert!(schema.contains("landing_ref"), "{schema}");
+    assert!(
+        schema.contains("transition-time"),
+        "schema must describe landing_ref as transition-time: {schema}"
+    );
+}
+
+#[test]
+fn stale_and_doctor_fold_landing_ref_under_awaiting_landing() {
+    let fixture = r#"
+schema_version = 2
+project = "stale_landing"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "in_progress"
+title = "Old stalled work"
+scores = { d = 2, b = 4, u = 4 }
+started_at = "2026-03-01"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "in_progress"
+title = "Waiting on PR"
+scores = { d = 2, b = 4, u = 4 }
+started_at = "2026-03-01"
+landing_ref = "https://github.com/org/repo/pull/42"
+"#;
+    let path = write_temp_tasks("stale_landing.toml", fixture);
+
+    let stale = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("stale")
+        .arg("--over")
+        .arg("30d")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("rmap stale");
+    assert!(
+        stale.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&stale.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&stale.stdout);
+    assert!(
+        stdout.contains("Task 1"),
+        "stalled task must remain:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("awaiting landing (1)"),
+        "expected awaiting landing count:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("Task 2"),
+        "awaiting task must be listed:\n{stdout}"
+    );
+
+    let stale_json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("stale")
+        .arg("--over")
+        .arg("30d")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("rmap stale --json");
+    let json: serde_json::Value = serde_json::from_slice(&stale_json.stdout).expect("valid json");
+    let task_arr = json["task"].as_array().expect("task array");
+    assert_eq!(
+        task_arr.len(),
+        1,
+        "json stale list excludes awaiting: {task_arr:?}"
+    );
+    assert_eq!(task_arr[0]["id"], 1);
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("rmap doctor");
+    assert!(doctor.status.success());
+    let stdout = String::from_utf8_lossy(&doctor.stdout);
+    assert!(
+        stdout.contains("awaiting landing (1)"),
+        "doctor human must report awaiting landing:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("task 2") && stdout.contains("https://github.com/org/repo/pull/42"),
+        "doctor must cite the landing_ref:\n{stdout}"
+    );
+
+    let doctor_json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .arg("doctor")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&path)
+        .output()
+        .expect("rmap doctor --json");
+    let report: serde_json::Value =
+        serde_json::from_slice(&doctor_json.stdout).expect("valid doctor json");
+    let findings = report["findings"].as_array().expect("findings");
+    let awaiting: Vec<&serde_json::Value> = findings
+        .iter()
+        .filter(|f| f["kind"] == "awaiting_landing")
+        .collect();
+    assert_eq!(awaiting.len(), 1, "{findings:?}");
+    assert_eq!(awaiting[0]["id"], "2");
+    assert_eq!(
+        awaiting[0]["landing_ref"],
+        "https://github.com/org/repo/pull/42"
+    );
+    let stale_findings: Vec<&serde_json::Value> =
+        findings.iter().filter(|f| f["kind"] == "stale").collect();
+    assert!(
+        stale_findings.iter().all(|f| f["id"] != "2"),
+        "awaiting task must not also be stale: {stale_findings:?}"
+    );
+}
+
+#[test]
+fn diff_verbose_surfaces_landing_ref() {
+    let base = r#"
+schema_version = 2
+project = "diff_landing"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "in_progress"
+title = "Task"
+scores = { d = 2, b = 4, u = 4 }
+started_at = "2026-05-01"
+"#;
+    let current = r#"
+schema_version = 2
+project = "diff_landing"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "Core work"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "in_progress"
+title = "Task"
+scores = { d = 2, b = 4, u = 4 }
+started_at = "2026-05-01"
+landing_ref = "https://github.com/org/repo/pull/42"
+"#;
+    let dir = temp_dir();
+    git(&dir, &["init", "--quiet", "-b", "main"]);
+    git(&dir, &["config", "user.email", "test@example.com"]);
+    git(&dir, &["config", "user.name", "test"]);
+    fs::create_dir_all(dir.join("roadmap")).expect("create roadmap dir");
+    let tasks_path = write_file(&dir.join("roadmap"), "tasks.toml", base);
+    git(&dir, &["add", "."]);
+    git(&dir, &["commit", "-m", "base", "--quiet"]);
+    fs::write(&tasks_path, current).expect("write current");
+
+    let json_output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("diff")
+        .arg("--against")
+        .arg("HEAD")
+        .arg("--verbose")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("rmap diff --verbose --json");
+    assert!(
+        json_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&json_output.stderr)
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&json_output.stdout).expect("valid diff json");
+    let tasks = value["tasks"].as_array().expect("tasks array");
+    let changed = tasks
+        .iter()
+        .find(|entry| entry["status"] == "changed")
+        .expect("changed task");
+    let values = changed["values"].as_array().expect("values");
+    assert!(
+        values.iter().any(|v| v["field"] == "landing_ref"),
+        "expected landing_ref in --verbose values: {value}"
+    );
+}

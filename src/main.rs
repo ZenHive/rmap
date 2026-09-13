@@ -33,7 +33,7 @@ use rmap::render::render_roadmap_str;
 use rmap::render_html::{ProjectInput, render_html_str, render_portfolio_str};
 use rmap::schema::{Scores, Task, TaskId, Tasks};
 use rmap::schema_json::schema_json_str;
-use rmap::stale::{find_stale, parse_duration};
+use rmap::stale::{find_awaiting_landing, find_stale, parse_duration};
 use rmap::today_iso;
 use rmap::topo::{transitive_dependencies, transitive_dependents};
 use rmap::validate::{ValidateError, validate_tasks_file, validate_tasks_str};
@@ -178,6 +178,13 @@ enum Commands {
         /// meaningful with `--report` on a `pending` transition.
         #[arg(long)]
         attempt_by: Option<String>,
+        /// Record an open landing pointer (PR URL or other free-text ref) on
+        /// an `in_progress` task. Rejected on any other target status. An
+        /// `in_progress` → `in_progress` call with only this flag is a field
+        /// update (`started_at` unchanged). Pass an empty value to clear.
+        /// Kept on `done`/`blocked`; cleared on `pending`.
+        #[arg(long)]
+        landing_ref: Option<String>,
         #[arg(long)]
         tasks_path: Option<PathBuf>,
         #[arg(long)]
@@ -658,6 +665,7 @@ fn run() -> Result<ExitCode> {
             reason,
             report,
             attempt_by,
+            landing_ref,
             tasks_path,
             roadmap_path,
             data_path,
@@ -677,6 +685,7 @@ fn run() -> Result<ExitCode> {
                     blocked_reason: reason.as_deref(),
                     attempt_report: report.as_deref(),
                     attempt_by: attempt_by.as_deref(),
+                    landing_ref: landing_ref.as_deref(),
                 },
             )?;
         }
@@ -1079,12 +1088,19 @@ fn run() -> Result<ExitCode> {
             let max_age = parse_duration(&over).map_err(|e| anyhow::anyhow!(e))?;
             let today = today_iso();
             let stale = find_stale(&tasks, max_age, &today);
+            let awaiting = find_awaiting_landing(&tasks);
 
             if json {
                 println!("{}", export_filtered_json_str(&tasks, &stale)?);
             } else {
                 for task in stale {
                     println!("{}", format_task_row(task));
+                }
+                if !awaiting.is_empty() {
+                    println!("awaiting landing ({})", awaiting.len());
+                    for task in awaiting {
+                        println!("{}", format_task_row(task));
+                    }
                 }
             }
         }
@@ -1998,8 +2014,8 @@ struct StdinPayload {
 /// produces `"pending"` tasks only; a non-pending value is rejected in
 /// `create_task` with a pointer to `rmap status`. The other lifecycle /
 /// transition-time fields (`started_at`, `done_at`, `blocked_reason`,
-/// `shipped_in`, `implemented`, `attempts`) remain excluded; `rmap status`
-/// owns those transitions.
+/// `shipped_in`, `landing_ref`, `implemented`, `attempts`) remain excluded;
+/// `rmap status` owns those transitions.
 ///
 /// `branch`, `files_to_modify`, `touches`, `target_repo`, and `cross_repo` are the documented
 /// power-user fields — only reachable via `--from-stdin`, not via the

@@ -22,7 +22,7 @@ pub mod topo;
 pub mod validate;
 pub mod watch;
 
-pub use stale::{find_stale, parse_duration};
+pub use stale::{find_awaiting_landing, find_stale, parse_duration};
 
 /// Convert epoch days (days since 1970-01-01) to a (year, month, day) triple.
 ///

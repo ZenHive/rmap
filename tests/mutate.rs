@@ -356,3 +356,174 @@ fn update_markers_idempotent_add_does_not_reorder() {
 
     assert_eq!(updated, TASKS_WITH_EXISTING_MARKERS);
 }
+
+fn landing_in_progress(input: &str, landing_ref: Option<&str>) -> String {
+    update_status_str(
+        "roadmap/tasks.toml",
+        input,
+        "74",
+        "in_progress",
+        TransitionFields {
+            landing_ref,
+            ..TransitionFields::default()
+        },
+    )
+    .expect("in_progress with landing_ref")
+}
+
+#[test]
+fn update_status_landing_ref_persists_on_in_progress() {
+    let updated = landing_in_progress(TASKS, Some("https://example.com/pr/1"));
+    assert!(
+        updated.contains("landing_ref = \"https://example.com/pr/1\""),
+        "landing_ref not written:\n{updated}"
+    );
+    assert!(updated.contains("status = \"in_progress\""));
+    validate_tasks_str("roadmap/tasks.toml", &updated).expect("updated tasks validate");
+}
+
+#[test]
+fn update_status_landing_ref_on_already_in_progress_leaves_started_at() {
+    let first = landing_in_progress(TASKS, Some("https://example.com/pr/1"));
+    let started = first
+        .lines()
+        .find(|line| line.starts_with("started_at = "))
+        .expect("started_at written on first in_progress")
+        .to_string();
+
+    let second = landing_in_progress(&first, Some("https://example.com/pr/2"));
+    let started_again = second
+        .lines()
+        .find(|line| line.starts_with("started_at = "))
+        .expect("started_at still present");
+    assert_eq!(
+        started, started_again,
+        "started_at must not churn:\n{second}"
+    );
+    assert!(
+        second.contains("landing_ref = \"https://example.com/pr/2\""),
+        "landing_ref not overwritten:\n{second}"
+    );
+    assert_eq!(
+        second.matches("started_at = ").count(),
+        1,
+        "exactly one started_at:\n{second}"
+    );
+}
+
+#[test]
+fn update_status_empty_landing_ref_clears_field() {
+    let set = landing_in_progress(TASKS, Some("https://example.com/pr/1"));
+    let cleared = landing_in_progress(&set, Some(""));
+    let task_74 = cleared
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 74\n"))
+        .expect("task 74");
+    assert!(
+        !task_74.contains("landing_ref"),
+        "empty --landing-ref must drop the field:\n{task_74}"
+    );
+    assert!(task_74.contains("status = \"in_progress\""));
+}
+
+#[test]
+fn update_status_rejects_landing_ref_on_non_in_progress() {
+    for status in ["pending", "done", "blocked", "superseded"] {
+        let err = update_status_str(
+            "roadmap/tasks.toml",
+            TASKS,
+            "74",
+            status,
+            TransitionFields {
+                landing_ref: Some("https://example.com/pr/1"),
+                implemented: if status == "done" {
+                    Some("shipped")
+                } else {
+                    None
+                },
+                blocked_reason: if status == "blocked" {
+                    Some("waiting")
+                } else {
+                    None
+                },
+                ..TransitionFields::default()
+            },
+        )
+        .expect_err("landing_ref on other statuses is rejected");
+        let message = err.to_string();
+        assert!(
+            message.contains("--landing-ref") && message.contains("in_progress"),
+            "error must name the rule for status {status}: {message}"
+        );
+        assert!(
+            message.contains(status),
+            "error must name the rejected status {status}: {message}"
+        );
+    }
+}
+
+#[test]
+fn update_status_preserves_landing_ref_on_done_and_blocked() {
+    let in_progress = landing_in_progress(TASKS, Some("https://example.com/pr/1"));
+
+    let done = update_status_str(
+        "roadmap/tasks.toml",
+        &in_progress,
+        "74",
+        "done",
+        TransitionFields {
+            implemented: Some("shipped"),
+            ..TransitionFields::default()
+        },
+    )
+    .expect("done");
+    let done_task = done
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 74\n"))
+        .expect("task 74");
+    assert!(
+        done_task.contains("landing_ref = \"https://example.com/pr/1\""),
+        "done must keep landing_ref:\n{done_task}"
+    );
+
+    let blocked = update_status_str(
+        "roadmap/tasks.toml",
+        &in_progress,
+        "74",
+        "blocked",
+        TransitionFields {
+            blocked_reason: Some("pr closed unmerged"),
+            ..TransitionFields::default()
+        },
+    )
+    .expect("blocked");
+    let blocked_task = blocked
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 74\n"))
+        .expect("task 74");
+    assert!(
+        blocked_task.contains("landing_ref = \"https://example.com/pr/1\""),
+        "blocked must keep landing_ref:\n{blocked_task}"
+    );
+}
+
+#[test]
+fn update_status_clears_landing_ref_on_pending() {
+    let in_progress = landing_in_progress(TASKS, Some("https://example.com/pr/1"));
+    let pending = update_status_str(
+        "roadmap/tasks.toml",
+        &in_progress,
+        "74",
+        "pending",
+        TransitionFields::default(),
+    )
+    .expect("pending");
+    let pending_task = pending
+        .split("[[task]]")
+        .find(|chunk| chunk.contains("id = 74\n"))
+        .expect("task 74");
+    assert!(
+        !pending_task.contains("landing_ref"),
+        "pending must clear landing_ref:\n{pending_task}"
+    );
+}

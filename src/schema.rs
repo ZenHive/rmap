@@ -89,8 +89,8 @@ pub struct Milestone {
 /// Transition-time field → owning mutator (`set_status_str` for lifecycle
 /// timestamps + `implemented` + outcome layer, etc.) + surfaces 4–6. Stays
 /// absent from `StdinTask` / `NewTaskFields` on purpose. Today: `started_at`,
-/// `done_at`, `blocked_reason`, `shipped_in`, `implemented`, `delivered_by`,
-/// `verified`, `verified_by`, `verification_ref`, `attempts`.
+/// `done_at`, `blocked_reason`, `shipped_in`, `landing_ref`, `implemented`,
+/// `delivered_by`, `verified`, `verified_by`, `verification_ref`, `attempts`.
 #[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Task {
@@ -132,6 +132,14 @@ pub struct Task {
     #[serde(default)]
     pub domains: Vec<String>,
     pub shipped_in: Option<String>,
+    /// Open landing pointer (PR URL, Linear issue, GitLab MR, Gerrit change,
+    /// or any other free-text ref). Transition-time: settable only on
+    /// `in_progress` via `rmap status <id> in_progress --landing-ref <ref>`;
+    /// `--landing-ref ""` clears it. Kept on `done` (provenance next to
+    /// `shipped_in`) and `blocked` (a PR closed unmerged is when the ref
+    /// matters); cleared on `pending` (the work is being redone — the old
+    /// ref belongs in `attempts`). Never parsed or fetched.
+    pub landing_ref: Option<String>,
     pub body: Option<String>,
     pub created_at: Option<String>,
     pub started_at: Option<String>,

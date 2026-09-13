@@ -46,6 +46,11 @@ pub enum MutateError {
     /// Provenance was supplied without the positive verification it explains.
     #[error("--verified-by/--verification-ref require --verified")]
     ProvenanceWithoutVerification,
+    /// `--landing-ref` was passed on a status other than `in_progress`.
+    #[error(
+        "--landing-ref is only settable on `in_progress` (got `{0}`); an open PR is recorded while the task stays in progress"
+    )]
+    LandingRefWrongStatus(String),
 }
 
 /// A single marker operation parsed from `mark`'s positional arguments.
@@ -118,9 +123,10 @@ impl CrossRepoSpec {
 /// `delivered_by`, `verified`, `verified_by`, `verification_ref`, `shipped_in`)
 /// apply only on a `done` transition;
 /// `blocked_reason` applies only on a `blocked` transition; `attempt_report` /
-/// `attempt_by` apply only on a `pending` transition. On any other transition
-/// the relevant fields are ignored. `Default` yields all-`None` (the common
-/// "just change the status" case).
+/// `attempt_by` apply only on a `pending` transition; `landing_ref` applies
+/// only on an `in_progress` transition (hard-rejected otherwise, not ignored).
+/// On any other transition the relevant fields are ignored. `Default` yields
+/// all-`None` (the common "just change the status" case).
 #[derive(Default, Clone, Copy)]
 pub struct TransitionFields<'a> {
     /// What was actually built (overwrites any existing value when `Some`).
@@ -150,6 +156,12 @@ pub struct TransitionFields<'a> {
     /// Which agent the appended attempt is attributed to (free-text). Only
     /// meaningful alongside `attempt_report` on a `pending` transition.
     pub attempt_by: Option<&'a str>,
+    /// Open landing pointer (PR URL or other free-text ref). In-progress-only:
+    /// written on an `in_progress` transition (overwriting any existing value);
+    /// `Some("")` clears the field. Rejected on any other target status.
+    /// Kept automatically on `done`/`blocked`; cleared automatically on
+    /// `pending`.
+    pub landing_ref: Option<&'a str>,
 }
 
 /// Atomically flip the `status` field on every task in `ids` to `new_status`.
@@ -195,6 +207,14 @@ pub struct TransitionFields<'a> {
 /// by = attempt_by?, report }` — recording why the prior dispatch attempt was
 /// rejected so the next implementer sees the history. Each call appends exactly
 /// one entry; re-running appends again (append semantics, no dedup).
+///
+/// `fields.landing_ref`: written only on an `in_progress` transition. `Some("")`
+/// clears the field; any other `Some` overwrites. Passing the flag on any other
+/// target status is a hard error (`LandingRefWrongStatus`) and leaves the file
+/// byte-equal. An `in_progress` → `in_progress` call with only `--landing-ref`
+/// is a field update: `started_at` is never overwritten. Lifecycle without the
+/// flag: kept on `done`/`blocked` (provenance / closed-unmerged PR), cleared on
+/// `pending` (the work is being redone).
 pub fn update_status_many_str(
     path: impl Into<String>,
     input: &str,
@@ -219,6 +239,9 @@ pub fn update_status_many_str(
         && (fields.verified_by.is_some() || fields.verification_ref.is_some())
     {
         return Err(MutateError::ProvenanceWithoutVerification);
+    }
+    if fields.landing_ref.is_some() && new_status != "in_progress" {
+        return Err(MutateError::LandingRefWrongStatus(new_status.to_string()));
     }
 
     let path = path.into();
@@ -248,6 +271,7 @@ pub fn update_status_many_str(
         blocked_reason,
         attempt_report,
         attempt_by,
+        landing_ref,
     } = fields;
     let (implemented, delivered_by, verified, verified_by, verification_ref, shipped_in) =
         if new_status == "done" {
@@ -271,6 +295,11 @@ pub fn update_status_many_str(
         (attempt_report, attempt_by)
     } else {
         (None, None)
+    };
+    let landing_ref = if new_status == "in_progress" {
+        landing_ref
+    } else {
+        None
     };
     // Snapshot once per call so a bulk transition that straddles midnight
     // stamps every matched task with the same date.
@@ -351,6 +380,24 @@ pub fn update_status_many_str(
                 if !was_present {
                     needs_sort = true;
                 }
+            }
+
+            if let Some(value) = landing_ref {
+                if value.is_empty() {
+                    task.remove("landing_ref");
+                } else {
+                    let was_present = task.contains_key("landing_ref");
+                    task.insert("landing_ref", Item::Value(Value::from(value)));
+                    if !was_present {
+                        needs_sort = true;
+                    }
+                }
+            }
+
+            // Redoing the work drops the old landing pointer — it belongs in
+            // the appended `attempts` report, not on the new pending row.
+            if new_status == "pending" {
+                task.remove("landing_ref");
             }
 
             // Leaving the blocked state drops the now-stale reason (gating above
@@ -709,7 +756,8 @@ fn canonical_task_key_index(key: &str) -> u32 {
         "scored_at" => 30,
         "done_at" => 31,
         "shipped_in" => 32,
-        "attempts" => 33,
+        "landing_ref" => 33,
+        "attempts" => 34,
         _ => u32::MAX,
     }
 }
@@ -839,8 +887,9 @@ pub fn add_dependency_str(
 /// Typed task input for `add_task_str`. Mirrors the subset of `schema::Task`
 /// fields that callers (interactive `new`, `new --from-stdin`) can populate at
 /// creation time. Lifecycle timestamps (`started_at`, `done_at`,
-/// `blocked_reason`, `shipped_in`) are never settable on creation — those
-/// transitions are owned by `rmap status` (and equivalent lifecycle mutators).
+/// `blocked_reason`, `shipped_in`, `landing_ref`) are never settable on
+/// creation — those transitions are owned by `rmap status` (and equivalent
+/// lifecycle mutators).
 #[derive(Debug, Default, Clone)]
 pub struct NewTaskFields<'a> {
     /// Explicit numeric id. `None` requests auto-allocation (max existing id + 1).

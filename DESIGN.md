@@ -59,6 +59,7 @@ created_at = "2026-04-01"                     # ISO-8601 date (optional)
 started_at = "2026-04-12"                     # set when status → in_progress
 done_at    = "2026-04-30"                     # set when status → done
 shipped_in = "PR #21"                         # PR title/number or commit SHA
+landing_ref = "https://github.com/org/repo/pull/21"  # open PR/MR while in_progress; kept on done/blocked, cleared on pending
 delivered_by = "claude"                       # outcome layer — agent that actually shipped (free-text, optional)
 verified = true                               # outcome layer — independent evaluator confirmed (optional bool)
 verified_by = "codex-reviewer"                # required when a new verified outcome is written
@@ -121,7 +122,7 @@ rmap waves [--json]                  # parallel dispatch schedule by dep_layer
 rmap milestones [--has-next] [--status STATE] [--json]   # release-line discovery + next-task glyphs
 rmap schema                          # emit JSON Schema for editor completion + agent self-description
 rmap diff [--against <ref>] [--json] [--verbose]  # what changed in tasks.toml vs base ref (default: default_branch)
-rmap stale --over <duration> [--json]   # in_progress tasks idle > duration
+rmap stale --over <duration> [--json]   # in_progress tasks idle > duration (landing_ref tasks listed as awaiting landing)
 
 # mutation — all routed through toml_edit
 rmap status <id[,id,id]> <new>       # flip status (bulk form atomic), re-render

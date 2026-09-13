@@ -72,6 +72,8 @@ struct ExportedTask<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     shipped_in: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    landing_ref: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     body: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     created_at: Option<&'a String>,
@@ -127,6 +129,7 @@ pub const EXPORTED_TASK_FIELDS: &[&str] = &[
     "touches",
     "domains",
     "shipped_in",
+    "landing_ref",
     "body",
     "created_at",
     "started_at",
@@ -338,6 +341,7 @@ fn exported_task<'a>(task: &'a Task, metrics: &GraphMetrics) -> ExportedTask<'a>
         touches: &task.touches,
         domains: &task.domains,
         shipped_in: task.shipped_in.as_ref(),
+        landing_ref: task.landing_ref.as_ref(),
         body: task.body.as_ref(),
         created_at: task.created_at.as_ref(),
         started_at: task.started_at.as_ref(),
@@ -404,6 +408,7 @@ files_to_modify = ["src/a.rs"]
 touches = ["src/b.rs"]
 domains = ["rust", "otp"]
 shipped_in = "abc123"
+landing_ref = "https://github.com/org/repo/pull/42"
 body = "intent"
 created_at = "2026-01-01"
 started_at = "2026-01-02"

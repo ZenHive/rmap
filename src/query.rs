@@ -72,9 +72,16 @@ pub fn format_task(task: &Task) -> String {
         format!("Task {}", task.id),
         format!("title: {}", task.title),
         format!("status: {}", task.status),
+    ];
+
+    if let Some(landing_ref) = &task.landing_ref {
+        lines.push(format!("landing_ref: {landing_ref}"));
+    }
+
+    lines.extend([
         format!("phase: {}", task.phase),
         format!("bundle: {}", task.bundle),
-    ];
+    ]);
 
     if let Some(milestone) = &task.milestone {
         lines.push(format!("milestone: {milestone}"));

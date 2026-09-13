@@ -165,6 +165,7 @@ mod tests {
             touches: vec![],
             domains: vec![],
             shipped_in: None,
+            landing_ref: None,
             body: None,
             created_at: None,
             started_at: None,
