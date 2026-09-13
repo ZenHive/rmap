@@ -1485,7 +1485,7 @@ shipped_in = "c390eb56590bda27d378fa1d51541f85e85a522f"
 id = 55
 phase = 15
 bundle = "render_changelog_link"
-status = "pending"
+status = "in_progress"
 title = "Archive-collapse CHANGELOG link: configurable target path, omitted when no anchor can exist"
 scores = { d = 3, b = 5, u = 4 }
 acceptance_criteria = ["A project can configure where the archive-collapse link points (per-phase and/or project-level, per the settled decision); unknown or blank values are rejected by rmap validate before any write", "With nothing configured, the rendered collapsed line follows the settled decision (unchanged link, or no link) and is golden-tested", "With a path configured, the rendered line links to that path plus the phase anchor; a golden fixture covers a nested path like packages/x/CHANGELOG.md", "Existing goldens without configuration render byte-identically under the keep-link decision, or change only in the link segment under the omit decision", "SKILLS.md carries a runnable example and ~/.claude/includes/rmap.md documents the field; CHANGELOG entry under the phase 15 section"]
@@ -1500,6 +1500,7 @@ Observed 2026-09-06 in onchain-stack (root roadmap for eight packages, every cha
 
 Make the target configurable and never emit a link the project cannot satisfy. Keep the collapsed line's shape otherwise byte-identical so existing goldens only change where a path is configured."""
 created_at = "2026-09-06"
+started_at = "2026-09-13"
 scored_at = "2026-09-06"
 
 [[task]]
