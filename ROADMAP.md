@@ -53,6 +53,7 @@ gantt
     Rejection-report / attempt-history writeback— record why a dispatch attempt failed on a task returning to pending :done, 2026-06-03, 2026-06-03
     Add `domains` task field— schema + JSON/data.json export (harness CapabilityScore reader is pre-wired— rmap never emits it) :done, 2026-06-04, 2026-06-04
     rmap assign — set assignee + model on an existing task :done, 2026-06-14, 2026-06-14
+    landing_ref — record an open PR on an in_progress task so a PR-landed run is visible in the roadmap— not only in harness :active, 2026-09-13, 2026-09-13
     section Phase 16 — Graph queries
     doctor— spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks :done, 2026-07-15, 2026-07-15
 ```
@@ -134,7 +135,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 49 | ✅ | 🎁 **agent_dispatch** · rmap assign — set assignee + model on an existing task [D:2/B:5/U:5 → Eff:2.5?] 🎯 |
 | Task 53 `[P]` | ✅ | 🎁 **delegate_targets** · Add kimi as a first-class agent target (assignee + delegate --to) [D:2/B:6/U:6 → Eff:3.0?] 🎯 |
 | Task 55 | ⬜ | 🎁 **render_changelog_link** · Archive-collapse CHANGELOG link: configurable target path, omitted when no anchor can exist [D:3/B:5/U:4 → Eff:1.5] 🚀 |
-| Task 56 | ⬜ | 🎁 **schema_outcome** · landing_ref — record an open PR on an in_progress task so a PR-landed run is visible in the roadmap, not only in harness [D:4/B:6/U:6 → Eff:1.5] 🚀 |
+| Task 56 | 🔄 | 🎁 **schema_outcome** · landing_ref — record an open PR on an in_progress task so a PR-landed run is visible in the roadmap, not only in harness [D:4/B:6/U:6 → Eff:1.5] 🚀 |
 <!-- TASKS:END -->
 
 ## Phase 16 — Graph queries (in progress)
