@@ -134,6 +134,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 | Task 49 | ✅ | 🎁 **agent_dispatch** · rmap assign — set assignee + model on an existing task [D:2/B:5/U:5 → Eff:2.5?] 🎯 |
 | Task 53 `[P]` | ✅ | 🎁 **delegate_targets** · Add kimi as a first-class agent target (assignee + delegate --to) [D:2/B:6/U:6 → Eff:3.0?] 🎯 |
 | Task 55 | ⬜ | 🎁 **render_changelog_link** · Archive-collapse CHANGELOG link: configurable target path, omitted when no anchor can exist [D:3/B:5/U:4 → Eff:1.5] 🚀 |
+| Task 56 | ⬜ | 🎁 **schema_outcome** · landing_ref — record an open PR on an in_progress task so a PR-landed run is visible in the roadmap, not only in harness [D:4/B:6/U:6 → Eff:1.5] 🚀 |
 <!-- TASKS:END -->
 
 ## Phase 16 — Graph queries (in progress)
