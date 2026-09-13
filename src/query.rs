@@ -74,7 +74,12 @@ pub fn format_task(task: &Task) -> String {
         format!("status: {}", task.status),
     ];
 
-    if let Some(landing_ref) = &task.landing_ref {
+    if let Some(landing_ref) = task
+        .landing_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|r| !r.is_empty())
+    {
         lines.push(format!("landing_ref: {landing_ref}"));
     }
 

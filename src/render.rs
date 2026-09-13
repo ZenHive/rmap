@@ -458,9 +458,9 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
             .map(|m| format!("*{m}* · "))
             .unwrap_or_default();
         let category_segment = category_prefix(task);
-        // Surface the block reason inline so an orchestrator scanning the
-        // rendered roadmap sees the dead-end cause without opening tasks.toml.
-        // Conditional + trailing: non-blocked rows render byte-identically.
+        // Conditional + trailing: rows without a landing_ref render
+        // byte-identically. Placed after the tier glyph and before the
+        // blocked-reason segment so an open PR is visible in the row.
         let landing_segment = task
             .landing_ref
             .as_deref()
@@ -468,6 +468,9 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
             .filter(|r| !r.is_empty())
             .map(|r| format!(" 🔗 {r}"))
             .unwrap_or_default();
+        // Surface the block reason inline so an orchestrator scanning the
+        // rendered roadmap sees the dead-end cause without opening tasks.toml.
+        // Conditional + trailing: non-blocked rows render byte-identically.
         let blocked_segment = if task.status == "blocked" {
             task.blocked_reason
                 .as_deref()

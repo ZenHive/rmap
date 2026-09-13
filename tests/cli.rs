@@ -11213,28 +11213,33 @@ fn status_landing_ref_rejected_on_other_statuses() {
     let (dir, tasks_path) = landing_ref_workspace();
     let before = fs::read_to_string(&tasks_path).expect("read before");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
-        .arg("status")
-        .arg("1")
-        .arg("pending")
-        .arg("--landing-ref")
-        .arg(LANDING_REF_URL)
-        .arg("--tasks-path")
-        .arg(&tasks_path)
-        .current_dir(&dir)
-        .output()
-        .expect("run rmap status pending --landing-ref");
-    assert!(
-        !output.status.success(),
-        "expected non-zero exit for --landing-ref on pending"
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("--landing-ref") && stderr.contains("in_progress"),
-        "error must name the rule:\n{stderr}"
-    );
-    let after = fs::read_to_string(&tasks_path).expect("read after");
-    assert_eq!(before, after, "rejected landing_ref must not write");
+    for status in ["pending", "done", "blocked", "superseded"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+            .arg("status")
+            .arg("1")
+            .arg(status)
+            .arg("--landing-ref")
+            .arg(LANDING_REF_URL)
+            .arg("--tasks-path")
+            .arg(&tasks_path)
+            .current_dir(&dir)
+            .output()
+            .expect("run rmap status --landing-ref on non-in_progress");
+        assert!(
+            !output.status.success(),
+            "expected non-zero exit for --landing-ref on {status}"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("--landing-ref") && stderr.contains("in_progress"),
+            "error must name the rule for {status}:\n{stderr}"
+        );
+        let after = fs::read_to_string(&tasks_path).expect("read after");
+        assert_eq!(
+            before, after,
+            "rejected landing_ref must not write for {status}"
+        );
+    }
 }
 
 #[test]
@@ -11490,7 +11495,11 @@ fn schema_describes_landing_ref_as_transition_time() {
     let schema = String::from_utf8_lossy(&schema.stdout);
     assert!(schema.contains("landing_ref"), "{schema}");
     assert!(
-        schema.contains("transition-time"),
+        schema.contains("Open landing pointer"),
+        "schema must describe landing_ref itself, not some other field: {schema}"
+    );
+    assert!(
+        schema.contains("Transition-time"),
         "schema must describe landing_ref as transition-time: {schema}"
     );
 }
