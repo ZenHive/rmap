@@ -6,6 +6,13 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Task 55: configurable archive-collapse changelog link
+
+**What was done:**
+- The one-line summary a `done` phase collapses to now takes its link target from a top-level `changelog_path` or a per-phase `[phases.N] changelog` (phase wins, then project, then the built-in `CHANGELOG.md`). Either can be `false` to render the bare `> N tasks.` line with no link, for roadmaps whose changelogs carry no phase headings.
+- Nothing configured renders byte-identically to before (golden-guarded); a nested path renders `See [CHANGELOG.md](packages/x/CHANGELOG.md#phase-<n>-<slug>)`. `true`, blank, and non-string values are rejected before any write; both fields surface in `data.json`, `rmap schema`, and `rmap diff --verbose`.
+- Minor bump 0.4.1 → 0.5.0 (new schema affordance).
+
 ### Task 56: open landing references
 
 **What was done:**
