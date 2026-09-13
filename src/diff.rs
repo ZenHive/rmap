@@ -84,6 +84,7 @@ const METADATA_VERBOSE_WHITELIST: &[&str] = &[
     "schema_version",
     "project",
     "default_branch",
+    "changelog_path",
     "vision",
     "focus",
     "linear.team_key",

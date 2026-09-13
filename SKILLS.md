@@ -21,34 +21,30 @@ rmap dogfoods itself — its own roadmap lives in `roadmap/tasks.toml` and rende
 
 ## Archive-collapse changelog links
 
-Done phases use the per-phase `changelog`, then top-level `changelog_path`, then
+Done phases collapse to `> N tasks.` plus an optional changelog link. The
+effective path is per-phase `changelog`, then top-level `changelog_path`, then
 `CHANGELOG.md`. Set either field to `false` to omit the link; a phase path can
 override a project-wide `false`. Paths must be nonblank strings; `true` and other
 types are invalid. Links display the basename and append `#phase-N-<slug>`.
-The target must have matching phase headings; rmap does not generate or check them.
+rmap does not generate or check headings in the target file.
 
-This standalone example validates and previews a nested path:
-
-```sh
-mkdir -p changelog-demo/roadmap
-cat > changelog-demo/roadmap/tasks.toml <<'EOF'
-schema_version = 2
-project = "demo"
-default_branch = "main"
+```toml
 changelog_path = "packages/x/CHANGELOG.md"
 
 [phases.3]
-name = "Foo"
-order = 3
-status = "done"
 # changelog = false  # Uncomment to omit this phase's link.
-EOF
-cat > changelog-demo/ROADMAP.md <<'EOF'
-<!-- TASKS:BEGIN phase=3 -->
-<!-- TASKS:END -->
-EOF
+```
+
+The fixture copy under `changelog-demo/` validates and previews that nested path:
+
+```bash
 rmap validate --tasks-path changelog-demo/roadmap/tasks.toml
+# exit: 0
+```
+
+```bash
 rmap render --stdout --tasks-path changelog-demo/roadmap/tasks.toml --roadmap-path changelog-demo/ROADMAP.md
+# exit: 0
 ```
 
 The collapsed line is `> 0 tasks. See [CHANGELOG.md](packages/x/CHANGELOG.md#phase-3-foo).`

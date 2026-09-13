@@ -648,7 +648,7 @@ Easy to violate without breaking tests immediately. The "why" lives in source do
 **Render & markers**
 - **Marker boundaries are byte-preserved** (TASKS / FOCUS / MERMAID / VISION / MILESTONES). Don't normalize input bytes outside matched pairs.
 - **FOCUS / MERMAID / VISION line shape and empty-state strings are agent-grep contract.** Changing wording is a `schema_version` bump.
-- **Archive collapse triggers on `phases.N.status = "done"`** and emits the one-line `See [CHANGELOG.md#…]` body. Line shape is locked by `validate --check-render`.
+- **Archive collapse triggers on `phases.N.status = "done"`** and emits `> N tasks.` plus an optional `See [<basename>](<path>#phase-N-<slug>)` link. Effective path is per-phase `changelog` → top-level `changelog_path` → `CHANGELOG.md`; `false` omits the link. Unconfigured roadmaps keep the historical `CHANGELOG.md#phase-N-<slug>` line. Locked by `validate --check-render`.
 
 **Schema & validation**
 - **`schema_version = 2` is required.** Bump on any breaking schema change.

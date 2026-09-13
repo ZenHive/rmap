@@ -155,11 +155,17 @@ fn changelog_metadata_exports_and_diffs() {
             &input("changelog_path = \"other.md\"", "changelog = \"other.md\""),
         )
         .unwrap();
-        assert!(
-            diff_metadata(&configured, &changed, true)
-                .iter()
-                .all(|d| d.status == DiffStatus::Changed)
-        );
+        let verbose = diff_metadata(&configured, &changed, true);
+        assert!(verbose.iter().all(|d| d.status == DiffStatus::Changed));
+        let path_diff = verbose
+            .iter()
+            .find(|entry| entry.key == "changelog_path")
+            .expect("changelog_path changed");
+        let values = path_diff
+            .values
+            .as_ref()
+            .expect("verbose changelog_path values");
+        assert_eq!(values[0].field, "changelog_path");
     }
 }
 

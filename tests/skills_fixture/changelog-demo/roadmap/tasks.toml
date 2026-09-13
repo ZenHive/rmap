@@ -1,0 +1,10 @@
+schema_version = 2
+project = "demo"
+default_branch = "main"
+changelog_path = "packages/x/CHANGELOG.md"
+
+[phases.3]
+name = "Foo"
+order = 3
+status = "done"
+# changelog = false  # Uncomment to omit this phase's link.
