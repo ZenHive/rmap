@@ -2109,7 +2109,7 @@
       "id": 55,
       "phase": 15,
       "bundle": "render_changelog_link",
-      "status": "in_progress",
+      "status": "done",
       "title": "Archive-collapse CHANGELOG link: configurable target path, omitted when no anchor can exist",
       "scores": {
         "d": 3,
@@ -2140,10 +2140,17 @@
         "SKILLS.md",
         "CHANGELOG.md"
       ],
+      "shipped_in": "d6d7b03d13598a4fe68ab64e0b2fa69fa4bd3a5f",
       "body": "Decisions (settled 2026-09-13, vetoable): (1) BOTH — a top-level `changelog_path = \"packages/x/CHANGELOG.md\"` sets the project default and a per-phase `[phases.N] changelog = \"...\"` overrides it; the effective value is phase → project → built-in `CHANGELOG.md`. (2) Nothing configured → keep today's `CHANGELOG.md#phase-<n>-<slug>` link, so every existing roadmap and golden renders byte-identically. Explicit omission is opt-in: `changelog = false` (per phase) or `changelog_path = false` (project) renders the bare `> N tasks.` line with no link. So each field is a string path or the boolean `false`; `true`, an empty string, and a whitespace-only string are rejected by `rmap validate` (error substring `changelog`). Rendered link shape stays `See [<basename>](<path>#phase-<n>-<slug>)` where `<basename>` is the configured path's file name, so a nested path reads `See [CHANGELOG.md](packages/x/CHANGELOG.md#phase-3-foo)`. Both fields are top-level/phase metadata, not task fields, so the six task mirror surfaces do not apply — but `diff::diff_metadata` and `export::ExportedTasks` (and the exported phase shape) must carry them, and `rmap schema` must describe them. The `~/.claude/includes/rmap.md` line in the AC is outside this repo; the orchestrator writes it after landing — do not attempt it.\n\nObserved 2026-09-06 in onchain-stack (root roadmap for eight packages, every changelog under packages/<pkg>/CHANGELOG.md, root CHANGELOG.md is a 20-line migration note with no phase headings): every done phase renders `> 15 tasks. See [CHANGELOG.md](CHANGELOG.md#phase-6003-onchain-evm-standalone-release)`. The file resolves, the anchor never does, and three cross-family reviewers flagged it as a broken link in one review pass. src/render.rs:435 hardcodes the root-relative path and a phase-slug anchor (slug helper at render.rs:548); nothing in tasks.toml can redirect it. Per-package changelogs there use Keep-a-Changelog version headings, so even a per-package path only helps if the consumer chooses to add phase headings — which is why the omit-when-unconfigured option exists.\n\nMake the target configurable and never emit a link the project cannot satisfy. Keep the collapsed line's shape otherwise byte-identical so existing goldens only change where a path is configured.",
       "created_at": "2026-09-06",
       "started_at": "2026-09-13",
+      "done_at": "2026-09-13",
       "scored_at": "2026-09-06",
+      "implemented": "Landed by codex via merge-train; reviewer-approved (run run-1789262969726-4099049e, d6d7b03d13598a4fe68ab64e0b2fa69fa4bd3a5f).",
+      "delivered_by": "codex",
+      "verified": true,
+      "verified_by": "cursor",
+      "verification_ref": "harness-run:run-1789262969726-4099049e",
       "cross_repo": []
     },
     {
