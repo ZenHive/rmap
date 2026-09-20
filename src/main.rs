@@ -2209,7 +2209,7 @@ fn prompt_task_fields(existing: &rmap::schema::Tasks) -> Result<StdinTask> {
     ];
     let assignee_index = Select::with_theme(&theme)
         .with_prompt("Assignee")
-        .items(&assignee_choices)
+        .items(assignee_choices)
         .default(0)
         .interact()?;
     let assignee = if assignee_index == 0 {

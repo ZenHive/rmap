@@ -6,6 +6,11 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Dependency updates (0.5.1)
+
+- Updated direct and transitive Rust dependencies, including dialoguer 0.12, jsonschema 0.56, toml 1, and toml_edit 0.25.
+- Migrated schema validation tests to the current jsonschema validator API.
+
 ### Task 55: configurable archive-collapse changelog link
 
 **What was done:**

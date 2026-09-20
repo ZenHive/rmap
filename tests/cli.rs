@@ -2624,7 +2624,7 @@ fn schema_json_command_emits_parseable_schema_for_tasks_file() {
     )
     .expect("valid tasks");
     let tasks_json = serde_json::to_value(tasks).expect("tasks serialize to json");
-    let compiled = jsonschema::JSONSchema::compile(&schema).expect("schema compiles");
+    let compiled = jsonschema::validator_for(&schema).expect("schema compiles");
 
     assert!(
         compiled.is_valid(&tasks_json),

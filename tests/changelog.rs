@@ -177,7 +177,7 @@ fn schema_describes_changelog_path_or_false_at_both_levels() {
         .unwrap();
     assert!(output.status.success());
     let schema: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    let compiled = jsonschema::JSONSchema::compile(&schema).unwrap();
+    let compiled = jsonschema::validator_for(&schema).unwrap();
     let tasks = validate_tasks_str("tasks.toml", &input("", "")).unwrap();
     for (value, valid) in [
         (json!(false), true),
