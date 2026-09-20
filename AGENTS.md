@@ -31,10 +31,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Imports
 
-Eager floor per `~/.claude/setup-guide.md` § "Selective-Load Philosophy" (Opus 4.8). Two eager includes only:
+Eager floor per `~/.claude/setup-guide.md` § "Selective-Load Philosophy" (Opus 4.8). Three eager includes:
 
+- **`verification-policy`** — when checks run (focused implementer/reviewer vs full post-merge QA). Imported at the top of this file so the generated `AGENTS.md` renders it as real markdown, not inside the include fence below.
 - **`critical-rules`** — the portfolio-wide hard-guardrail floor; must stay ambient (a guardrail the model invokes "when relevant" fails exactly when it doesn't realize the rule applies).
-- **`harness-workflow`** — the new default second eager include for harness-registered repos, and rmap IS one (registered in harness's `config/dev.local.exs`, MCP wired via `.mcp.json` — see § "Driving harness from this repo"). The implement→review→land loop and its delegation roster (cursor/codex/grok first, opus last) are load-bearing every session, not on-demand reference.
+- **`harness-workflow`** — the default include for harness-registered repos, and rmap IS one (registered in harness's `config/dev.local.exs`, MCP wired via `.mcp.json` — see § "Driving harness from this repo"). The implement→review→land loop and its delegation roster (cursor/codex/grok first, opus last) are load-bearing every session, not on-demand reference.
 
 ```markdown
 <!-- @-import: ~/.claude/includes/critical-rules.md -->

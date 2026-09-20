@@ -106,6 +106,7 @@ scores = { d = 4, b = 8, u = 7 }  # difficulty, benefit, urgency
 Optional, all additive:
 
 - `[phases.<N>]`, `[bundles.<name>]` — grouping and ordering
+- `changelog_path` / per-phase `changelog` — archive-collapse link target (path, or `false` to omit the link)
 - `[focus] phase = N` — bias `rmap next` toward a focus phase; surfaces a FOCUS block in `ROADMAP.md`
 - `[linear] team_key = "ENG"` — opt-in Linear cross-reference (validated only when present)
 - per-task: `markers`, `depends_on`, `cross_repo`, `target_repo`, `module`, `assignee`, `model`, `domains`, `linear_id`, `acceptance_criteria`, `blocked_reason`, `started_at`, `done_at`, `shipped_in`, `landing_ref`, `delivered_by`, `verified`, `verified_by`, `verification_ref`, `scored_at`
