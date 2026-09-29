@@ -6,6 +6,16 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### rmap's agent contract as capability specs with tagged tests (0.9.4)
+
+- Task 68: `specs/agent-json.md`, `specs/agent-dispatch.md` and `specs/agent-delegate.md` state the JSON, dispatch-validation/ranking and delegate-prompt contract as 14 rules (`JSON-*`, `DISPATCH-*`, `DELEGATE-*`). Existing tests carry `rmap-spec-tags:` comments naming the rules they pin; the distinct marker keeps doctor's own `spec-tags:` scanner fixtures out of the coverage count.
+- rmap's roadmap registers the three specs and `[spec_tests]` (registered after landing). `rmap doctor` reports `JSON-1` (additive-only JSON) as the one deliberately untagged rule. `tests/spec_coverage.rs` accepts the roadmap with or without the registration and fails on a drifted block.
+- Task 66 (internal, no behavior change): doctor and validate liveness checks match `Status` variants instead of string literals.
+
+### HTML detail panel shows read-first refs and reviewer checks (0.9.3)
+
+- Task 67: the task detail panel lists `context_refs` under "Read first" and `checks` under "Reviewer checks", each only when non-empty. Checks are labelled as reviewer hints, not an automated gate. Covered by `tests/browser/detail-panel.test.cjs`.
+
 ### `rmap schema` Task description matches the field registry (0.9.2)
 
 - The published Task description no longer lists the six hand-edited mirror surfaces task 60 removed; it names which fields `rmap new` accepts and which only `rmap status` writes.

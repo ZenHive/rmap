@@ -306,8 +306,8 @@ fn spec_tests_round_trips_through_export_and_diff_and_is_omitted_when_absent() {
     assert!(quiet_entry.values.is_none());
 }
 
-/// Block the orchestrator appends to `roadmap/tasks.toml` after this lands.
-/// The committed roadmap stays unregistered; this test is the scratch check.
+/// The agent-contract registration. The test accepts the repository roadmap
+/// either without it (appends it to a scratch copy) or with exactly this block.
 const AGENT_CONTRACT_REGISTRATION: &str = r#"
 [specs.agent_json]
 path = "specs/agent-json.md"
@@ -330,19 +330,32 @@ marker = "rmap-spec-tags:"
 fn agent_contract_specs_validate_and_flag_only_untagged_rules() {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let source = fs::read_to_string(manifest.join("roadmap/tasks.toml")).unwrap();
-    assert!(
+    let registered = source
+        .lines()
+        .any(|line| line.starts_with("[specs.") || line == "[spec_tests]");
+    let roadmap = if registered {
+        // The live roadmap must register exactly this block, not a drifted copy.
+        let live: serde_json::Value = serde_json::from_str(
+            &export_json_str(&validate_tasks_str("roadmap/tasks.toml", &source).unwrap()).unwrap(),
+        )
+        .unwrap();
+        let block: toml::Value = toml::from_str(AGENT_CONTRACT_REGISTRATION).unwrap();
+        let block = serde_json::to_value(block).unwrap();
+        assert_eq!(
+            live["specs"], block["specs"],
+            "live [specs] drifted from the contract block"
+        );
+        assert_eq!(
+            live["spec_tests"], block["spec_tests"],
+            "live [spec_tests] drifted"
+        );
         source
-            .lines()
-            .all(|line| !line.starts_with("[specs.") && line != "[spec_tests]"),
-        "roadmap/tasks.toml stays unregistered; the orchestrator appends the block"
-    );
+    } else {
+        format!("{source}\n{AGENT_CONTRACT_REGISTRATION}")
+    };
 
     let dir = TempDir::new().unwrap();
-    write(
-        &dir,
-        "roadmap/tasks.toml",
-        &format!("{source}\n{AGENT_CONTRACT_REGISTRATION}"),
-    );
+    write(&dir, "roadmap/tasks.toml", &roadmap);
     copy_files_with_extension(&manifest.join("specs"), &dir.path().join("specs"), "md");
     copy_files_with_extension(&manifest.join("tests"), &dir.path().join("tests"), "rs");
 
