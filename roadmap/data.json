@@ -2645,7 +2645,7 @@
       "id": 66,
       "phase": 17,
       "bundle": "agent_era_maintenance",
-      "status": "pending",
+      "status": "in_progress",
       "title": "Match on Status variants instead of status string literals",
       "scores": {
         "d": 3,
@@ -2670,6 +2670,7 @@
       ],
       "body": "Task 60 introduced typed Status / Marker / Relation vocabularies, but several modules still match status via string literals through Deref<str> (bundles, milestones, render mermaid, render_html, graph_export, mutate/status). Convert them to enum-variant matches so a vocabulary rename is compiler-checked. Pure refactor. Proposed by the task 60 reviewer (run-1790669450005-a603998e).",
       "created_at": "2026-09-29",
+      "started_at": "2026-09-29",
       "scored_at": "2026-09-29",
       "cross_repo": []
     },
@@ -2723,8 +2724,9 @@
       "assignee": "codex",
       "model": "gpt-6-astra",
       "acceptance_criteria": [
-        "roadmap/tasks.toml registers at least one active spec with rules parsed from a Markdown file in the repo",
-        "[spec_tests] is configured and rmap doctor on this repo reports untested_rule only for rules no test tags",
+        "At least one spec Markdown file with parsed rule ids exists in the repo",
+        "The final report contains the exact [specs.<cap>] and [spec_tests] TOML block to register; roadmap/tasks.toml itself is NOT edited (harness resets it to HEAD before commit; the orchestrator registers the block after landing)",
+        "Run against a scratch copy of roadmap/tasks.toml with that block appended, rmap validate passes and rmap doctor reports untested_rule only for rules no test tags",
         "Existing tests that pin a rule carry the spec-tags marker for it; no test behavior changes",
         "CLAUDE.md points to the spec files as the rule source for the invariants they cover"
       ],
