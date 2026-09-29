@@ -100,6 +100,31 @@ Overriding the user's discernible intent — deferring, building differently, sk
 - Surface ≠ block: "doing X instead of Y because Z — say if wrong", then proceed. Don't gate on a question.
 - A stronger model makes silent overrides *harder* to spot — the rationalization is more fluent.
 
+## Stack is chosen per idea — never by default
+
+The user is language-agnostic, has no Elixir preference and does not read most code. "The user's repos are Elixir" is never a reason.
+
+**Assume web, desktop and mobile will be wanted** unless the user explicitly rules them out. Never pick a stack that silently forecloses a platform.
+
+Decide in this order:
+1. **Platforms → UI stack.** Multi-platform → TypeScript (React + Expo + Tauri/Electron) or Flutter. Elixir/LiveView only for explicitly web-only.
+2. **Official SDKs.** Use maintained official libraries (ccxt, viem, alloy, go-ethereum, protocol SDKs) in their language. Never port them.
+3. **Known over own.** Product code sits directly on libraries AI agents know from training. Every library the user would own needs explicit approval, with the reason nothing known solves it stated in the task.
+4. **Backend by main workload:**
+   - multi-platform app → TypeScript end to end (chain via viem, exchanges via ccxt)
+   - many long-lived stateful connections → Elixir
+   - standalone integration service / worker with official SDKs in Go → Go
+   - bounded core: EVM simulation (revm), heavy compute, Tauri backend → Rust
+   - research / quant / ML → Python, not as default for long-running services
+   - one backend language per app; a second only for a bounded core
+5. **Maintenance cost.** Every library, package and publish is a permanent obligation.
+
+Existing Elixir apps keep their backend; new clients (mobile/desktop) attach via API (e.g. Ash JSON API) in the UI stack of rule 1. No rewrite without an oracle.
+
+State the stack and the deciding criterion. A Hex publish as "distribution bet" (`portfolio-strategy.md`) is not approval.
+
+Evidence (2026-09 audit): 21 Hex packages, no external dependents, ~99 releases in 90 days; ~62 in `onchain-stack` + `mpp`, which reimplement alloy/revm/viem and the official MPP SDKs. `bourse` (113k LOC) duplicates `ccxt` (official Rust + Go + TS for all 11 venues). LiveView Native is still pre-1.0 (0.4.0-rc.1, 2026-03), Android unfinished, online-only.
+
 ## Never start the Phoenix server
 
 Always already running. Never `mix phx.server`. Assume localhost:4000. To verify behavior, ask the user to check the browser.
@@ -230,6 +255,15 @@ Never without explicit consent: `mix deps.clean` (incl. `--all`), `mix deps.unlo
 
 Instead: compile error → retry `mix compile` / `mix test`. Specific dep → `mix deps.compile <dep> --force`. Most "corrupt cache" issues are transient.
 
+## 🚨 NEVER PIN A DEPENDENCY TO GIT OR PATH — RELEASE IT
+
+A `github:` / `git:` / `path:` dependency in `mix.exs` (or the equivalent in `package.json`, `Cargo.toml`, `pyproject.toml`) is a rejection, not a solution. It applies to our own libraries above all: a library change needed by an app is a task in the **library's** repo, released through Hex (or the registry of its ecosystem) with a version bump, and then consumed as `{:lib, "~> x.y.z"}`. Pinning the app to a branch commit ships unreviewed library code through the app's review, freezes the app on a moving PR, and leaves a repo the operator has to remember to release later.
+
+- **Implementer:** the fix belongs in the library → stop and report "blocked on a `<lib>` release: needs `<change>`". Do not open a PR against the library from inside the app run and pin its head. Do not vendor the code into the app either.
+- **Reviewer:** a new `github:` / `git:` / `path:` dep on a package we maintain is a `reject` with that reason, regardless of how good the rest of the diff is. A new pin on a third-party package is a `reject` unless the task body names the pin and why no release exists.
+- **Only exceptions:** `in_umbrella: true` inside one umbrella, and a pin the task body explicitly authorizes with the upstream release it waits for.
+- **Precedent:** aave_sim task 148 pinned `bourse` to a branch head of its own open PR; the reviewer approved it, and the release still had not happened a week later.
+
 ## No scope-sequencing qualifiers in durable artifacts
 
 Never write "X first", "starting with X", "initially", "for now", "MVP: X" into repo descriptions, READMEs, moduledocs, code/config comments, commit messages, or vision one-liners. They metastasize and become unremovable. Sequencing lives in the roadmap only (milestones, task bodies, `out_of_scope`). Elsewhere describe what the system IS: "Coverage: Robinhood Chain tokenized equities", not "starting with Robinhood Chain".
@@ -275,7 +309,7 @@ Don't use without explicit user approval:
 
 OTP-native **implement → review → land** loop for roadmap-driven development. An AI orchestrator drives harness; harness dispatches headless implementer agents into isolated git worktrees, then a **cross-family reviewer AI** gates every deliverable (runs the project's checks itself, fixes inline, writes `.harness/review.json`). Optional auto-landing ff-merges approved work; a post-merge audit agent sweeps hygiene.
 
-**Promoted from** `docs/dogfooding-workflow.md` in the harness repo — that file remains the **incubator runbook** for harness-specific history, driver-script templates, and per-batch run logs. This include is the **portfolio-wide contract**. Version-controlled source: `priv/includes/harness-workflow.md` in the harness repo; install to `~/.claude/includes/harness-workflow.md` via `mix harness.install_includes`.
+**Promoted from** `docs/dogfooding-workflow.md` in the harness repo — that file remains the **incubator runbook** for harness-specific history, driver-script templates, and per-batch run logs. This include is the **portfolio-wide contract**. Version-controlled source: `priv/includes/harness-workflow.md` in the harness repo; propagate with `scripts/sync-harness-skills.sh` (include + marketplace skills; `mix harness.install_includes` covers only the include leg).
 
 ### Relationship to Other Includes (Layered — No Supersession)
 
@@ -288,7 +322,7 @@ OTP-native **implement → review → land** loop for roadmap-driven development
 | `agent-dispatch.md` / cloud-delegation stack | **Linear/Codex/Cursor PR delegation** without a running harness BEAM. Orthogonal path — projects can use cloud delegation *or* harness; harness subsumes the dispatch+review loop when the OTP node is running. |
 | `skills/harness-driver/SKILL.md` (harness repo) | **API surface contract** — MCP tools, `project_eval` patterns, `%LogRecord{}` fields, sharp edges. Load on demand when driving harness; this include covers *workflow*, the skill covers *surfaces*. |
 
-**Adopt per repo:** `@~/.claude/includes/harness-workflow.md` in the project's `CLAUDE.md` (load-on-demand row — not eager; same pattern as `workflow-philosophy.md`).
+**Adopt per repo:** eager `@~/.claude/includes/harness-workflow.md` in the `CLAUDE.md` of every repo that dispatches through harness — its guardrails (Recover, Don't Redo; the duplicate-land trap) fail by non-recognition, so an on-demand load is not equivalent. Repos that never dispatch carry nothing.
 
 ### The Loop
 
@@ -300,7 +334,7 @@ rmap task → implementer AI (worktree) → commit harness/<run-id> → reviewer
                                                               AUDIT (post-merge audit agent, best-effort)
 ```
 
-One run = one supervised `Harness.Run` gen_statem: fork worktree off target `HEAD`, dispatch implementer, commit diff to `harness/<run-id>`, dispatch cross-family reviewer into the same worktree. The reviewer runs the project's `check_command` hint, fixes what it can, writes `.harness/review.json`. **Success = reviewer `approve`** — never implementer exit code or self-report. There is **no mechanical verification gate** in harness; judgment lives in agents.
+One run = one supervised `Harness.Run` gen_statem: fork worktree off `origin/<target>` (local `HEAD` when no `target_branch` is set), dispatch implementer, commit diff to `harness/<run-id>`, dispatch cross-family reviewer into the same worktree. The reviewer runs the project's `check_command` hint, fixes what it can, writes `.harness/review.json`. **Success = reviewer `approve`** — never implementer exit code or self-report. There is **no mechanical verification gate** in harness; judgment lives in agents.
 
 Rejections return tasks to pending for an explicit recovery-aware orchestrator decision. Fix-and-approve is the near-absolute default for the reviewer.
 
@@ -342,6 +376,30 @@ Hand-build when harness cannot perform or judge the work:
   - **`blocked` is still not the escape hatch.** It hides the task from the queue, so the decision is never surfaced at all — the same failure with a quieter shape. Reserve it for an external blocker with an unblock path.
   - Under `:manual` cron mode the parked-decision drain (`dispatch-pending` / `dispatch-approve`) *does* restore the asking seat, and gate 6 reads as written. Know which mode the project is in before relying on it.
 
+### Integrated audit and QA
+
+The existing post-merge audit worker also performs complete project QA when the
+project explicitly configures `qa_command` beside its dispatch `check_command`.
+All projects, including aave_sim, use the same split: focused tests and
+risk-relevant security/live verification stay with the independent reviewer;
+full suites, coverage, Dialyzer, Reach, Sobelow, Credo, Doctor and clone checks
+belong to integrated QA where applicable. Full Dialyzer is not mandatory on
+every implementation or review. Projects without `qa_command` retain legacy
+behavior until explicitly migrated by the operator.
+
+Audit QA pins the integrated SHA/range and persists commands, covered commits,
+agent/model, reports and transcripts. Queued/running/passed/failed/incomplete are
+facts; only a complete matching agent report advances successful QA progress.
+Missing artifacts, missing prerequisites and interruptions never pass. Waiting
+jobs coalesce in the audit queue; lands during a run receive a subsequent pass.
+QA does not gate deployment, revert, or restart production. The audit AI owns
+repair judgment and semantic deduplication; substantial repairs use normal
+implementation and review, and undisclosed vulnerability details remain private.
+
+Observe bounded history with `dispatch-qa_status` and evidence slices with
+`dispatch-qa_evidence`, or the project settings dashboard. Orchestrators own
+configuration migration, skill propagation and activation.
+
 ### Running a Task
 
 **Prerequisites:** long-lived harness BEAM (`iex -S mix` in the harness checkout), target project registered in `Harness.ProjectRegistry`, clean `git status` on the target's dispatch branch (runs fork worktrees off `HEAD`). **Roadmap ingest and writeback self-sync when they can.** The run's *code* base is fresh (Task 196: with a `target_branch` set, `Run.Actions.Worktree.worktree_opts/1` fetches and forks off `origin/<target>`). `dispatch-task` / `dispatch-bundle` now also fetch the roadmap branch and fast-forward the `project.roadmap_path` checkout (`Harness.Git.TargetSync.sync_checkout/2`, ff-only, never `--force`) before `rmap` runs, and the writeback path does the same before the `roadmap: task <id> -> in_progress` commit, so a task you filed and pushed from another host is visible without a manual pull. The residual operator action is a **dirty, non-ff-diverged, detached, or self-host** checkout — those skip with a witnessed log and ingest proceeds on the on-disk file; sync them by hand (`git -C <roadmap_path> pull --ff-only`) before dispatching.
@@ -374,13 +432,13 @@ Hand-build when harness cannot perform or judge the work:
 
 | `state` / `reason` | Meaning | Action |
 |---|---|---|
-| `:done` / `:approved` | Reviewer AI approved (possibly after inline fixes — check `reviewer_diff_size`). | Deliverable on `harness/<run-id>`. Review diff, integrate (or let auto-lander handle it), `rmap status <id> done`. |
+| `:done` / `:approved` | Reviewer AI approved (possibly after inline fixes — check `reviewer_diff_size`). | Deliverable on `harness/<run-id>`. Under `:auto`/`:pr` the lander writes rmap back — don't double-write; otherwise integrate and `rmap status <id> done`. |
 | `:failed` / `{:review_rejected, report}` | Reviewer rejected (degenerate — near-never by design). | Read `report` and retained-branch evidence; explicitly choose resume, rereview, fresh or defer. |
 | `:failed` / `{:review_stuck, report}` | No verdict: reviewer unavailable, crashed, or missing/malformed `.harness/review.json`. | Read `report`; choose recovery or defer while the environment is repaired. |
 | `:failed` / `{:worktree_failed,_}` `{:agent_spawn_failed,_}` `{:driver_crashed,_}` `{:commit_failed,_}` | Harness-side mechanical failure. | **Harness bug.** File via `rmap new`. |
 | `:failed` / `{:checkout_polluted, status}` | Agent wrote outside the run worktree into the main checkout — surfaces as `:failed` **only after bounded AI recovery was exhausted** (see "Self-healing recovery" below). | Read the isolation evidence and retained branch; explicitly select recovery or a justified fresh build on an appropriate adapter. |
 | `:failed` / `{:checkout_pollution_check_failed, _}` | Post-run pollution `git status` errored. | Rare; transient git/IO. Re-run; inspect checkout if persistent. |
-| `:failed` / `:timed_out` | Lifetime budget elapsed. | Raise `:lifetime_timeout` or investigate hang. |
+| `:failed` / `:timed_out` | Lifetime budget elapsed (question-held time counts; the timer is not suspended). | Raise `:lifetime_timeout` or recover the retained worktree (`dispatch-resume_failed` / inspect). |
 | run process **crashed** (no settle) | gen_statem died. | **Harness bug.** File via `rmap new`. |
 
 Failed runs retain the worktree at `result.worktree_path` for inspection. Approved runs keep branch `harness/<run-id>` after worktree teardown. Use `dispatch-verdict_detail` for the reviewer report, ratings, checks, concerns, proposed tasks, warning flag, and `reviewer_diff_size` — no harness-run mechanical per-check stdout.
@@ -400,10 +458,12 @@ Failed runs retain the worktree at `result.worktree_path` for inspection. Approv
 | Approved but unlanded (land-cap, lander crash) | `dispatch-reland` | **zero** — pure git rebase + push |
 | Committed, review-stage failure (work is good) | `dispatch-rereview` | zero implementer — re-enters at the reviewer gate |
 | Committed, implement-stage incomplete/`:failed` | `dispatch-resume_failed` (`escalate: true` to re-route agent) | **re-spends implementer tokens** — a fresh implementer invocation branched off the retained commits with the failure report injected (contrast `rereview`, which re-runs only the reviewer) |
-| Live `:held` run (paused, not dead) | `dispatch-resume` | none — un-pauses in place |
+| Live `:held` run (paused, not dead) | `dispatch-resume` | none — un-pauses in place. A question-held run requires a prior `dispatch-steer` answer (`:answer_required` otherwise). |
 | **No commits / no retained branch** | reset → `pending` + fresh `dispatch-task` | full redo — **the only case where this is correct** |
 
 **Live-run intervention (not recovery of a dead run):** `dispatch-hold` (optionally `interrupt: true`) parks a live run mid-turn, `dispatch-steer` stashes guidance applied on resume, `dispatch-resume` un-pauses in place, `dispatch-cancel` kills it (idempotent). Use hold → steer → resume to force-hand a grinding implementer to the reviewer gate instead of burning the lifetime budget.
+
+**Implementer question channel.** A headless implementer that hits genuinely ambiguous acceptance criteria writes `.harness/question.json` (`question` string, optional `context`, plus `run_id` / `invocation` echoing `$HARNESS_RUN_ID` / `$HARNESS_IMPLEMENTER_ATTEMPT`) and ends its invocation. Harness reads the file mechanically at the agent-invocation boundary: a fenced, unconsumed artifact parks in `:held` (`hold_reason: :question`) and emits a `:question` witness with the question verbatim; empty/malformed/stale/consumed files are ignored-and-logged. The orchestrator answers with `dispatch-steer` (the answer text) then `dispatch-resume` — no new primitives, no dashboard UI, no auto-answer inside harness. Resume injects question + answer into the prompt and consumes that identity via `.harness/question-state.json` (plus an archive under `.harness/questions/`); deleting `question.json` is not the consumption mechanism. A leftover file cannot re-park; a later question with a new identity can. Question-held time stays inside the existing `lifetime_timeout` (the timer is not suspended; expiry is recoverable `:timed_out`). A gen_statem crash while `:held` still settles `:failed`; the retained worktree sidecar is the recovery boundary and cannot leak to a new run. This is an escape hatch, not a substitute for well-written tasks; reviewer/audit questions are out of scope. Explicit `dispatch-resume_failed` recovery restores the selected retained run's pending/answered question state into a held replacement without notifying again; resume uses the saved answer or requires steer. Recovery needs the retained worktree and failed-run record on the same storage. Fresh dispatches do not import it. Notification delivery remains best effort (a crash after persisting the notified flag can lose delivery).
 
 **The gate before any reset-to-pending + re-dispatch:** `git branch -a | grep harness/<run-id>` and `git log --oneline origin/<target>..harness/<run-id>`. Commits present ⇒ explicitly judge whether to resume, re-review or replace; justify discarding them.
 
@@ -421,7 +481,7 @@ The recovery primitives (`reland`/`rereview`/`resume_failed`) read the persisted
 - **Keep write-set fields accurate.** The dispatcher counts declared path intersections; it does not infer paths from the task body. If two tasks really edit the same function, either let write-set serialization sequence them or fold the coupled work into one rmap task (`task-prioritization.md` § "Refine, Don't Duplicate").
 - **One driver BEAM** for all concurrent runs in a wave.
 - **Integration order (manual landing):** smallest/isolated diffs onto target first; rebase siblings; consume the post-merge audit + QA evidence on the integrated revision.
-- **While a wave is in flight:** do not run `rmap status` / `rmap mark` / `rmap new` in parallel sessions against the same checkout — triggers `:checkout_polluted` false-positive.
+- **While a wave is in flight:** avoid `rmap status` / `rmap mark` / `rmap new` in parallel sessions against the same checkout — on runs with the pollution check active (non-isolating adapter or explicit `checkout_pollution_check?: true`) it false-positives `:checkout_polluted`.
 - **Repo-wide invariant tasks run EXCLUSIVE.** A task whose real write-set is "the whole surface" — introduce a repo-wide guard/invariant and convert every violating site (e.g. an AST-scan test over all of `test/`) — cannot be write-set-serialized by declared `touches`: any sibling land that adds a new violating site after the fork reddens the guard at landing time. Dispatch such tasks as a solo wave — nothing lands in parallel — or accept that the orchestrator repairs at landing.
 - **Land-conflict repair is a standard orchestrator move, not an incident.** When the lander blocks on a rebase conflict (reason retains the branch): fork a repair worktree off `origin/<target>`, cherry-pick the run commits, resolve (for additive `tasks.toml` collisions: renumber the branch-side new task to the next free id on origin **and rewrite in-diff string references to it** — CHANGELOG lines, code comments; then `rmap validate && rmap render`), point the retained `harness/<run-id>` branch at the repaired tip, and `dispatch-reland` — the lander keeps push authority and advances rmap itself. **Do not re-run gates on a roadmap/doc-only repair:** the reviewer already graded the code; renumbering tasks, merging doc entries, and re-rendering the roadmap change nothing the gates measure, and a clean disjoint auto-merge of verified code needs no re-grade (same token-economy rule as everywhere else). Re-run a check ONLY when the repair touched code, or when the conflict overlapped a repo-wide invariant the sibling lands could have violated (e.g. a new suite-wide guard vs tests added after the fork — run just that guard, not the stack). Never reset-to-pending (that redoes paid work), never hand-push to the target when a reland can land it.
 
@@ -490,7 +550,7 @@ landed before, or was reset and re-dispatched, already carries `roadmap: task <i
 (shipped …)` in history; without `BASE` the watcher reports `LANDED` before the implementer
 has written a line.
 
-The deadline branch is the other half. A run that fails review or blocks on a land conflict never
+**Silence is not success — the deadline branch is the other half.** A run that fails review or blocks on a land conflict never
 produces a landing commit, so a watcher with no bound waits forever on a wave that is already
 dead; on expiry it must print what did land in the range and name what did not, so the missing
 tasks get reconciled through `dispatch-status` instead of assumed.
@@ -508,12 +568,6 @@ into another AI investigation.
 Poll `dispatch-status <run-id>` only to diagnose a run that the watcher shows as *not*
 landing — a `:failed` verdict, a rebase conflict that retained the branch, a hung
 implementer. Status is for diagnosis; git is for waiting.
-
-**Silence is not success** — a run that fails review or blocks on a land conflict never
-produces a landing commit, so a watcher greping only for `-> done` stays quiet forever.
-Bound every wave watch with a deadline, and when it expires without `WAVE COMPLETE`,
-reconcile the missing tasks through `dispatch-status` / `result_store-list_run_records`
-before assuming anything.
 
 Same root cause as the duplicate-land trap above, seen from the dispatch side: **origin is
 the source of truth for what landed** — not an await return value, not a local
@@ -583,8 +637,8 @@ The two blind classes, both real-correctness, both passing every per-task check:
   - **🚨 Default-DECLINE — the proposal pipeline outproduces the backlog's right to grow.** Reviewer + audit agents emit ~1 proposal per run; an orchestrator that files "everything evidenced and cross-session" lands N tasks and files N new ones per wave — net backlog delta ±0, the roadmap never converges. Evidence + cross-session is the FLOOR, not the bar. File a proposal only when ALL THREE hold: (a) real defect or invariant gap with evidence, (b) not foldable into an existing pending task — and when the proposal patches an instance of a class, scope the filing as the CLASS invariant so the next instance can't spawn a sibling task, (c) not inline-doable in minutes by the orchestrator — if it is, DO it now instead of filing. Declined proposals need no ceremony: the verdict record in the ResultStore is their evidence trail.
   - **Report the net backlog delta** (landed − filed) as an explicit number in every wave/session wrap-up. A session trending ±0 or negative-growth is the churn alarm firing — tighten the decline bar, don't normalize it.
 - **Witness notification is sakshi (read-only).** Landing outcomes notify via configured command sink; the sink grants no merge capability. Human operator reviews blocked/conflict outcomes — harness does not silently force-push past conflicts.
-- **`check_command` is a dispatch-scale hint to the reviewer.** Free text (e.g. `"mix check.dispatch"` for Elixir, with focused tests chosen by the reviewer) — the reviewer runs and judges it; harness does not execute it mechanically. Use `verification-policy.md` to select scope; a hint that expands to full QA must not impose it on each run. Full-suite commands like `mix precommit.full` belong to post-merge audit + QA. For verbose checks, capture to a per-run `mktemp` log on the first execution; never re-run only to recover truncated output.
-- **The cross-family reviewer reads `AGENTS.md`, not your Claude skills/includes.** `AGENTS.md` is generated from `CLAUDE.md` by `claude-marketplace/scripts/sync-agents-md.sh`, which recursively inlines every `@`-import. **Regenerate it after any `CLAUDE.md` change** (`bash ~/_DATA/code/claude-marketplace/scripts/sync-agents-md.sh`, or `--dry-run` to preview) so the reviewer gates against current rules — a stale `AGENTS.md` makes codex/cursor/grok judge against rules you've already changed. **`--check` is the freshness gate** — it re-renders in memory and exits non-zero if `AGENTS.md` has drifted (diffs rendered output, not mtimes, so it catches drift in transitive `@`-imports too); wire it into CI / a pre-commit hook / the `check_command` so staleness fails loudly instead of silently. Consequence under Opus-4.8 skill-on-demand: once `CLAUDE.md` slims to the eager floor, reviewer-critical facts that *were* carried by eager includes (the `check_command` gate; that `mix test.json` / `mix dialyzer.json` emit JSON **by design** — parse for real failures, never flag the envelope; plain `mix dialyzer` is authoritative when the JSON encoder can't serialize a warning) no longer reach `AGENTS.md` via those imports. Put them in a **self-contained `## Toolchain & check commands` section in `CLAUDE.md`** so they survive the slim-down and flow into `AGENTS.md` on regen (ref: `tapakly/CLAUDE.md`, `ccxt_extract/CLAUDE.md`).
+- **`check_command` is a dispatch-scale hint to the reviewer.** Free text (e.g. explicit format + compile commands for Elixir with focused tests chosen by the reviewer) — the reviewer runs and judges it; harness does not execute it mechanically. Use `verification-policy.md` to select scope; a hint that expands to full QA must not impose it on each run. Full-suite commands like `mix precommit.full` belong on `qa_command` for post-merge audit QA. Operator rollout: `mix harness.projects.rollout_dispatch_qa` (dry-run default). For verbose checks, capture to a per-run `mktemp` log on the first execution; never re-run only to recover truncated output.
+- **The cross-family reviewer reads `AGENTS.md`, not your Claude skills/includes.** `AGENTS.md` is generated from `CLAUDE.md` by recursively inlining every `@`-import. **Regenerate it after any `CLAUDE.md` change** (harness: `bash scripts/sync-agents-md.sh`; other repos: `claude-marketplace/scripts/sync-agents-md.sh`, or `--dry-run` to preview) so the reviewer gates against current rules — a stale `AGENTS.md` makes codex/cursor/grok judge against rules you've already changed. **`--check` is the freshness gate** — it re-renders in memory and exits non-zero if `AGENTS.md` has drifted (diffs rendered output, not mtimes, so it catches drift in transitive `@`-imports too); wire it into CI / a pre-commit hook / the `check_command` so staleness fails loudly instead of silently. Consequence under Opus-4.8 skill-on-demand: once `CLAUDE.md` slims to the eager floor, reviewer-critical facts that *were* carried by eager includes (the `check_command` gate; that `mix test.json` / `mix dialyzer.json` emit JSON **by design** — parse for real failures, never flag the envelope; plain `mix dialyzer` is authoritative when the JSON encoder can't serialize a warning) no longer reach `AGENTS.md` via those imports. Put them in a **self-contained `## Toolchain & check commands` section in `CLAUDE.md`** so they survive the slim-down and flow into `AGENTS.md` on regen (ref: `tapakly/CLAUDE.md`, `ccxt_extract/CLAUDE.md`).
 - **Roster doctrine.** Prefer `codex`, `cursor`, `grok`. `claude` is dispatched only when the operator has enabled it in the Agents settings; the default is off because the orchestrator session already runs on the same Max subscription. `cursor` and `grok` are one family — pair either with a `codex` reviewer. Spread assignees across the enabled agents; a ledger skewed to one adapter is the tell. A repo may override the roster in its own CLAUDE.md.
 - **Model pins.** `model` is required at creation for any non-`human` assignee (`rmap new` rejects a model-less dispatchable task; see `rmap.md` § "Pinning an LLM model"). Read the live standing model per agent from `routing-brief` and the live ids from `model_availability-list_available_models <agent>`; a retired pin fails at dispatch, so re-pin when you touch a task. A newly-probed model lands in the catalog as `selected?: false` — select it before it is dispatchable. New ids carry no ledger data — route to them to *gather* it (`dispatch-compare`), not on a performance claim.
 
@@ -594,21 +648,9 @@ The two blind classes, both real-correctness, both passing every per-task check:
 - **Reviewer runs the checks.** No mechanical check stack. Correct-but-not-pristine work → reviewer fixes and approves (`reviewer_diff_size` > 0).
 - **Cold dialyzer PLT** belongs to the full post-merge QA budget, not routine reviewer checks.
 - **Nested Claude auth.** `ANTHROPIC_API_KEY` shadows subscription OAuth — scrub per run (`scrub_anthropic_key: true` or `env: %{"ANTHROPIC_API_KEY" => false}`).
-- **Parallel-session rmap mutations** during a run can false-positive `:checkout_polluted` — wait for the wave or use a separate worktree.
+- **Parallel-session rmap mutations** during a run can false-positive `:checkout_polluted` when the pollution check is active (skipped by default for the six isolating adapters) — wait for the wave or use a separate worktree.
 
-### Repo-Specific Detail
-
-| Need | Where |
-|---|---|
-| Harness API surfaces, MCP tool shapes | `skills/harness-driver/SKILL.md` in harness repo |
-| Driver script template, cutover history, run log | `docs/dogfooding-workflow.md` in harness repo |
-| Agent-gate architecture spec | `docs/agent-gate-workflow.md` in harness repo |
-| Cross-checkout consumer setup | `skills/harness-driver/SKILL.md` § "Context A" |
-| D/B/U scoring, task writing | `task-prioritization.md`, `task-writing.md` |
-| Manual session/PR/audit chain | `dev-lifecycle.md`, `worktree-workflow.md` |
-
-
-## Recovery-aware cron decisions
+### Recovery-aware cron decisions
 
 A singleton with no persisted attempts may dispatch directly. Any task with
 history, and every multi-task wave, goes to the orchestrator AI with project/task
@@ -638,9 +680,26 @@ retained Oban job data when absent from the run record. Unknown membership or
 missing fingerprints cannot establish safe recovery identity.
 
 Run records and status/verdict responses expose `dispatch_decision`; durable
-`task_ids` preserves coalesced membership. Deploy migration
-`20260918230000_add_dispatch_decision_to_run_records` before activating this code.
-The driving orchestrator owns runtime activation and installed-skill propagation.
+`task_ids` preserves coalesced membership.
+
+### Graceful shutdown recovery
+
+A node stop settles in-flight runs as `state: :failed`, `reason: {:shutdown, interrupted_state}` and retains their branches and worktrees. That is an interrupted attempt, not a verdict: after restart, compare the retained branch with `origin`, then `dispatch-rereview` review-ready commits or `dispatch-resume_failed` incomplete work (§ "Recover, Don't Redo"). SIGKILL and power loss carry no such guarantee. Admission fence, timing budgets and spill/replay: `skills/harness-driver/SKILL.md` § "Graceful shutdown recovery".
+
+### Explicit audit selection
+
+The QA page `/harness/qa` owns the global audit agent/model picker and shows current eligibility and unavailable reasons. `Harness.Audit.Selection.configure(agent_name, model)` atomically persists this pair in SettingsStore; an empty agent selects automatic routing. Explicit selection starts a separate audit session and may reuse the implementation or review adapter. It still requires reviewer eligibility, an installed available adapter and an available explicit model; no fallback changes the saved choice. Automatic routing continues to exclude the run's implementer and reviewer and may produce `no_audit_agent`. QA summaries show the last incomplete reason directly. Changing selection affects new audit sessions and neither changes reviewer trust nor restarts existing jobs.
+
+### Repo-Specific Detail
+
+| Need | Where |
+|---|---|
+| Harness API surfaces, MCP tool shapes | `skills/harness-driver/SKILL.md` in harness repo |
+| Driver script template, cutover history, run log | `docs/dogfooding-workflow.md` in harness repo |
+| Agent-gate architecture spec | `docs/agent-gate-workflow.md` in harness repo |
+| Cross-checkout consumer setup | `skills/harness-driver/SKILL.md` § "Context A" |
+| D/B/U scoring, task writing | `task-prioritization.md`, `task-writing.md` |
+| Manual session/PR/audit chain | `dev-lifecycle.md`, `worktree-workflow.md` |
 
 ```
 
