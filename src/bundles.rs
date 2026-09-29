@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::next::next_task;
 use crate::query::TaskFilter;
-use crate::schema::{Task, TaskId, Tasks};
+use crate::schema::{Status, Task, TaskId, Tasks};
 use crate::scoring::{format_efficiency, rounded_efficiency, tier_glyph};
 
 #[derive(Debug, Default)]
@@ -190,12 +190,13 @@ fn status_glyph_or_next(summary: &BundleSummary<'_>) -> String {
 }
 
 fn bump_status(counts: &mut StatusCounts, task: &Task) {
-    match task.status.as_str() {
-        "pending" => counts.pending += 1,
-        "in_progress" => counts.in_progress += 1,
-        "done" => counts.done += 1,
-        "blocked" => counts.blocked += 1,
-        _ => {} // schema validation rejects unknown statuses
+    match &task.status {
+        Status::Pending => counts.pending += 1,
+        Status::InProgress => counts.in_progress += 1,
+        Status::Done => counts.done += 1,
+        Status::Blocked => counts.blocked += 1,
+        // Superseded has no count bucket. Unknown is rejected by validation.
+        Status::Superseded | Status::Unknown(_) => {}
     }
 }
 

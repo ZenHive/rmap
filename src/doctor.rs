@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 use crate::render::render_roadmap_str_with_today;
-use crate::schema::{Scores, Task, TaskId, Tasks};
+use crate::schema::{Scores, Status, Task, TaskId, Tasks};
 use crate::scoring::days_since;
 use crate::stale::{find_awaiting_landing, find_stale};
 use crate::topo::{compute_unlocks, forward_adjacency, milestone_reachable_ids};
@@ -263,7 +263,7 @@ impl DoctorReport {
         // 3. score decay (missing or stale scored_at) — open tasks only; a
         // terminal task is never re-ranked, so its score age is not actionable.
         for task in &tasks.task {
-            if matches!(task.status.as_str(), "done" | "superseded") {
+            if matches!(&task.status, Status::Done | Status::Superseded) {
                 continue;
             }
             let decayed = match task.scored_at.as_deref() {
@@ -585,7 +585,10 @@ fn is_live_agent_assigned(task: &Task) -> bool {
 }
 
 fn is_open_for_near_duplicate(task: &Task) -> bool {
-    matches!(task.status.as_str(), "pending" | "in_progress" | "blocked")
+    matches!(
+        &task.status,
+        Status::Pending | Status::InProgress | Status::Blocked
+    )
 }
 
 /// Strip double-quoted spans and *non-possessive* single-quoted spans so prose

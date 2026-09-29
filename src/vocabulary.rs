@@ -75,6 +75,28 @@ vocabulary!(Marker {
 });
 vocabulary!(Relation { Blocks => "blocks", BlockedBy => "blocked_by", Related => "related" });
 
+/// Milestone lifecycle (`pending | active | done`). Distinct from task [`Status`]:
+/// milestones use `active`, tasks use `in_progress`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MilestoneStatus {
+    Active,
+    Pending,
+    Done,
+    /// Wire string other than `pending`, `active`, or `done`.
+    Unknown,
+}
+
+impl MilestoneStatus {
+    pub(crate) fn parse(status: &str) -> Self {
+        match status {
+            "active" => Self::Active,
+            "pending" => Self::Pending,
+            "done" => Self::Done,
+            _ => Self::Unknown,
+        }
+    }
+}
+
 impl Status {
     pub fn symbol(&self) -> &str {
         match self {

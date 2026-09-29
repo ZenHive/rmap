@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::schema::{Task, Tasks};
+use crate::schema::{Status, Task, Tasks};
 use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 use crate::topo::{compute_layers, forward_adjacency};
 
@@ -48,7 +48,7 @@ pub fn build_waves(tasks: &Tasks) -> Waves {
     let open: Vec<&Task> = tasks
         .task
         .iter()
-        .filter(|task| !matches!(task.status.as_str(), "done" | "superseded"))
+        .filter(|task| !matches!(&task.status, Status::Done | Status::Superseded))
         .collect();
     let layers = compute_layers(&open);
     let mut by_layer: BTreeMap<usize, Vec<String>> = BTreeMap::new();
@@ -151,12 +151,12 @@ pub fn format_dot(graph: &DotGraph) -> String {
     out
 }
 
-fn status_fillcolor(status: &str) -> &'static str {
+fn status_fillcolor(status: &Status) -> &'static str {
     match status {
-        "done" => "#34d399",
-        "in_progress" => "#fbbf24",
-        "blocked" => "#fb7185",
-        _ => "#94a3b8", // pending, superseded, unknown
+        Status::Done => "#34d399",
+        Status::InProgress => "#fbbf24",
+        Status::Blocked => "#fb7185",
+        Status::Pending | Status::Superseded | Status::Unknown(_) => "#94a3b8",
     }
 }
 
@@ -308,5 +308,15 @@ mod tests {
         assert!(dot.contains("fillcolor=\"#94a3b8\""));
         assert!(dot.contains("\"1\" -> \"2\";"));
         assert!(dot.ends_with('}'));
+    }
+
+    #[test]
+    fn status_fillcolor_maps_each_variant() {
+        assert_eq!(status_fillcolor(&Status::Done), "#34d399");
+        assert_eq!(status_fillcolor(&Status::InProgress), "#fbbf24");
+        assert_eq!(status_fillcolor(&Status::Blocked), "#fb7185");
+        assert_eq!(status_fillcolor(&Status::Pending), "#94a3b8");
+        assert_eq!(status_fillcolor(&Status::Superseded), "#94a3b8");
+        assert_eq!(status_fillcolor(&Status::Unknown("nope".into())), "#94a3b8");
     }
 }

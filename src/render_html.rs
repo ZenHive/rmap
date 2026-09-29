@@ -25,7 +25,7 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
 use crate::export::export_compact_json_str;
-use crate::schema::Tasks;
+use crate::schema::{Status, Tasks};
 use crate::scoring::{format_efficiency, round_eff, tier_glyph};
 
 /// Dependency-graph layout constants (SVG user units).
@@ -42,12 +42,17 @@ const LABEL_MAX: usize = 20;
 /// `next::is_unblocked`), `waiting` is a `pending` task with an unmet dep.
 /// `superseded` shares the `done` lane and is stamped VOID by the template.
 fn lane_of(status: &str, deps_met: bool) -> &'static str {
-    match status {
-        "done" | "superseded" => "done",
-        "in_progress" => "active",
-        "blocked" => "hold",
-        _ if deps_met => "ready",
-        _ => "waiting",
+    match Status::from(status) {
+        Status::Done | Status::Superseded => "done",
+        Status::InProgress => "active",
+        Status::Blocked => "hold",
+        Status::Pending | Status::Unknown(_) => {
+            if deps_met {
+                "ready"
+            } else {
+                "waiting"
+            }
+        }
     }
 }
 
@@ -326,7 +331,7 @@ fn project_views(data: &PortfolioData, repo: usize, repo_name: &str) -> ProjectV
     let done_ids: HashSet<String> = data
         .task
         .iter()
-        .filter(|t| t.status == "done")
+        .filter(|t| Status::Done == t.status.as_str())
         .map(|t| json_id_string(&t.id))
         .collect();
     let lane_by_id: HashMap<String, &'static str> = data
@@ -718,6 +723,18 @@ mod tests {
         assert_eq!(lane_ids(&views, "done"), vec!["1"]);
         assert_eq!(views.counts.ready, 1);
         assert_eq!(views.counts.total, 4);
+    }
+
+    #[test]
+    fn lanes_place_blocked_on_hold_and_superseded_with_done() {
+        let body = format!(
+            "{}{}",
+            task_toml(1, "blocked", &[]),
+            task_toml(2, "superseded", &[]),
+        );
+        let views = views_of(&tasks_from(&body));
+        assert_eq!(lane_ids(&views, "hold"), vec!["1"]);
+        assert_eq!(lane_ids(&views, "done"), vec!["2"]);
     }
 
     #[test]

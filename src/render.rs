@@ -5,8 +5,9 @@ use thiserror::Error;
 use crate::milestones::{MilestoneFilter, MilestoneSummary, list_milestones};
 use crate::next::next_task;
 use crate::query::TaskFilter;
-use crate::schema::{Changelog, Task, Tasks};
+use crate::schema::{Changelog, Status, Task, Tasks};
 use crate::scoring::{days_since, efficiency, format_efficiency, score_decay_suffix, tier_glyph};
+use crate::vocabulary::MilestoneStatus;
 
 const BEGIN_MARKER: &str = "<!-- TASKS:BEGIN phase=";
 const END_MARKER: &str = "<!-- TASKS:END -->";
@@ -359,25 +360,25 @@ fn render_milestone_block(body: &mut String, summary: &MilestoneSummary<'_>) {
 }
 
 fn milestone_status_glyph(status: &str) -> &str {
-    match status {
-        "active" => "🔄",
-        "pending" => "⬜",
-        "done" => "✅",
-        _ => status,
+    match MilestoneStatus::parse(status) {
+        MilestoneStatus::Active => "🔄",
+        MilestoneStatus::Pending => "⬜",
+        MilestoneStatus::Done => "✅",
+        MilestoneStatus::Unknown => status,
     }
 }
 
 fn gantt_row(task: &Task, today: &str) -> Option<String> {
     let started_at = task.started_at.as_deref()?;
     let title = task.title.replace([':', ',', ';'], "—");
-    match task.status.as_str() {
-        "done" => {
+    match &task.status {
+        Status::Done => {
             let done_at = task.done_at.as_deref()?;
             Some(format!("{title} :done, {started_at}, {done_at}"))
         }
-        "in_progress" => Some(format!("{title} :active, {started_at}, {today}")),
-        "blocked" => Some(format!("{title} :crit, {started_at}, {today}")),
-        _ => None,
+        Status::InProgress => Some(format!("{title} :active, {started_at}, {today}")),
+        Status::Blocked => Some(format!("{title} :crit, {started_at}, {today}")),
+        Status::Pending | Status::Superseded | Status::Unknown(_) => None,
     }
 }
 
@@ -489,8 +490,8 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
         } else {
             String::new()
         };
-        let status_cell = match (task.status.as_str(), task.branch.as_deref()) {
-            ("in_progress", Some(branch)) => {
+        let status_cell = match (&task.status, task.branch.as_deref()) {
+            (Status::InProgress, Some(branch)) => {
                 let trimmed = branch.trim();
                 if trimmed.is_empty() {
                     status_symbol(&task.status).to_string()

@@ -16,7 +16,8 @@ use serde::Serialize;
 use crate::bundles::{NextTaskSummary, StatusCounts};
 use crate::next::next_task;
 use crate::query::TaskFilter;
-use crate::schema::{Task, Tasks};
+use crate::schema::{Status, Task, Tasks};
+use crate::vocabulary::MilestoneStatus;
 
 #[derive(Debug, Default)]
 pub struct MilestoneFilter {
@@ -179,12 +180,12 @@ fn status_glyph_or_next(summary: &MilestoneSummary<'_>) -> String {
 }
 
 fn bump_status(counts: &mut StatusCounts, task: &Task) {
-    match task.status.as_str() {
-        "pending" => counts.pending += 1,
-        "in_progress" => counts.in_progress += 1,
-        "done" => counts.done += 1,
-        "blocked" => counts.blocked += 1,
-        _ => {}
+    match &task.status {
+        Status::Pending => counts.pending += 1,
+        Status::InProgress => counts.in_progress += 1,
+        Status::Done => counts.done += 1,
+        Status::Blocked => counts.blocked += 1,
+        Status::Superseded | Status::Unknown(_) => {}
     }
 }
 
@@ -197,10 +198,10 @@ fn next_task_summary(task: &Task) -> NextTaskSummary<'_> {
 }
 
 fn status_rank(status: &str) -> u8 {
-    match status {
-        "active" => 0,
-        "pending" => 1,
-        "done" => 2,
-        _ => 3,
+    match MilestoneStatus::parse(status) {
+        MilestoneStatus::Active => 0,
+        MilestoneStatus::Pending => 1,
+        MilestoneStatus::Done => 2,
+        MilestoneStatus::Unknown => 3,
     }
 }

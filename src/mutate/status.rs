@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::schema::Status;
+
 /// Transition-time fields written by a status change, grouped into one argument
 /// so the status mutators stay under clippy's argument-count ceiling as the
 /// outcome layer grows. All are optional; `None` leaves the field untouched.
@@ -110,7 +112,11 @@ pub fn update_status_many_str(
         return Err(MutateError::EmptyIds);
     }
 
-    if new_status == "done"
+    // Parse once so every gate matches a variant. The original wire string is
+    // what gets written, including values validation will later reject.
+    let status = Status::from(new_status);
+
+    if status == Status::Done
         && fields.verified == Some(true)
         && fields
             .verified_by
@@ -118,13 +124,13 @@ pub fn update_status_many_str(
     {
         return Err(MutateError::MissingVerifiedBy);
     }
-    if new_status == "done"
+    if status == Status::Done
         && fields.verified != Some(true)
         && (fields.verified_by.is_some() || fields.verification_ref.is_some())
     {
         return Err(MutateError::ProvenanceWithoutVerification);
     }
-    if fields.landing_ref.is_some() && new_status != "in_progress" {
+    if fields.landing_ref.is_some() && status != Status::InProgress {
         return Err(MutateError::LandingRefWrongStatus(new_status.to_string()));
     }
 
@@ -137,10 +143,10 @@ pub fn update_status_many_str(
 
     let target: HashSet<&str> = ids.iter().copied().collect();
     let mut matched: HashSet<&str> = HashSet::new();
-    let timestamp_field = match new_status {
-        "done" => Some("done_at"),
-        "in_progress" => Some("started_at"),
-        _ => None,
+    let timestamp_field = match &status {
+        Status::Done => Some("done_at"),
+        Status::InProgress => Some("started_at"),
+        Status::Pending | Status::Blocked | Status::Superseded | Status::Unknown(_) => None,
     };
     // Each transition-field group is gated on its matching new status: the
     // done-only outcome fields apply on `done`, the blocked-only reason applies
@@ -158,7 +164,7 @@ pub fn update_status_many_str(
         landing_ref,
     } = fields;
     let (implemented, delivered_by, verified, verified_by, verification_ref, shipped_in) =
-        if new_status == "done" {
+        if status == Status::Done {
             (
                 implemented,
                 delivered_by,
@@ -170,17 +176,17 @@ pub fn update_status_many_str(
         } else {
             (None, None, None, None, None, None)
         };
-    let blocked_reason = if new_status == "blocked" {
+    let blocked_reason = if status == Status::Blocked {
         blocked_reason
     } else {
         None
     };
-    let (attempt_report, attempt_by) = if new_status == "pending" {
+    let (attempt_report, attempt_by) = if status == Status::Pending {
         (attempt_report, attempt_by)
     } else {
         (None, None)
     };
-    let landing_ref = if new_status == "in_progress" {
+    let landing_ref = if status == Status::InProgress {
         landing_ref
     } else {
         None
@@ -197,7 +203,10 @@ pub fn update_status_many_str(
         };
 
         if target.contains(id.as_str()) {
-            let was_blocked = task.get("status").and_then(|i| i.as_str()) == Some("blocked");
+            let was_blocked = task
+                .get("status")
+                .and_then(|item| item.as_str())
+                .is_some_and(|value| Status::Blocked == value);
             task["status"] = Item::Value(Value::from(new_status));
 
             let mut needs_sort = false;
@@ -280,13 +289,13 @@ pub fn update_status_many_str(
 
             // Redoing the work drops the old landing pointer — it belongs in
             // the appended `attempts` report, not on the new pending row.
-            if new_status == "pending" {
+            if status == Status::Pending {
                 task.remove("landing_ref");
             }
 
             // Leaving the blocked state drops the now-stale reason (gating above
             // guarantees `blocked_reason` is `None` here, so no write to undo).
-            if was_blocked && new_status != "blocked" {
+            if was_blocked && status != Status::Blocked {
                 task.remove("blocked_reason");
             }
 
