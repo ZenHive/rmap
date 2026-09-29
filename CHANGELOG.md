@@ -6,6 +6,12 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Capability specs and a current-agent delegate prompt (0.8.0)
+
+- Task 61: `[specs.<cap>] = { path, status }` registers a plain Markdown spec; rule ids `<PREFIX>-<n>` are parsed from line starts. New task field `spec_changes = [{ rule, op = add|change|remove }]`, validated against the live spec text. `rmap specs [--json]` lists specs, rules and task history; `rmap list --rule <ID>` filters by rule. `delegate` quotes the current rule text. Language agnostic: no template, directory or toolchain assumed.
+- Task 63: new creation-time fields `context_refs` (read first) and `checks` (reviewer hints, never executed). `delegate` renders `## Read first` and `## Reviewer checks` when present, and its per-agent footer now describes the runtime only, naming no language or toolchain.
+- Task 60: one field registry generates the per-field mirror surfaces; typed status / marker / relation vocabularies; `main.rs` split into `cli.rs` and `commands/`.
+
 ### `rmap waves --help` describes the open-task schedule (0.7.1)
 
 - Help text no longer claims wave 0 is the set with "no in-repo prerequisites"; it names the open-task filter shipped in 0.6.2.

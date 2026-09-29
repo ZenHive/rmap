@@ -3,3 +3,4 @@
 .dep-audit-watch.json
 .impeccable/questions/
 .impeccable/review/
+.cursor/rules/harness-operational.mdc
