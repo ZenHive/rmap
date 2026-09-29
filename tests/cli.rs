@@ -9381,6 +9381,7 @@ fn assign_command_sets_kimi_agent_and_model() {
     );
 }
 
+// rmap-spec-tags: DISPATCH-2
 #[test]
 fn assign_command_rejects_missing_model() {
     let dir = temp_dir();

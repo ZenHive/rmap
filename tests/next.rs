@@ -225,6 +225,7 @@ fn next_tasks_count_one_returns_singleton_matching_next_task() {
     assert_eq!(selected[0].id, single.id);
 }
 
+// rmap-spec-tags: DISPATCH-5
 #[test]
 fn next_tasks_count_three_returns_eff_ranked_array() {
     let input = r#"
@@ -363,6 +364,9 @@ scores = { d = 6, b = 6, u = 6 }
 // rmap-spec-tags: DISPATCH-5
 #[test]
 fn ties_preserve_toml_order() {
+    // Equal scores only. Task 83 still depends on 75, so 75 wins on unlocks.
+    // Equal eff and equal unlocks are covered by
+    // `equal_eff_and_unlocks_preserve_toml_order`.
     let input = TASKS.replace(
         r#"scores = { d = 6, b = 8, u = 8 }
 markers = ["parallel"]"#,
@@ -374,6 +378,65 @@ markers = ["parallel"]"#,
     let task = next_task(&tasks, &marker_filter(Some("parallel"))).expect("next task");
 
     assert_eq!(task.id.to_string(), "75");
+}
+
+// rmap-spec-tags: DISPATCH-5
+#[test]
+fn equal_eff_and_unlocks_preserve_toml_order() {
+    let input = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Phase 1"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "core"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Earlier equal task"
+scores = { d = 4, b = 4, u = 4 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Later equal task"
+scores = { d = 4, b = 4, u = 4 }
+
+[[task]]
+id = 3
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Depends on the earlier task"
+scores = { d = 9, b = 1, u = 1 }
+depends_on = [1]
+
+[[task]]
+id = 4
+phase = 1
+bundle = "core"
+status = "pending"
+title = "Depends on the later task"
+scores = { d = 9, b = 1, u = 1 }
+depends_on = [2]
+"#;
+
+    let tasks = validate_tasks_str("roadmap/tasks.toml", input).expect("valid tasks");
+    let task = next_task(&tasks, &TaskFilter::default()).expect("next task");
+
+    assert_eq!(task.id.to_string(), "1");
 }
 
 // rmap-spec-tags: DISPATCH-5

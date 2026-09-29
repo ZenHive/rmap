@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use rmap::diff::{DiffStatus, diff_toml};
@@ -303,4 +304,148 @@ fn spec_tests_round_trips_through_export_and_diff_and_is_omitted_when_absent() {
         .find(|entry| entry.key == "spec_tests")
         .unwrap();
     assert!(quiet_entry.values.is_none());
+}
+
+/// Block the orchestrator appends to `roadmap/tasks.toml` after this lands.
+/// The committed roadmap stays unregistered; this test is the scratch check.
+const AGENT_CONTRACT_REGISTRATION: &str = r#"
+[specs.agent_json]
+path = "specs/agent-json.md"
+status = "active"
+
+[specs.agent_dispatch]
+path = "specs/agent-dispatch.md"
+status = "active"
+
+[specs.agent_delegate]
+path = "specs/agent-delegate.md"
+status = "active"
+
+[spec_tests]
+globs = ["tests/**/*.rs"]
+marker = "rmap-spec-tags:"
+"#;
+
+#[test]
+fn agent_contract_specs_validate_and_flag_only_untagged_rules() {
+    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let source = fs::read_to_string(manifest.join("roadmap/tasks.toml")).unwrap();
+    assert!(
+        source
+            .lines()
+            .all(|line| !line.starts_with("[specs.") && line != "[spec_tests]"),
+        "roadmap/tasks.toml stays unregistered; the orchestrator appends the block"
+    );
+
+    let dir = TempDir::new().unwrap();
+    write(
+        &dir,
+        "roadmap/tasks.toml",
+        &format!("{source}\n{AGENT_CONTRACT_REGISTRATION}"),
+    );
+    copy_files_with_extension(&manifest.join("specs"), &dir.path().join("specs"), "md");
+    copy_files_with_extension(&manifest.join("tests"), &dir.path().join("tests"), "rs");
+
+    let tasks_path = dir.path().join("roadmap/tasks.toml");
+    let validate = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("validate")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .unwrap();
+    assert!(
+        validate.status.success(),
+        "validate:\n{}",
+        String::from_utf8_lossy(&validate.stderr)
+    );
+
+    let specs_out = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("specs")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .unwrap();
+    assert!(
+        specs_out.status.success(),
+        "specs:\n{}",
+        String::from_utf8_lossy(&specs_out.stderr)
+    );
+    let catalog: serde_json::Value = serde_json::from_slice(&specs_out.stdout).unwrap();
+    let mut parsed: Vec<String> = catalog
+        .as_object()
+        .unwrap()
+        .values()
+        .flat_map(|spec| spec["rules"].as_array().unwrap())
+        .map(|rule| {
+            assert!(rule["text"].is_string(), "current rule has text: {rule}");
+            rule["id"].as_str().unwrap().to_string()
+        })
+        .collect();
+    parsed.sort();
+    parsed.dedup();
+    let mut expected = [
+        "DELEGATE-1",
+        "DELEGATE-2",
+        "DELEGATE-3",
+        "DELEGATE-4",
+        "DELEGATE-5",
+        "DISPATCH-1",
+        "DISPATCH-2",
+        "DISPATCH-3",
+        "DISPATCH-4",
+        "DISPATCH-5",
+        "DISPATCH-6",
+        "JSON-1",
+        "JSON-2",
+        "JSON-3",
+    ]
+    .map(String::from)
+    .to_vec();
+    expected.sort();
+    assert_eq!(parsed, expected, "parsed agent-contract rules");
+
+    let (ok, json_text) = doctor(&dir, true);
+    assert!(ok, "doctor must exit 0:\n{json_text}");
+    let json: serde_json::Value = serde_json::from_str(&json_text).unwrap();
+    let findings = json["findings"].as_array().unwrap();
+    let untested: Vec<&str> = findings
+        .iter()
+        .filter(|finding| finding["kind"] == "untested_rule")
+        .map(|finding| finding["rule"].as_str().unwrap())
+        .collect();
+    let unknown: Vec<&str> = findings
+        .iter()
+        .filter(|finding| finding["kind"] == "unknown_rule_tag")
+        .map(|finding| finding["rule"].as_str().unwrap())
+        .collect();
+    assert!(unknown.is_empty(), "unknown tags: {unknown:?}");
+    assert_eq!(
+        untested,
+        vec!["JSON-1"],
+        "only the deliberate additive-only gap is untagged:\n{json_text}"
+    );
+    assert!(findings.iter().any(|finding| {
+        finding["kind"] == "untested_rule" && finding["file"] == "specs/agent-json.md"
+    }));
+}
+
+fn copy_files_with_extension(from: &Path, to: &Path, extension: &str) {
+    fn walk(from: &Path, to: &Path, extension: &str) {
+        for entry in fs::read_dir(from).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if path.is_dir() {
+                let dest = to.join(entry.file_name());
+                fs::create_dir_all(&dest).unwrap();
+                walk(&path, &dest, extension);
+                continue;
+            }
+            if path.extension().and_then(|ext| ext.to_str()) == Some(extension) {
+                fs::create_dir_all(to).unwrap();
+                fs::copy(&path, to.join(entry.file_name())).unwrap();
+            }
+        }
+    }
+    walk(from, to, extension);
 }
