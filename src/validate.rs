@@ -1,3 +1,6 @@
+mod dependencies;
+use dependencies::{validate_dependencies, validate_dependency_cycles};
+
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
@@ -7,17 +10,9 @@ use thiserror::Error;
 use crate::schema::{Task, TaskId, Tasks};
 
 const SUPPORTED_SCHEMA_VERSION: u32 = 2;
-const VALID_STATUSES: &[&str] = &["pending", "in_progress", "blocked", "done", "superseded"];
+const VALID_STATUSES: &[&str] = crate::schema::Status::VALUES;
 const VALID_MILESTONE_STATUSES: &[&str] = &["pending", "active", "done"];
-pub const VALID_MARKERS: &[&str] = &[
-    "parallel",
-    "cx",
-    "csr",
-    "bug",
-    "security",
-    "docs",
-    "handbuild",
-];
+pub const VALID_MARKERS: &[&str] = crate::schema::Marker::VALUES;
 const VALID_ASSIGNEES: &[&str] = &[
     "human",
     "claude",
@@ -29,7 +24,7 @@ const VALID_ASSIGNEES: &[&str] = &[
     "droid",
     "kimi",
 ];
-const VALID_CROSS_REPO_RELATIONS: &[&str] = &["blocks", "blocked_by", "related"];
+const VALID_CROSS_REPO_RELATIONS: &[&str] = crate::schema::Relation::VALUES;
 const MIN_SCORE: u32 = 1;
 const MAX_SCORE: u32 = 10;
 const FIRST_LINE_NUMBER: usize = 1;
@@ -458,97 +453,6 @@ fn validate_linear_ids(path: &str, input: &str, tasks: &Tasks) -> Result<(), Val
     }
 
     Ok(())
-}
-
-fn validate_dependencies(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
-    let task_ids: HashSet<TaskId> = tasks.task.iter().map(|task| task.id.clone()).collect();
-
-    for task in &tasks.task {
-        for dependency in &task.depends_on {
-            if task_ids.contains(dependency) {
-                continue;
-            }
-
-            return Err(semantic_error(
-                path,
-                line_containing(input, "depends_on").unwrap_or(FIRST_LINE_NUMBER),
-                format!("task {} depends on unknown task {dependency}", task.id),
-            ));
-        }
-    }
-
-    Ok(())
-}
-
-fn validate_dependency_cycles(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
-    let graph: HashMap<TaskId, &[TaskId]> = tasks
-        .task
-        .iter()
-        .map(|task| (task.id.clone(), task.depends_on.as_slice()))
-        .collect();
-
-    let mut state: HashMap<TaskId, VisitState> = HashMap::new();
-    let mut stack: Vec<TaskId> = Vec::new();
-
-    for task in &tasks.task {
-        if state.contains_key(&task.id) {
-            continue;
-        }
-
-        if let Some(cycle) = detect_cycle(&task.id, &graph, &mut state, &mut stack) {
-            let members = cycle
-                .iter()
-                .map(TaskId::to_string)
-                .collect::<Vec<_>>()
-                .join(" -> ");
-            return Err(semantic_error(
-                path,
-                line_containing(input, "depends_on").unwrap_or(FIRST_LINE_NUMBER),
-                format!("dependency cycle detected: {members}"),
-            ));
-        }
-    }
-
-    Ok(())
-}
-
-#[derive(Clone, Copy, PartialEq)]
-enum VisitState {
-    InProgress,
-    Done,
-}
-
-fn detect_cycle(
-    node: &TaskId,
-    graph: &HashMap<TaskId, &[TaskId]>,
-    state: &mut HashMap<TaskId, VisitState>,
-    stack: &mut Vec<TaskId>,
-) -> Option<Vec<TaskId>> {
-    state.insert(node.clone(), VisitState::InProgress);
-    stack.push(node.clone());
-
-    if let Some(dependencies) = graph.get(node) {
-        for dependency in *dependencies {
-            match state.get(dependency) {
-                Some(VisitState::Done) => continue,
-                Some(VisitState::InProgress) => {
-                    let start = stack.iter().position(|id| id == dependency).unwrap_or(0);
-                    let mut cycle = stack[start..].to_vec();
-                    cycle.push(dependency.clone());
-                    return Some(cycle);
-                }
-                None => {
-                    if let Some(cycle) = detect_cycle(dependency, graph, state, stack) {
-                        return Some(cycle);
-                    }
-                }
-            }
-        }
-    }
-
-    stack.pop();
-    state.insert(node.clone(), VisitState::Done);
-    None
 }
 
 fn validate_timestamps(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {

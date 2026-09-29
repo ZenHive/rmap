@@ -1,4 +1,5 @@
 pub mod bundles;
+pub mod creation_input;
 pub mod critical_path;
 pub mod delegate;
 pub mod diff;
@@ -18,8 +19,10 @@ pub mod schema;
 pub mod schema_json;
 pub mod scoring;
 pub mod stale;
+mod task_fields;
 pub mod topo;
 pub mod validate;
+pub mod vocabulary;
 pub mod watch;
 
 pub use stale::{find_awaiting_landing, find_stale, parse_duration};

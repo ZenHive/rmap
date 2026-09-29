@@ -530,12 +530,7 @@ fn marker_suffix(task: &Task) -> String {
     let markers = task
         .markers
         .iter()
-        .filter_map(|marker| match marker.as_str() {
-            "parallel" => Some("`[P]`"),
-            "cx" => Some("`[CX]`"),
-            "csr" => Some("`[CSR]`"),
-            _ => None,
-        })
+        .filter_map(crate::schema::Marker::suffix)
         .collect::<Vec<_>>();
 
     if markers.is_empty() {
@@ -549,12 +544,7 @@ fn category_prefix(task: &Task) -> String {
     let glyphs = task
         .markers
         .iter()
-        .filter_map(|marker| match marker.as_str() {
-            "bug" => Some("🐛"),
-            "security" => Some("🔒"),
-            "docs" => Some("📝"),
-            _ => None,
-        })
+        .filter_map(crate::schema::Marker::category)
         .collect::<Vec<_>>();
 
     if glyphs.is_empty() {
@@ -576,13 +566,6 @@ fn phase_slug(name: &str) -> String {
         .join("-")
 }
 
-fn status_symbol(status: &str) -> &str {
-    match status {
-        "pending" => "⬜",
-        "in_progress" => "🔄",
-        "blocked" => "🔶",
-        "done" => "✅",
-        "superseded" => "⛔",
-        _ => status,
-    }
+fn status_symbol(status: &crate::schema::Status) -> &str {
+    status.symbol()
 }

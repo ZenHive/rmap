@@ -52,34 +52,6 @@ impl TomlDiff {
 // Verbose-mode whitelists. Members are surfaced via `values: [{field, before, after}]`
 // on Changed entries when `--verbose` is on. Renaming or removing a member is a
 // breaking change to the agent contract — bump `schema_version` first.
-const TASK_VERBOSE_WHITELIST: &[&str] = &[
-    "phase",
-    "bundle",
-    "target_repo",
-    "milestone",
-    "status",
-    "title",
-    "scores",
-    "markers",
-    "depends_on",
-    "linear_id",
-    "assignee",
-    "module",
-    "branch",
-    "model",
-    "shipped_in",
-    "landing_ref",
-    "created_at",
-    "started_at",
-    "done_at",
-    "scored_at",
-    "blocked_reason",
-    "implemented",
-    "delivered_by",
-    "verified",
-    "verified_by",
-    "verification_ref",
-];
 const METADATA_VERBOSE_WHITELIST: &[&str] = &[
     "schema_version",
     "project",
@@ -395,11 +367,11 @@ fn task_changes(
     let mut values: Vec<ChangedValue> = Vec::new();
 
     macro_rules! diff_fields {
-        ($($field:ident),* $(,)?) => {
-            $(if base.$field != current.$field {
+        ($( $(#[$attr:meta])* $field:ident: $ty:ty => [$rank:literal, $diff:literal, $show:literal, $export:ident] $creation:tt; )*) => {
+            $(if $diff && base.$field != current.$field {
                 let name = stringify!($field);
                 fields.push(name.to_string());
-                if verbose && TASK_VERBOSE_WHITELIST.contains(&name) {
+                if verbose && $show {
                     values.push(ChangedValue {
                         field: name.to_string(),
                         before: serde_json::to_value(&base.$field).expect("schema types always serialize"),
@@ -409,43 +381,7 @@ fn task_changes(
             })*
         };
     }
-
-    diff_fields!(
-        phase,
-        bundle,
-        target_repo,
-        milestone,
-        status,
-        title,
-        scores,
-        markers,
-        depends_on,
-        linear_id,
-        assignee,
-        module,
-        branch,
-        model,
-        acceptance_criteria,
-        out_of_scope,
-        files_to_modify,
-        touches,
-        domains,
-        shipped_in,
-        landing_ref,
-        body,
-        created_at,
-        started_at,
-        done_at,
-        scored_at,
-        blocked_reason,
-        implemented,
-        delivered_by,
-        verified,
-        verified_by,
-        verification_ref,
-        attempts,
-        cross_repo,
-    );
+    crate::task_fields!(diff_fields);
 
     let values = if verbose && !values.is_empty() {
         Some(values)

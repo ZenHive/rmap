@@ -1,3 +1,4 @@
+pub use crate::vocabulary::{Marker, Markers, Relation, Status};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -117,113 +118,40 @@ pub struct Milestone {
     pub target_version: Option<String>,
 }
 
-/// A single roadmap task.
-///
-/// MIRROR SURFACES — when adding a field here, decide whether it is a
-/// **creation-time** field (set at `rmap new` time) or a **transition-time**
-/// field (set by `rmap status` / `rmap mark` / `rmap depend`), and update the
-/// appropriate surfaces in the same commit:
-///
-/// Creation-time field → SIX surfaces:
-///   1. `main.rs::StdinTask`                  — stdin parse shape
-///   2. `mutate.rs::NewTaskFields`            — mutator argument struct
-///   3. `mutate.rs::add_task_str`             — TOML writer
-///   4. `mutate.rs::canonical_task_key_index` — key ordering for serialization
-///   5. `diff.rs::diff_fields!`               — drift surface for `rmap diff`
-///   6. `export.rs::ExportedTask`             — JSON shape for `--json` / `data.json`
-///
-/// Plus decide whether to add to `diff::TASK_VERBOSE_WHITELIST`. Interactive
-/// `prompt_task_fields` (main.rs) is optional — power-user fields (`branch`,
-/// `files_to_modify`, `touches`, `cross_repo`) intentionally route through
-/// `rmap new --from-stdin` rather than dialoguer.
-///
-/// Transition-time field → owning mutator (`set_status_str` for lifecycle
-/// timestamps + `implemented` + outcome layer, etc.) + surfaces 4–6. Stays
-/// absent from `StdinTask` / `NewTaskFields` on purpose. Today: `started_at`,
-/// `done_at`, `blocked_reason`, `shipped_in`, `landing_ref`, `implemented`,
-/// `delivered_by`, `verified`, `verified_by`, `verification_ref`, `attempts`.
-#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Task {
-    pub id: TaskId,
-    pub phase: u32,
-    pub bundle: String,
-    /// Repository where this task's own work lands. When omitted, consumers
-    /// use the roadmap's top-level `project`. This is distinct from
-    /// `cross_repo`, which links this task to related tasks in other roadmaps.
-    pub target_repo: Option<String>,
-    pub milestone: Option<String>,
-    pub status: String,
-    pub title: String,
-    pub scores: Scores,
-    #[serde(default)]
-    pub markers: Vec<String>,
-    #[serde(default)]
-    pub depends_on: Vec<TaskId>,
-    pub linear_id: Option<String>,
-    pub assignee: Option<String>,
-    pub module: Option<String>,
-    pub branch: Option<String>,
-    pub model: Option<String>,
-    #[serde(default)]
-    pub acceptance_criteria: Vec<String>,
-    #[serde(default)]
-    pub out_of_scope: Vec<String>,
-    #[serde(default)]
-    pub files_to_modify: Vec<String>,
-    /// Advisory collision-prediction hint: files this task may read or write —
-    /// typically a superset of `files_to_modify`. Used by an orchestrator to
-    /// predict parallel-dispatch conflicts (two tasks conflict when the union
-    /// of their `touches` + `files_to_modify` overlaps). Free-text, unvalidated
-    /// (posture of `model` / `assignee`); creation-time field.
-    #[serde(default)]
-    pub touches: Vec<String>,
-    /// Advisory capability-routing tags consumed by orchestrators. Free-text,
-    /// unvalidated in rmap; downstream tooling owns any vocabulary.
-    #[serde(default)]
-    pub domains: Vec<String>,
-    pub shipped_in: Option<String>,
-    /// Open landing pointer (PR URL, Linear issue, GitLab MR, Gerrit change,
-    /// or any other free-text ref). Transition-time: settable only on
-    /// `in_progress` via `rmap status <id> in_progress --landing-ref <ref>`;
-    /// `--landing-ref ""` clears it. Kept on `done` (provenance next to
-    /// `shipped_in`) and `blocked` (a PR closed unmerged is when the ref
-    /// matters); cleared on `pending` (the work is being redone — the old
-    /// ref belongs in `attempts`). Never parsed or fetched.
-    pub landing_ref: Option<String>,
-    pub body: Option<String>,
-    pub created_at: Option<String>,
-    pub started_at: Option<String>,
-    pub done_at: Option<String>,
-    pub scored_at: Option<String>,
-    pub blocked_reason: Option<String>,
-    pub implemented: Option<String>,
-    pub delivered_by: Option<String>,
-    pub verified: Option<bool>,
-    /// Independent evaluator that supplied `verified = true`. Free-text and
-    /// transition-time; new verified transitions require a non-empty value.
-    pub verified_by: Option<String>,
-    /// Durable pointer to the evidence behind verification (for example a
-    /// harness run id, CI URL, or review artifact). Optional, free-text, and
-    /// meaningful only when `verified = true`.
-    pub verification_ref: Option<String>,
-    /// Append-only history of dispatch attempts that failed and returned the
-    /// task to the queue, each carrying its failure evidence (e.g. a reviewer's
-    /// rejection report). A transition-time field — appended by
-    /// `rmap status <id> pending --report "<text>" [--attempt-by <agent>]`,
-    /// never settable at creation. The implementer/reviewer "argument" happens
-    /// asynchronously across attempts, with evidence: the next dispatch reads
-    /// this history instead of starting blind. Empty = never failed (skipped on
-    /// every output surface so untouched tasks round-trip byte-identically).
-    #[serde(default)]
-    pub attempts: Vec<Attempt>,
-    /// Links this task to related tasks in other roadmaps. These relationships
-    /// do not choose where this task's own work lands; `target_repo` does that.
-    #[serde(default)]
-    pub cross_repo: Vec<CrossRepo>,
+macro_rules! define_task {
+    ($( $(#[$attr:meta])* $name:ident: $ty:ty => [$rank:literal, $diff:literal, $verbose:literal, $export:ident] [$($creation:tt)*]; )*) => {
+        /// A single roadmap task, generated from `task_fields.rs`.
+        ///
+        /// Add a creation-time optional field in that registry: its type,
+        /// canonical rank, verbose/export policy, and creation conversion/writer.
+        /// Task, stdin, NewTaskFields, TOML writing, export and diff derive from
+        /// the entry. Add a behavior test as the second edit. Interactive prompts
+        /// are optional. Transition entries have empty creation brackets; their
+        /// owning lifecycle mutator must also be updated.
+        #[derive(Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+        #[serde(deny_unknown_fields)]
+        #[schemars(description = "A single roadmap task.\n\nMIRROR SURFACES — when adding a field here, decide whether it is a\n**creation-time** field (set at `rmap new` time) or a **transition-time**\nfield (set by `rmap status` / `rmap mark` / `rmap depend`), and update the\nappropriate surfaces in the same commit:\n\nCreation-time field → SIX surfaces:\n  1. `main.rs::StdinTask`                  — stdin parse shape\n  2. `mutate.rs::NewTaskFields`            — mutator argument struct\n  3. `mutate.rs::add_task_str`             — TOML writer\n  4. `mutate.rs::canonical_task_key_index` — key ordering for serialization\n  5. `diff.rs::diff_fields!`               — drift surface for `rmap diff`\n  6. `export.rs::ExportedTask`             — JSON shape for `--json` / `data.json`\n\nPlus decide whether to add to `diff::TASK_VERBOSE_WHITELIST`. Interactive\n`prompt_task_fields` (main.rs) is optional — power-user fields (`branch`,\n`files_to_modify`, `touches`, `cross_repo`) intentionally route through\n`rmap new --from-stdin` rather than dialoguer.\n\nTransition-time field → owning mutator (`set_status_str` for lifecycle\ntimestamps + `implemented` + outcome layer, etc.) + surfaces 4–6. Stays\nabsent from `StdinTask` / `NewTaskFields` on purpose. Today: `started_at`,\n`done_at`, `blocked_reason`, `shipped_in`, `landing_ref`, `implemented`,\n`delivered_by`, `verified`, `verified_by`, `verification_ref`, `attempts`.")]
+        pub struct Task {
+            $( $(#[$attr])* pub $name: $ty, )*
+        }
+
+        pub const TASK_FIELDS: &[TaskField] = &[
+            $(TaskField { name: stringify!($name), canonical_rank: $rank,
+                verbose: $verbose },)*
+        ];
+    };
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+/// Registry metadata used for canonical TOML ordering and field-set checks.
+pub struct TaskField {
+    pub name: &'static str,
+    pub canonical_rank: u32,
+    pub verbose: bool,
+}
+
+crate::task_fields!(define_task);
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Scores {
     pub d: u32,
@@ -258,7 +186,7 @@ pub struct CrossRepo {
     pub repo: String,
     pub task_id: TaskId,
     pub linear_id: Option<String>,
-    pub relation: String,
+    pub relation: Relation,
 }
 
 /// Primary key for a `Task`. Stored on-disk as either a TOML integer
@@ -331,5 +259,11 @@ impl PartialEq<u32> for TaskId {
             Self::Number(id) => id == other,
             Self::Text(id) => id.parse::<u32>().is_ok_and(|n| n == *other),
         }
+    }
+}
+
+impl Default for TaskId {
+    fn default() -> Self {
+        Self::Number(0)
     }
 }

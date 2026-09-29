@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use crate::next_bundle::BundlePick;
-use crate::schema::{
-    Attempt, Bundle, Changelog, CrossRepo, Focus, Linear, Milestone, Phase, Scores, Task, TaskId,
-    Tasks,
-};
+use crate::schema::{Bundle, Changelog, Focus, Linear, Milestone, Phase, Task, Tasks};
 use crate::scoring::rounded_efficiency;
 use crate::topo::{compute_layers, compute_unlocks};
 
@@ -29,124 +26,70 @@ struct ExportedTasks<'a> {
     task: Vec<ExportedTask<'a>>,
 }
 
-#[derive(Serialize)]
 struct ExportedTask<'a> {
-    id: &'a TaskId,
-    phase: u32,
-    bundle: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    target_repo: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    milestone: Option<&'a String>,
-    status: &'a str,
-    title: &'a str,
-    scores: &'a Scores,
+    task: &'a Task,
     eff: f64,
-    /// Longest-path dependency depth over the whole in-repo graph (computed,
-    /// never persisted — like `eff`). `0` for tasks with no in-repo dep; within
-    /// a result set the lowest `dep_layer` present is the current parallel wave.
     dep_layer: usize,
-    /// Count of tasks that transitively depend on this one — computed unlock
-    /// leverage ("what finishing this frees up"), over the whole in-repo graph.
-    /// Computed, never persisted (like `eff` / `dep_layer`); `0` for a leaf.
     unlocks: usize,
-    markers: &'a [String],
-    depends_on: &'a [TaskId],
-    #[serde(skip_serializing_if = "Option::is_none")]
-    linear_id: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    assignee: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    module: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    branch: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    model: Option<&'a String>,
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    acceptance_criteria: &'a [String],
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    out_of_scope: &'a [String],
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    files_to_modify: &'a [String],
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    touches: &'a [String],
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    domains: &'a [String],
-    #[serde(skip_serializing_if = "Option::is_none")]
-    shipped_in: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    landing_ref: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    body: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    created_at: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    started_at: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    done_at: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    scored_at: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    blocked_reason: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    implemented: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    delivered_by: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    verified: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    verified_by: Option<&'a String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    verification_ref: Option<&'a String>,
-    #[serde(skip_serializing_if = "<[_]>::is_empty")]
-    attempts: &'a [Attempt],
-    cross_repo: &'a [CrossRepo],
 }
 
-/// Every JSON key an `ExportedTask` can carry — the validation set for the
-/// `--fields` projection (`rmap list` / `rmap ready`). Includes the computed
-/// `eff` / `dep_layer` / `unlocks`. MIRROR SURFACE: adding an `ExportedTask` field means
-/// adding it here; `exported_task_fields_cover_serialized_keys` guards drift.
-pub const EXPORTED_TASK_FIELDS: &[&str] = &[
-    "id",
-    "phase",
-    "bundle",
-    "target_repo",
-    "milestone",
-    "status",
-    "title",
-    "scores",
-    "eff",
-    "dep_layer",
-    "unlocks",
-    "markers",
-    "depends_on",
-    "linear_id",
-    "assignee",
-    "module",
-    "branch",
-    "model",
-    "acceptance_criteria",
-    "out_of_scope",
-    "files_to_modify",
-    "touches",
-    "domains",
-    "shipped_in",
-    "landing_ref",
-    "body",
-    "created_at",
-    "started_at",
-    "done_at",
-    "scored_at",
-    "blocked_reason",
-    "implemented",
-    "delivered_by",
-    "verified",
-    "verified_by",
-    "verification_ref",
-    "attempts",
-    "cross_repo",
-];
+macro_rules! export_field {
+    (always, $map:ident, $value:ident, $name:ident) => {
+        $map.serialize_entry(stringify!($name), &$value.task.$name)?;
+    };
+    (optional, $map:ident, $value:ident, $name:ident) => {
+        if $value.task.$name.is_some() {
+            export_field!(always, $map, $value, $name);
+        }
+    };
+    (nonempty, $map:ident, $value:ident, $name:ident) => {
+        if !$value.task.$name.is_empty() {
+            export_field!(always, $map, $value, $name);
+        }
+    };
+    (scores, $map:ident, $value:ident, $name:ident) => {
+        export_field!(always, $map, $value, $name);
+        $map.serialize_entry("eff", &$value.eff)?;
+        $map.serialize_entry("dep_layer", &$value.dep_layer)?;
+        $map.serialize_entry("unlocks", &$value.unlocks)?;
+    };
+}
+
+macro_rules! export_metric_names {
+    (scores, $fields:ident, $index:ident) => {
+        $fields[$index] = "eff";
+        $fields[$index + 1] = "dep_layer";
+        $fields[$index + 2] = "unlocks";
+        $index += 3;
+    };
+    ($other:ident, $fields:ident, $index:ident) => {};
+}
+
+macro_rules! define_export {
+    ($( $(#[$attr:meta])* $name:ident: $ty:ty => [$rank:literal, $diff:literal, $verbose:literal, $export:ident] $creation:tt; )*) => {
+        /// All persisted task fields plus computed graph/scoring fields.
+        pub const EXPORTED_TASK_FIELDS: &[&str] = &{
+            let mut fields = [""; crate::schema::TASK_FIELDS.len() + 3];
+            let mut index = 0;
+            $(
+                fields[index] = stringify!($name);
+                index += 1;
+                export_metric_names!($export, fields, index);
+            )*
+            let _ = index;
+            fields
+        };
+        impl Serialize for ExportedTask<'_> {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                use serde::ser::SerializeMap;
+                let mut map = serializer.serialize_map(None)?;
+                $(export_field!($export, map, self, $name);)*
+                map.end()
+            }
+        }
+    };
+}
+crate::task_fields!(define_export);
 
 pub fn export_json_str(tasks: &Tasks) -> serde_json::Result<String> {
     serde_json::to_string_pretty(&exported_tasks(tasks))
@@ -321,44 +264,10 @@ fn graph_metrics(tasks: &Tasks) -> GraphMetrics {
 fn exported_task<'a>(task: &'a Task, metrics: &GraphMetrics) -> ExportedTask<'a> {
     let key = task.id.to_string();
     ExportedTask {
-        id: &task.id,
-        phase: task.phase,
-        bundle: &task.bundle,
-        target_repo: task.target_repo.as_ref(),
-        milestone: task.milestone.as_ref(),
-        status: &task.status,
-        title: &task.title,
-        scores: &task.scores,
+        task,
         eff: rounded_efficiency(task),
         dep_layer: metrics.layers.get(&key).copied().unwrap_or(0),
         unlocks: metrics.unlocks.get(&key).copied().unwrap_or(0),
-        markers: &task.markers,
-        depends_on: &task.depends_on,
-        linear_id: task.linear_id.as_ref(),
-        assignee: task.assignee.as_ref(),
-        module: task.module.as_ref(),
-        branch: task.branch.as_ref(),
-        model: task.model.as_ref(),
-        acceptance_criteria: &task.acceptance_criteria,
-        out_of_scope: &task.out_of_scope,
-        files_to_modify: &task.files_to_modify,
-        touches: &task.touches,
-        domains: &task.domains,
-        shipped_in: task.shipped_in.as_ref(),
-        landing_ref: task.landing_ref.as_ref(),
-        body: task.body.as_ref(),
-        created_at: task.created_at.as_ref(),
-        started_at: task.started_at.as_ref(),
-        done_at: task.done_at.as_ref(),
-        scored_at: task.scored_at.as_ref(),
-        blocked_reason: task.blocked_reason.as_ref(),
-        implemented: task.implemented.as_ref(),
-        delivered_by: task.delivered_by.as_ref(),
-        verified: task.verified,
-        verified_by: task.verified_by.as_ref(),
-        verification_ref: task.verification_ref.as_ref(),
-        attempts: &task.attempts,
-        cross_repo: &task.cross_repo,
     }
 }
 
