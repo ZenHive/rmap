@@ -1628,7 +1628,7 @@ shipped_in = "313f0e6af87809a322eb5695b2eb998d69c2eac3"
 id = 60
 phase = 17
 bundle = "agent_era_maintenance"
-status = "pending"
+status = "in_progress"
 title = "Cut the per-field edit cost: single-source task field registry, typed enums, split main.rs"
 scores = { d = 7, b = 6, u = 8 }
 acceptance_criteria = ["Every existing test, golden fixture and skills_smoke passes unchanged (no fixture or expected-output edits)", "`--json` of show/list/next/ready/doctor/diff and `rmap schema` are byte-identical to the pre-refactor binary on rmap's own roadmap and tests/skills_fixture", "Adding a new creation-time optional task field needs edits in at most two places; the Task doc comment and CLAUDE.md § Mirror-surface edit rules describe the new procedure", "A test fails if a Task field is missing from the export field set or the canonical key order (replaces convention with a check)", "Task status, marker and cross-repo relation are typed enums serialized as today's strings; every agent-grep error string listed in CLAUDE.md is unchanged", "main.rs is split so no source file exceeds ~800 lines; the CLI surface (`rmap --help` for every subcommand) is unchanged"]
@@ -1645,6 +1645,7 @@ Phase 17 is about to add several task fields and a top-level `[specs]` table (sp
 Pick the mechanism (declarative macro, derive, or a table + tests) yourself. This is a pure refactor: every observable output stays identical.
 """
 created_at = "2026-09-29"
+started_at = "2026-09-29"
 scored_at = "2026-09-29"
 
 [[task]]

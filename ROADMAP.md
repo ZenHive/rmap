@@ -57,6 +57,8 @@ gantt
     landing_ref — record an open PR on an in_progress task so a PR-landed run is visible in the roadmap— not only in harness :done, 2026-09-13, 2026-09-13
     section Phase 16 — Graph queries
     doctor— spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks :done, 2026-07-15, 2026-07-15
+    section Phase 17 — Spec-driven agent contract
+    Cut the per-field edit cost— single-source task field registry— typed enums— split main.rs :active, 2026-09-29, 2026-09-29
 ```
 <!-- MERMAID:END -->
 
