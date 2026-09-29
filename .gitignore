@@ -3,4 +3,5 @@
 .dep-audit-watch.json
 .impeccable/questions/
 .impeccable/review/
+.impeccable/hook.cache.json
 .cursor/rules/harness-operational.mdc
