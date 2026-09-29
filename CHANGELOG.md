@@ -6,6 +6,10 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### `rmap schema` Task description matches the field registry (0.9.2)
+
+- The published Task description no longer lists the six hand-edited mirror surfaces task 60 removed; it names which fields `rmap new` accepts and which only `rmap status` writes.
+
 ### Portfolio task links resolve repository aliases like relation cords (0.9.1)
 
 - Task 64: `render --html --multi` builds one case-insensitive alias map (project name, label, basename) and uses it for both relation cords and task-link deep links; the first input in order wins every collision, deterministically. The map ships in the `rmap-data` island as `repo_aliases` (additive).
