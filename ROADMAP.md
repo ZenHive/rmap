@@ -66,6 +66,7 @@ gantt
     Match on Status variants instead of status string literals :done, 2026-09-29, 2026-09-29
     Show context_refs and checks in the HTML task detail panel :done, 2026-09-29, 2026-09-29
     Dogfood the spec layer— capability specs for rmap's agent contract— with [spec_tests] :done, 2026-09-29, 2026-09-29
+    Spec the remaining harness shell-out contract :active, 2026-09-29, 2026-09-29
 ```
 <!-- MERMAID:END -->
 
