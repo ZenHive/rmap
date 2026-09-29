@@ -6,6 +6,15 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Portfolio task links resolve repository aliases like relation cords (0.9.1)
+
+- Task 64: `render --html --multi` builds one case-insensitive alias map (project name, label, basename) and uses it for both relation cords and task-link deep links; the first input in order wins every collision, deterministically. The map ships in the `rmap-data` island as `repo_aliases` (additive).
+- New opt-in browser regression under `tests/browser/` (Node + headless Chromium) for the portfolio interactions; the Rust suite does not depend on it.
+
+### doctor: spec rules without a tagged test, and tags naming unknown rules (0.9.0)
+
+- Task 62: optional `[spec_tests] = { globs, marker }` (marker defaults to `spec-tags:`). `rmap doctor` scans the matched files as plain text and reports, as soft advisories, current rules of an active spec that no test tags, and tags naming a rule id absent from every registered spec. Draft and retired specs are skipped. Silent without `[spec_tests]` or `[specs]`; never runs tests; never fails `validate`.
+
 ### Capability specs and a current-agent delegate prompt (0.8.0)
 
 - Task 61: `[specs.<cap>] = { path, status }` registers a plain Markdown spec; rule ids `<PREFIX>-<n>` are parsed from line starts. New task field `spec_changes = [{ rule, op = add|change|remove }]`, validated against the live spec text. `rmap specs [--json]` lists specs, rules and task history; `rmap list --rule <ID>` filters by rule. `delegate` quotes the current rule text. Language agnostic: no template, directory or toolchain assumed.
