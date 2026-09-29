@@ -18,6 +18,7 @@ pub mod render_html;
 pub mod schema;
 pub mod schema_json;
 pub mod scoring;
+pub mod specs;
 pub mod stale;
 mod task_fields;
 pub mod topo;

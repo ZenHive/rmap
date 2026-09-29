@@ -180,7 +180,16 @@ pub(super) enum Commands {
         #[arg(long)]
         tasks_path: Option<PathBuf>,
     },
+    /// List registered specs, current rules and derived task history.
+    Specs {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        tasks_path: Option<PathBuf>,
+    },
     List {
+        #[arg(long)]
+        rule: Option<String>,
         #[arg(long)]
         status: Option<String>,
         #[arg(long)]

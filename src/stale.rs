@@ -99,6 +99,7 @@ mod tests {
             phases: BTreeMap::new(),
             bundles: BTreeMap::new(),
             milestones: BTreeMap::new(),
+            specs: BTreeMap::new(),
             task,
         }
     }

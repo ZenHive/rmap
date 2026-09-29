@@ -271,7 +271,18 @@ fn run() -> Result<ExitCode> {
                 }
             }
         }
+        Commands::Specs { json, tasks_path } => {
+            let paths = resolve_paths(tasks_path, None, None)?;
+            let tasks = validate_tasks_file(&paths.tasks_path)?;
+            let specs = rmap::specs::load(&tasks, &paths.tasks_path).map_err(anyhow::Error::msg)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&specs)?);
+            } else {
+                print!("{}", rmap::specs::format_specs(&specs));
+            }
+        }
         Commands::List {
+            rule,
             status,
             marker,
             phase,
@@ -296,6 +307,9 @@ fn run() -> Result<ExitCode> {
                 delivered_by,
             };
             let mut listed = list_tasks(&tasks, &filter);
+            if let Some(rule) = rule {
+                listed.retain(|task| task.spec_changes.iter().any(|change| change.rule == rule));
+            }
             if dispatchable {
                 listed.retain(|task| is_dispatchable(task));
             }
@@ -377,7 +391,8 @@ fn run() -> Result<ExitCode> {
             let prompt = format_delegate_prompt(&tasks, &id, target)
                 .ok_or_else(|| TaskNotFound(id.clone()))?;
 
-            print!("{prompt}");
+            let specs = rmap::specs::load(&tasks, &paths.tasks_path).map_err(anyhow::Error::msg)?;
+            print!("{prompt}{}", rmap::specs::delegate_section(task, &specs));
         }
         Commands::Import { tasks_path } => {
             let project = resolve_paths(tasks_path, None, None)

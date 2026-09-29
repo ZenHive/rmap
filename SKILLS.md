@@ -725,3 +725,58 @@ For finer health signals, pipe `rmap doctor --json` through `jq`:
 rmap doctor --json
 # exit: 0
 ```
+
+## Capability specs
+
+Register plain Markdown files relative to the project root (the parent of
+`roadmap/`, or the directory containing an explicitly located tasks file):
+
+```toml
+[specs.access]
+path = "docs/specs/access.md"
+status = "active" # draft | active | retired
+```
+
+Rules are single lines beginning at column one with an uppercase ASCII prefix,
+`-`, and decimal digits, followed by whitespace or `:`. For example:
+
+```markdown
+ACCESS-1: Users must authenticate before reading private records.
+```
+
+Prefixes are inferred from current rule lines and belong to only one spec.
+Establish a prefix with a rule in Markdown before referencing additions under
+it; an empty file establishes no prefix. Duplicate rule ids are errors, including
+within a file. No Markdown template or language-specific directory is required.
+
+A `[[task]]` block, including `rmap new --from-stdin` input, may contain:
+
+```toml
+spec_changes = [{ rule = "ACCESS-1", op = "change" }, { rule = "ACCESS-2", op = "add" }]
+```
+
+Ops are `add`, `change`, and `remove`. Live tasks (`pending`, `in_progress`)
+require current text for change/remove and a registered prefix for add. Add may
+reference an existing rule (spec-first authoring). Terminal references are not
+rechecked. Missing files always fail validation; failed writes preserve TOML.
+`show`, task JSON, and `data.json` carry nonempty deltas; delegate quotes current
+rule text and the op, explicitly noting when text is absent.
+
+```bash
+rmap specs
+```
+
+```bash
+rmap specs --json
+```
+
+```bash
+rmap list --rule ACCESS-1 --status pending --json
+```
+
+`specs` lists registrations, rules and derived task history (task id, title,
+status, op), in source/task order. Absent rules with a known prefix appear with
+null text in JSON. If no current rule establishes a historical prefix, use
+`list --rule` to retrieve that history. The rule selector composes with all list
+selectors. Specs and empty deltas are omitted from legacy exports; schema version
+remains 2. rmap reads specs but never generates or edits them.

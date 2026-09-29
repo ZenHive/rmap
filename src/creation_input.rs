@@ -1,5 +1,6 @@
 //! Creation input and borrowed mutator arguments derived from the task registry.
 use crate::schema::{CrossRepo, Scores, TaskId};
+use crate::specs::SpecChange;
 use toml_edit::{Array, InlineTable, Item, Table, Value};
 
 macro_rules! creation_value {
@@ -82,6 +83,18 @@ macro_rules! write_creation_field {
         scores.insert("b", Value::from($fields.scores.1 as i64));
         scores.insert("u", Value::from($fields.scores.2 as i64));
         $table["scores"] = Item::Value(Value::InlineTable(scores));
+    };
+    (spec_changes, $table:ident, $fields:ident, $name:ident) => {
+        if !$fields.$name.is_empty() {
+            let mut array = Array::new();
+            for entry in $fields.$name {
+                let mut inline = InlineTable::new();
+                inline.insert("rule", Value::from(entry.rule.as_str()));
+                inline.insert("op", Value::from(entry.op.as_str()));
+                array.push(Value::InlineTable(inline));
+            }
+            $table[stringify!($name)] = Item::Value(Value::Array(array));
+        }
     };
     (cross_repo, $table:ident, $fields:ident, $name:ident) => {
         if !$fields.cross_repo.is_empty() {

@@ -89,6 +89,9 @@ macro_rules! task_fields {
             /// every output surface so untouched tasks round-trip byte-identically).
             #[serde(default)]
             attempts: Vec<Attempt> => [36, true, false, nonempty] [];
+            /// Declarative rule deltas, authored at task creation.
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            spec_changes: Vec<SpecChange> => [37, true, false, nonempty] [Vec<SpecChange>; &'a [SpecChange]; slice; spec_changes];
             /// Links this task to related tasks in other roadmaps. These relationships
             /// do not choose where this task's own work lands; `target_repo` does that.
             #[serde(default)]

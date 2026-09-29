@@ -127,7 +127,16 @@ pub fn collect_findings(tasks: &Tasks, path: &str, input: &str) -> Vec<ValidateE
         findings.push(e);
     }
 
+    if let Err(e) = validate_specs(path, tasks) {
+        findings.push(e);
+    }
     findings
+}
+
+fn validate_specs(path: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    crate::specs::load(tasks, Path::new(path))
+        .and_then(|specs| crate::specs::validate_changes(tasks, &specs))
+        .map_err(|message| semantic_error(path, 1, message))
 }
 
 pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks, ValidateError> {
@@ -156,6 +165,7 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_milestone_references(&path, input, &tasks)?;
     validate_focus_phase(&path, input, &tasks)?;
 
+    validate_specs(&path, &tasks)?;
     Ok(tasks)
 }
 

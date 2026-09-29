@@ -213,3 +213,25 @@ The relationship also runs the other way: rmap's own roadmap tasks can be dispat
 ## Scope discipline
 
 `ROADMAP.md` (rendered from `roadmap/tasks.toml`) tracks open phases; `DESIGN.md` carries the design contract and out-of-scope list; `CHANGELOG.md` is the shipped-phase record. Implemented today: validate, render (incl. `--html` static single-project view and `--html --multi` portfolio view), watch, export json, export dot (Graphviz), waves, status (single + bulk), mark, depend, new (interactive + `--from-stdin`), next, ready, show, list, blocks, deps, bundles, milestones, schema, diff, delegate, import, stale, doctor, critical-path. Score-decay rendering is automatic on tasks with `scored_at` >30d or missing. Deliberately out of scope (per `DESIGN.md`): Linear API calls, web server, git integration beyond `git show <ref>:<path>` for `rmap diff`, shell completions, CI workflow, multi-user sync. Don't add these without checking the roadmap first.
+
+**Spec-layer invariants and mirrors**
+
+- `[specs.<capability>]` stores only `path` and typed `draft | active | retired`
+  status. Read Markdown relative to the resolved project root; missing paths,
+  duplicate rule ids and prefixes shared across specs fail validation.
+- Rule ids start a line at column one: uppercase ASCII letters, `-`, decimal
+  digits, then whitespace or `:`. Current rules establish prefix ownership.
+  Empty specs establish no prefix; rule text is never duplicated in TOML.
+- `spec_changes` is a creation-time registry field of `{ rule, op }` entries;
+  `op` is typed `add | change | remove`. Live change/remove require current text;
+  live add requires a registered prefix and may name an existing rule. Terminal
+  references are exempt. All mutators validate before writing.
+- Mirrors: registry → stdin/writer/diff/task JSON; top-level specs → schema,
+  metadata diff and exports; `specs.rs` → validation, listing/history and delegate
+  quotations; human `show` → `query.rs`; `list --rule` → CLI selection. Empty
+  deltas/registrations preserve legacy exports, with schema version 2 unchanged.
+- `rmap specs [--json]` derives rule history from task deltas. Absent rules retain
+  history under a still-established prefix; `list --rule ID` also finds orphaned
+  historical references. `delegate` explicitly reports absent current text.
+  Format and command examples live in SKILLS.md; tests/specs.rs covers distinct
+  Rust and JavaScript project layouts.

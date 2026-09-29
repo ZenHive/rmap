@@ -184,6 +184,7 @@ pub fn diff_metadata(base: &Tasks, current: &Tasks, verbose: bool) -> Vec<Metada
         }
     }
 
+    diff.extend(map_diff("specs", &base.specs, &current.specs));
     diff.extend(map_diff("phases", &base.phases, &current.phases));
     diff.extend(map_diff("bundles", &base.bundles, &current.bundles));
     diff.extend(map_diff(
@@ -312,6 +313,7 @@ trait MapEntry: PartialEq {}
 impl MapEntry for Phase {}
 impl MapEntry for Bundle {}
 impl MapEntry for Milestone {}
+impl MapEntry for crate::specs::Spec {}
 
 fn map_diff<V: MapEntry>(
     namespace: &str,

@@ -273,3 +273,28 @@ D/B/U and `eff = (b + u) / (2 × d)` stay. Replacing them would be a `schema_ver
 - **Graph leverage is computed, not guessed, for ties.** `next` / `ready` rank tier → Eff desc → `unlocks` desc → TOML order. `U` stays a judgment score (urgency, query frequency, gap visibility); `unlocks` only settles equal Eff.
 - **No `risk` / `size` fields.** D absorbs both; a second cost axis would split one judgment into two that drift apart.
 - **Score decay only matters for open tasks.** `doctor` ignores `done` / `superseded` tasks.
+
+## Capability specification layer
+
+`[specs.<capability>]` contains only `path` and `status` (`draft`, `active`,
+`retired`). Paths resolve against the same project root as render outputs.
+Markdown rule lines start at column one with `<PREFIX>-<decimal>` followed by
+whitespace or `:`; prefixes consist of uppercase ASCII letters. Text is retained
+verbatim. Prefix ownership is inferred from current rules, globally exclusive
+across registrations; rule ids must be unique within and across files. Empty
+specs establish no prefix. Missing registered files fail validation.
+
+Creation-time `spec_changes = [{ rule = "ACCESS-3", op = "add" }]` uses typed
+`add | change | remove` operations. Live tasks require existing rules for
+change/remove and registered prefixes for add (existing ids also allowed).
+Terminal references are historical and exempt. The registry drives creation,
+canonical ordering, diff and JSON; empty deltas and absent registrations preserve
+legacy output. This is additive schema version 2.
+
+`rmap specs [--json] [--tasks-path PATH]` reads current text and derives per-rule
+history from tasks. Missing rules retain history when their prefix still has a
+current owner; otherwise `rmap list --rule ID` retrieves the references. That
+selector composes with existing list filters. `show` and exports carry deltas;
+`delegate` quotes current text with the op or explicitly reports absent text.
+Spec Markdown is never written by rmap. No test-framework or language knowledge
+enters parsing or validation.

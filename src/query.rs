@@ -120,6 +120,14 @@ pub fn format_task(task: &Task) -> String {
         ));
     }
 
+    for change in &task.spec_changes {
+        lines.push(format!(
+            "spec_changes: {} {}",
+            change.op.as_str(),
+            change.rule
+        ));
+    }
+
     if let Some(linear_id) = &task.linear_id {
         lines.push(format!("linear_id: {linear_id}"));
     }

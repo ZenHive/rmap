@@ -77,7 +77,7 @@ fn find_tasks_path(start: &Path) -> Result<PathBuf, PathError> {
     })
 }
 
-fn project_root_for_tasks_path(tasks_path: &Path) -> PathBuf {
+pub fn project_root_for_tasks_path(tasks_path: &Path) -> PathBuf {
     let Some(parent) = tasks_path.parent() else {
         return PathBuf::from(".");
     };

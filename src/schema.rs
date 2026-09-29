@@ -1,3 +1,4 @@
+use crate::specs::SpecChange;
 pub use crate::vocabulary::{Marker, Markers, Relation, Status};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -27,6 +28,8 @@ pub struct Tasks {
     pub milestones: BTreeMap<String, Milestone>,
     #[serde(default)]
     pub task: Vec<Task>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub specs: BTreeMap<String, crate::specs::Spec>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]

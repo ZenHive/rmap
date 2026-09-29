@@ -23,6 +23,8 @@ struct ExportedTasks<'a> {
     phases: &'a std::collections::BTreeMap<String, Phase>,
     bundles: &'a std::collections::BTreeMap<String, Bundle>,
     milestones: &'a std::collections::BTreeMap<String, Milestone>,
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    specs: &'a std::collections::BTreeMap<String, crate::specs::Spec>,
     task: Vec<ExportedTask<'a>>,
 }
 
@@ -236,6 +238,7 @@ fn exported_tasks_with<'a>(
         phases: &tasks.phases,
         bundles: &tasks.bundles,
         milestones: &tasks.milestones,
+        specs: &tasks.specs,
         task: task
             .into_iter()
             .map(|t| exported_task(t, &metrics))
@@ -337,6 +340,7 @@ verified_by = "grok/grok-4.5"
 verification_ref = "harness-run:run-123"
 attempts = [{ at = "2026-01-02", by = "claude", report = "reviewer rejected: tests red" }]
 cross_repo = [{ repo = "other", task_id = 5, relation = "blocks" }]
+spec_changes = [{ rule = "ACCESS-1", op = "add" }]
 "#;
 
     #[test]
