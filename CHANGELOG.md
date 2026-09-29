@@ -6,6 +6,14 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### HTML views redesigned as a T-card planning board; task specs readable in-page (0.7.0)
+
+- `render --html` and `--html --multi` share one view path built from the exported envelope (the single-project page is a one-repo portfolio). Lanes are Ready / Active / Hold / Waiting / Done: `ready` = pending with every in-repo dep `done` (the `rmap ready` predicate), `waiting` = pending with an unmet dep; blocked tasks no longer hide in the pending column.
+- New Dispatch racks at the top of both pages: every ready (Eff desc, then unlocks), active (with landing ref) and held (with blocked reason) card, across repos on the portfolio.
+- Clicking any card or DAG node pulls it out: a detail panel renders the full spec from the `rmap-data` island (body, acceptance criteria, out of scope, files, depends-on / directly-unblocks links, cross-repo, attempts, outcome). Deep link `#task=<repo>:<id>`.
+- Agent contract unchanged: `rmap-data` / `rmap-relations` islands, the six `data-*` card attributes, `data-phase-status`, `data-slug` / `data-name` / `data-has-rel`. Rack copies deliberately omit `.task-card` so a selector sees each task once.
+- Visual system documented in `templates/DESIGN.md`; board script moved to `templates/_board.js`.
+
 ### `rmap waves` schedules open work only (0.6.2)
 
 - `waves` omitted nothing: every `done` / `superseded` task landed in wave 0, burying the real schedule. It now groups only `pending` / `in_progress` / `blocked` tasks, layered over the open subgraph (terminal deps count as satisfied). Matches the documented "pending/unblocked" contract; the old test pinned the buggy shape.

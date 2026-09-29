@@ -1,62 +1,150 @@
-{# Shared minijinja macros for both the single-project and portfolio views.
-   Registered in the env as "components.html" and imported by each page. The
-   macros are duck-typed on field names, so they render either a borrowed
-   single-project view struct or an owned portfolio view struct interchangeably,
-   as long as the field names match. #}
+{# Shared minijinja macros for the single-project and portfolio boards.
+   Registered in the env as "components.html" and imported by each page.
+   Visual world: a T-card planning board — every task is a card stock slip
+   slotted into an aluminium lane; the card's colour is its lane. Clicking a
+   card pulls it out: the detail panel (templates/_board.js) reads the full
+   spec from the rmap-data island. #}
 
+
+{# The board card. Carries the six-attribute agent contract (data-id, -status,
+   -eff, -markers, -depends-on, -phase) plus the page-local data-lane and
+   data-repo hooks. #}
 {% macro task_card(task) %}
-<article class="task-card status-{{ task.status }}"
+<article class="task-card lane-{{ task.lane }} status-{{ task.status }}" tabindex="0" role="button"
+  aria-label="Task {{ task.id }}: {{ task.title }}"
   data-id="{{ task.id }}"
   data-status="{{ task.status }}"
   data-eff="{{ task.eff }}"
   data-markers="{{ task.markers | join(' ') }}"
   data-depends-on="{{ task.depends_on }}"
-  data-phase="{{ task.phase }}">
-  <span class="task-eff">{{ task.tier_glyph }} Eff:{{ task.eff_fmt }}</span>
-  <span class="task-id">#{{ task.id }}</span>
-  <span class="task-title">{{ task.title }}</span>
-  {% if task.markers %}
-  <div class="task-markers">
-    {% for m in task.markers %}<span class="marker-chip">{{ m }}</span>{% endfor %}
+  data-phase="{{ task.phase }}"
+  data-lane="{{ task.lane }}"
+  data-repo="{{ task.repo }}">
+  {{ card_face(task, false) }}
+</article>
+{% endmacro %}
+
+{# Rack copy of a card (dispatch digest). Deliberately NOT .task-card, so an
+   agent selector sees every task exactly once. #}
+{% macro rack_card(task, show_repo) %}
+<article class="rack-card lane-{{ task.lane }} status-{{ task.status }}" tabindex="0" role="button"
+  aria-label="Task {{ task.id }}: {{ task.title }}"
+  data-task="{{ task.id }}" data-lane="{{ task.lane }}" data-repo="{{ task.repo }}"
+  data-markers="{{ task.markers | join(' ') }}">
+  {{ card_face(task, show_repo) }}
+</article>
+{% endmacro %}
+
+{% macro card_face(task, show_repo) %}
+  <div class="card-top">
+    <span class="card-id">{{ task.id }}</span>
+    {% if show_repo %}<span class="card-repo">{{ task.repo_name }}</span>{% endif %}
+    <span class="card-eff tier-{{ task.tier }}" title="Efficiency (B+U)/2D">{{ task.eff_fmt }}</span>
+    {% if task.unlocks > 0 %}<span class="card-unlocks" title="Unlocks {{ task.unlocks }} downstream task{% if task.unlocks != 1 %}s{% endif %}">+{{ task.unlocks }}</span>{% endif %}
+  </div>
+  <p class="card-title">{{ task.title }}</p>
+  {% if task.lane == "hold" and task.blocked_reason %}
+  <p class="card-note card-reason">{{ task.blocked_reason }}</p>
+  {% elif task.lane == "waiting" and task.depends_on %}
+  <p class="card-note">waits on {% for d in task.deps %}<b>{{ d }}</b>{% if not loop.last %} {% endif %}{% endfor %}</p>
+  {% elif task.lane == "active" and task.landing_ref %}
+  <p class="card-note">landing {{ task.landing_label }}</p>
+  {% endif %}
+  {% if task.markers or task.assignee or task.status == "blocked" %}
+  <div class="card-foot">
+    {% if task.status == "blocked" %}<span class="stamp stamp-hold" aria-hidden="true">Hold</span>{% endif %}
+    {% for m in task.markers %}<span class="marker">{{ m }}</span>{% endfor %}
+    {% if task.assignee %}<span class="card-assignee">{{ task.assignee }}</span>{% endif %}
   </div>
   {% endif %}
-</article>
+  {% if task.status == "superseded" %}<span class="stamp stamp-void" aria-hidden="true">Void</span>{% endif %}
+{% endmacro %}
+
+{# Proportional lane-composition strip. #}
+{% macro composition(segments, label) %}
+<span class="composition" role="img" aria-label="{{ label }}: {% for s in segments %}{{ s.count }} {{ s.lane }}{% if not loop.last %}, {% endif %}{% endfor %}">
+  {% for s in segments %}<span class="seg lane-{{ s.lane }}" style="flex-grow:{{ s.count }}"></span>{% endfor %}
+</span>
+{% endmacro %}
+
+{# Counter window: fixed-width tabular digits under a printed lane label. #}
+{% macro counter(label, value, lane) %}
+<span class="counter lane-{{ lane }}"><span class="counter-num">{{ value }}</span><span class="counter-lbl">{{ label }}</span></span>
+{% endmacro %}
+
+{% macro counters(counts) %}
+<div class="counters">
+  {{ counter("ready", counts.ready, "ready") }}
+  {{ counter("active", counts.active, "active") }}
+  {{ counter("hold", counts.hold, "hold") }}
+  {{ counter("waiting", counts.waiting, "waiting") }}
+  <span class="counter lane-done"><span class="counter-num">{{ counts.done }}<small>/{{ counts.total }}</small></span><span class="counter-lbl">done · {{ counts.pct }}%</span></span>
+</div>
+{% endmacro %}
+
+{# One rack column of the dispatch digest. #}
+{% macro rack(key, label, hint, empty, cards, show_repo) %}
+<div class="rack lane-{{ key }}" data-rack="{{ key }}">
+  <h3 class="lane-head"><span class="lane-swatch"></span>{{ label }}<span class="lane-count">{{ cards | length }}</span></h3>
+  <p class="rack-hint">{{ hint }}</p>
+  <div class="slot-rail">
+    {% for task in cards %}{{ rack_card(task, show_repo) }}{% else %}<p class="slot-empty">{{ empty }}</p>{% endfor %}
+  </div>
+  {% if cards | length > 8 %}<button type="button" class="rack-more" aria-expanded="false">Show all {{ cards | length }}</button>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro racks_board(racks, show_repo) %}
+<section class="dispatch" aria-labelledby="dispatch-title">
+  <h2 id="dispatch-title" class="board-title">Dispatch</h2>
+  <div class="racks">
+    {{ rack("ready", "Ready", "Pending, every dependency done. Ranked by Eff, then unlocks.", "Nothing dispatchable", racks.ready, show_repo) }}
+    {{ rack("active", "Active", "In progress. Landing ref shown when a PR is open.", "Nothing in flight", racks.active, show_repo) }}
+    {{ rack("hold", "Hold", "Blocked, with the recorded reason. Most unlocks first.", "Nothing blocked", racks.hold, show_repo) }}
+  </div>
+</section>
 {% endmacro %}
 
 {% macro phase_section(phase) %}
 <section class="phase" id="phase-{{ phase.number }}" data-phase-status="{{ phase.status }}">
-  <h2 class="phase-header">
-    <span>Phase {{ phase.number }}: {{ phase.name }}</span>
-    <span class="phase-status phase-status-{{ phase.status }}">{{ phase.status | replace("_", " ") }}</span>
-    <span class="phase-progress-text">{{ phase.done }}/{{ phase.total }} done</span>
-    <span class="phase-progress-bar" aria-hidden="true">
-      <span class="phase-progress-fill" style="width:{{ phase.pct }}%"></span>
-    </span>
-  </h2>
-  <div class="status-columns">
-    <div class="col col-pending">
-      <h3>Pending</h3>
-      {% for task in phase.pending %}{{ task_card(task) }}{% endfor %}
+  <details{% if phase.done < phase.total %} open{% endif %}>
+    <summary class="phase-header">
+      <span class="phase-plate"><span class="phase-plate-lbl">Phase</span>{{ phase.number }}</span>
+      <span class="phase-name">{{ phase.name }}</span>
+      <span class="phase-status phase-status-{{ phase.status }}">{{ phase.status | replace("_", " ") }}</span>
+      {{ composition(phase.segments, "Phase " ~ phase.number ~ " lanes") }}
+      <span class="phase-progress-text"><b>{{ phase.done }}</b>/{{ phase.total }}</span>
+      <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5 7.5 6 4 9.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </summary>
+    {% if phase.total == 0 %}
+    <p class="phase-empty">No cards in this phase.</p>
+    {% else %}
+    <div class="lanes">
+      {% for lane in phase.lanes if lane.cards %}
+      <div class="lane lane-{{ lane.key }}{% if lane.key == "done" and lane.cards | length > 6 %} lane-wide{% endif %}" data-lane-col="{{ lane.key }}">
+        <h3 class="lane-head"><span class="lane-swatch"></span>{{ lane.label }}<span class="lane-count">{{ lane.cards | length }}</span></h3>
+        <div class="slot-rail">
+          {% for task in lane.cards %}{{ task_card(task) }}{% else %}<p class="slot-empty">empty</p>{% endfor %}
+        </div>
+      </div>
+      {% endfor %}
     </div>
-    <div class="col col-in-progress">
-      <h3>In Progress</h3>
-      {% for task in phase.in_progress %}{{ task_card(task) }}{% endfor %}
-    </div>
-    <div class="col col-done">
-      <h3>Done</h3>
-      {% for task in phase.done_tasks %}{{ task_card(task) }}{% endfor %}
-    </div>
-  </div>
+    {% endif %}
+  </details>
 </section>
 {% endmacro %}
 
 {% macro dep_graph(dag, gid) %}
 <section class="dep-graph-section">
   <details>
-    <summary>Dependency graph ({{ dag.nodes | length }} tasks)</summary>
+    <summary class="wiring-summary">
+      <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5 7.5 6 4 9.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Dependency wiring <span class="lane-count">{{ dag.nodes | length }}</span>
+    </summary>
+    <div class="dep-graph-scroll">
     <svg class="dep-graph" width="{{ dag.svg_width }}" height="{{ dag.svg_height }}"
       viewBox="0 0 {{ dag.svg_width }} {{ dag.svg_height }}" role="img"
-      aria-label="Task dependency graph">
+      aria-label="Task dependency graph, dependencies above their dependents">
       <defs>
         <marker id="arrow-{{ gid }}" markerWidth="8" markerHeight="8" refX="7" refY="3"
           orient="auto" markerUnits="strokeWidth">
@@ -64,18 +152,49 @@
         </marker>
       </defs>
       {% for edge in dag.edges %}
-      <line class="dag-edge" x1="{{ edge.x1 }}" y1="{{ edge.y1 }}" x2="{{ edge.x2 }}" y2="{{ edge.y2 }}"
-        marker-end="url(#arrow-{{ gid }})"></line>
+      <path class="dag-edge" d="{{ edge.d }}" marker-end="url(#arrow-{{ gid }})"></path>
       {% endfor %}
       {% for node in dag.nodes %}
-      <g class="dag-node status-{{ node.status }}" data-id="{{ node.id }}">
-        <rect class="dag-rect" x="{{ node.x }}" y="{{ node.y }}"
-          width="{{ node.w }}" height="{{ node.h }}" rx="5"></rect>
-        <text class="dag-label" x="{{ node.label_x }}" y="{{ node.label_y }}"
-          text-anchor="middle">#{{ node.id }} {{ node.label }}</text>
+      <g class="dag-node lane-{{ node.lane }} status-{{ node.status }}" data-id="{{ node.id }}" data-repo="{{ node.repo }}" tabindex="0" role="button">
+        <title>{{ node.id }} · {{ node.status | replace("_", " ") }}</title>
+        <rect class="dag-rect" x="{{ node.x }}" y="{{ node.y }}" width="{{ node.w }}" height="{{ node.h }}" rx="3"></rect>
+        <text class="dag-id" x="{{ node.x + 9 }}" y="{{ node.y + 17 }}">{{ node.id }}</text>
+        <text class="dag-label" x="{{ node.x + 9 }}" y="{{ node.y + 34 }}">{{ node.label }}</text>
       </g>
       {% endfor %}
     </svg>
+    </div>
   </details>
 </section>
+{% endmacro %}
+
+{# The pulled-card panel shell; _board.js fills it from the island. #}
+{% macro detail_panel() %}
+<aside id="card-detail" class="detail" aria-hidden="true" aria-labelledby="detail-title" tabindex="-1">
+  <div class="detail-card">
+    <header class="detail-head">
+      <div class="detail-meta"></div>
+      <h2 id="detail-title" class="detail-title"></h2>
+      <button type="button" class="detail-close" aria-label="Put card back (Esc)">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+    <div class="detail-back"></div>
+  </div>
+</aside>
+{% endmacro %}
+
+{% macro switches(all_markers) %}
+<div class="switches" role="group" aria-label="Filters">
+  <span class="switch-group-lbl">Lanes</span>
+  {% for key, label in [("ready","Ready"),("active","Active"),("hold","Hold"),("waiting","Waiting"),("done","Done")] %}
+  <button type="button" class="switch lane-{{ key }}" data-lane-toggle="{{ key }}" aria-pressed="true"><span class="lamp"></span>{{ label }}</button>
+  {% endfor %}
+  {% if all_markers %}
+  <span class="switch-group-lbl">Marker</span>
+  {% for marker in all_markers %}
+  <button type="button" class="switch switch-marker" data-marker="{{ marker }}" aria-pressed="false"><span class="lamp"></span>{{ marker }}</button>
+  {% endfor %}
+  {% endif %}
+</div>
 {% endmacro %}

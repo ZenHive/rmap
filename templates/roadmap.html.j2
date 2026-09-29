@@ -1,80 +1,68 @@
 <!DOCTYPE html>
 <!--
-  rmap render --html — self-contained static roadmap view.
+  rmap render --html — self-contained static roadmap board.
   Ships inside the rmap binary via include_str!. Single file: inline CSS + JS,
-  no CDN, no framework, no build step. Size target <50KB per page.
+  no CDN, no framework, no build step.
   Agents: parse the rmap-data JSON island near the end, do not scrape the DOM.
-  Styling is the shared "engineering blueprint console" design system
-  (templates/_styles.css), injected verbatim so this and the portfolio view
-  speak one visual language.
+  Shared design system: templates/_styles.css + templates/_board.js, injected
+  verbatim so this and the portfolio view speak one visual language.
 -->
 <html lang="en">
 {% import "components.html" as c %}
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ project }} — Roadmap</title>
+<title>{{ project }} — Roadmap board</title>
 <style>{{ styles | safe }}</style>
 </head>
 <body>
+<!--
+  THESIS: every task is a T-card slotted into an aluminium planning board; the
+  card's stock colour is its lane, and pulling a card out shows its full spec.
+  Refuses the dark neon kanban dashboard.
+  OWN-WORLD: anodized aluminium ground, black engraved label plates, card stock
+  in canary (ready) / sky (active) / salmon (hold) / buff (waiting) / green
+  (done), red rubber stamps for HOLD and VOID, index-card reverse for specs.
+  STORY: see what can move, what moves, what is stuck; pull any card to read
+  and understand its spec; follow the wiring to see why it waits.
+  FIRST VIEWPORT: engraved project plate + lane counters, then the Dispatch
+  racks (Ready / Active / Hold) before any phase board.
+  FORM: T-card planning board, grounded list #7, seed c29fcb8f.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+-->
 
-<header id="filter-bar">
-  <span class="brand">{{ project }}</span>
-  <span class="filter-label">markers</span>
-  <button class="chip active" data-marker="all">all</button>
-  {% for marker in all_markers %}
-  <button class="chip" data-marker="{{ marker }}">{{ marker }}</button>
-  {% endfor %}
-  <span class="filter-label">status</span>
-  <button class="status-toggle active" data-toggle-status="pending">⏸ pending</button>
-  <button class="status-toggle active" data-toggle-status="in_progress">→ in progress</button>
-  <button class="status-toggle active" data-toggle-status="blocked">⛔ blocked</button>
-  <button class="status-toggle active" data-toggle-status="done">✓ done</button>
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="nameplate">
+      <span class="nameplate-kind">rmap board</span>
+      <h1 class="nameplate-name">{{ project }}</h1>
+    </div>
+    {{ c.counters(counts) }}
+  </div>
+  <div class="masthead-strip">
+    {{ c.composition(segments, "All tasks by lane") }}
+    <p class="snapshot">Snapshot {{ today }} · static, not live · ROADMAP.md stays canonical</p>
+  </div>
 </header>
 
+<div class="controls">{{ c.switches(all_markers) }}</div>
+
 <main>
-{% for phase in phases %}{{ c.phase_section(phase) }}{% endfor %}
+{{ c.racks_board(racks, false) }}
+
+<section class="boards" aria-labelledby="boards-title">
+  <h2 id="boards-title" class="board-title">Phases</h2>
+  {% for phase in phases %}{{ c.phase_section(phase) }}{% else %}<p class="phase-empty">No phases declared.</p>{% endfor %}
+</section>
+
 {{ c.dep_graph(dag, "main") }}
 </main>
 
-<footer>Rendered by rmap on {{ today }} — static snapshot, not live. ROADMAP.md stays canonical.</footer>
+{{ c.detail_panel() }}
+
+<footer>Rendered by rmap on {{ today }}. Click any card to pull it out; Esc puts it back.</footer>
 
 <script id="rmap-data" type="application/json">{{ data_island | safe }}</script>
-
-<script>
-(function () {
-  var cards = document.querySelectorAll(".task-card");
-  var activeMarker = "all";
-  var activeStatuses = { pending: true, in_progress: true, blocked: true, done: true };
-
-  function apply() {
-    cards.forEach(function (card) {
-      var markers = (card.dataset.markers || "").split(" ").filter(Boolean);
-      var markerOk = activeMarker === "all" || markers.indexOf(activeMarker) !== -1;
-      var statusOk = !!activeStatuses[card.dataset.status];
-      card.classList.toggle("hidden", !(markerOk && statusOk));
-    });
-  }
-
-  document.querySelectorAll(".chip").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      document.querySelectorAll(".chip").forEach(function (b) { b.classList.remove("active"); });
-      btn.classList.add("active");
-      activeMarker = btn.dataset.marker;
-      apply();
-    });
-  });
-
-  document.querySelectorAll(".status-toggle").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var st = btn.dataset.toggleStatus;
-      activeStatuses[st] = !activeStatuses[st];
-      btn.classList.toggle("active", activeStatuses[st]);
-      apply();
-    });
-  });
-})();
-</script>
-
+<script>{{ script | safe }}</script>
 </body>
 </html>

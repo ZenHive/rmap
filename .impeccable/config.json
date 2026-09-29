@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "templates/_styles.css"
+        ],
+        "createdAt": "2026-09-29T08:36:44.732Z",
+        "reason": "claude: counter window has only top corners rounded, bottom square; lane-colour strip is the documented counter design (templates/DESIGN.md)"
+      }
+    ]
+  }
+}
