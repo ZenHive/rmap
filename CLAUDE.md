@@ -16,7 +16,7 @@ Eager floor per `~/.claude/setup-guide.md` § "Selective-Load Philosophy" (Opus 
 
 ```markdown
 @~/.claude/includes/critical-rules.md
-@~/.claude/includes/harness-workflow.md
+@~/.claude/includes/harness-guardrails.md
 ```
 
 Everything else is **skill-on-demand** (Opus 4.8 self-invokes the matching skill): `worktree-workflow` (`workflow:git-worktrees`), `task-prioritization` (`tasks:roadmap-planning`), `task-writing` (`tasks:task-writing`), `rmap` (`tasks:rmap`), `workflow-philosophy` (`workflow:workflow-philosophy`). Re-add an `@`-import per-surface only if you observe Opus failing on it eager.
