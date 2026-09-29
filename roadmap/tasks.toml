@@ -1838,7 +1838,7 @@ bundle = "spec_layer"
 status = "pending"
 title = "Dogfood the spec layer: capability specs for rmap's agent contract, with [spec_tests]"
 scores = { d = 5, b = 5, u = 3 }
-acceptance_criteria = ["roadmap/tasks.toml registers at least one active spec with rules parsed from a Markdown file in the repo", "[spec_tests] is configured and rmap doctor on this repo reports untested_rule only for rules no test tags", "Existing tests that pin a rule carry the spec-tags marker for it; no test behavior changes", "CLAUDE.md points to the spec files as the rule source for the invariants they cover"]
+acceptance_criteria = ["At least one spec Markdown file with parsed rule ids exists in the repo", "The final report contains the exact [specs.<cap>] and [spec_tests] TOML block to register; roadmap/tasks.toml itself is NOT edited (harness resets it to HEAD before commit; the orchestrator registers the block after landing)", "Run against a scratch copy of roadmap/tasks.toml with that block appended, rmap validate passes and rmap doctor reports untested_rule only for rules no test tags", "Existing tests that pin a rule carry the spec-tags marker for it; no test behavior changes", "CLAUDE.md points to the spec files as the rule source for the invariants they cover"]
 out_of_scope = ["Rewriting CLAUDE.md's invariant list wholesale", "New behavior in src/"]
 assignee = "codex"
 model = "gpt-6-astra"
