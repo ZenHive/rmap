@@ -59,7 +59,7 @@ gantt
     doctor— spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks :done, 2026-07-15, 2026-07-15
     section Phase 17 — Spec-driven agent contract
     Cut the per-field edit cost— single-source task field registry— typed enums— split main.rs :done, 2026-09-29, 2026-09-29
-    Spec layer— capability specs with rule ids— and a spec_changes task field :active, 2026-09-29, 2026-09-29
+    Spec layer— capability specs with rule ids— and a spec_changes task field :done, 2026-09-29, 2026-09-29
     Delegate prompt for current agents— read-first refs— reviewer check hints— runtime-accurate footer :done, 2026-09-29, 2026-09-29
 ```
 <!-- MERMAID:END -->
