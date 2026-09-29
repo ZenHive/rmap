@@ -314,7 +314,7 @@ impl DoctorReport {
         for task in &tasks.task {
             let substantive =
                 task.scores.d >= thresholds.ac_difficulty || task.scores.b >= thresholds.ac_benefit;
-            let active = task.status == "pending" || task.status == "in_progress";
+            let active = matches!(task.status, Status::Pending | Status::InProgress);
             if substantive && active && task.acceptance_criteria.is_empty() {
                 findings.push(DoctorFinding::MissingAcceptanceCriteria {
                     id: task_id_display(&task.id),
@@ -460,7 +460,7 @@ impl DoctorReport {
             let id = task_id_display(&task.id);
             let dependent_count = unlocks.get(&id).copied().unwrap_or(0);
 
-            if (task.status == "pending" || task.status == "blocked")
+            if matches!(task.status, Status::Pending | Status::Blocked)
                 && dependent_count >= thresholds.bottleneck_min as usize
             {
                 findings.push(DoctorFinding::Bottleneck {

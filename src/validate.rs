@@ -7,7 +7,7 @@ use std::path::Path;
 
 use thiserror::Error;
 
-use crate::schema::{Task, TaskId, Tasks};
+use crate::schema::{Status, Task, TaskId, Tasks};
 
 const SUPPORTED_SCHEMA_VERSION: u32 = 2;
 const VALID_STATUSES: &[&str] = crate::schema::Status::VALUES;
@@ -426,7 +426,7 @@ fn validate_dispatch_acceptance_criteria(
     tasks: &Tasks,
 ) -> Result<(), ValidateError> {
     for task in &tasks.task {
-        let live = task.status == "pending" || task.status == "in_progress";
+        let live = matches!(task.status, Status::Pending | Status::InProgress);
         let agent_assigned = task
             .assignee
             .as_deref()
