@@ -11,10 +11,11 @@
   var projects = island.projects || [island];
   var index = {};      // "repo:id" → task
   var dependents = {}; // "repo:id" → [id, …] (direct, in-repo)
-  var repoByName = {}; // lower-cased project name → repo index
+  // Portfolio aliases are resolved by the renderer, including collisions.
+  var repoByName = Object.assign(Object.create(null), island.repo_aliases);
 
   projects.forEach(function (proj, r) {
-    if (proj.project) repoByName[String(proj.project).toLowerCase()] = r;
+    if (!island.projects && proj.project) repoByName[String(proj.project).toLowerCase()] = r;
     (proj.task || []).forEach(function (t) {
       index[r + ":" + t.id] = t;
       (t.depends_on || []).forEach(function (d) {

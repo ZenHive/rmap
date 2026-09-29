@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "cargo build --manifest-path ../../Cargo.toml && node --test portfolio.test.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

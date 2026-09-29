@@ -89,20 +89,22 @@ pub fn render_portfolio_str(projects: &[ProjectInput], today: &str) -> anyhow::R
         .collect::<anyhow::Result<_>>()?;
 
     // Resolve cross_repo.repo references: a repo name can match a project's
-    // display name, its `project` field, or its source-path basename.
-    let mut slug_by_key: HashMap<String, String> = HashMap::new();
+    // input label, its `project` field, or its source-path basename. The first
+    // project in input order wins every collision, regardless of alias kind.
+    // Share this lookup with the detail panel without changing the envelopes.
+    let mut repo_aliases: BTreeMap<String, usize> = BTreeMap::new();
     let slugs: Vec<String> = parsed
         .iter()
         .map(|(i, input, data)| slugify(&display_name(input, data), *i))
         .collect();
-    for ((_, input, data), slug) in parsed.iter().zip(&slugs) {
+    for (index, input, data) in &parsed {
         for key in [
             data.project.to_lowercase(),
             input.label.to_lowercase(),
             path_basename(&input.path_display).to_lowercase(),
         ] {
             if !key.is_empty() {
-                slug_by_key.entry(key).or_insert_with(|| slug.clone());
+                repo_aliases.entry(key).or_insert(*index);
             }
         }
     }
@@ -129,9 +131,10 @@ pub fn render_portfolio_str(projects: &[ProjectInput], today: &str) -> anyhow::R
                     repo: cr.repo.clone(),
                     task_id: json_id_string(&cr.task_id),
                 });
-                let Some(target) = slug_by_key.get(&cr.repo.to_lowercase()) else {
+                let Some(target_index) = repo_aliases.get(&cr.repo.to_lowercase()) else {
                     continue;
                 };
+                let target = &slugs[*target_index];
                 if target == slug {
                     continue;
                 }
@@ -186,7 +189,11 @@ pub fn render_portfolio_str(projects: &[ProjectInput], today: &str) -> anyhow::R
 
     // Aggregate island: every project's envelope verbatim, in one array.
     let raw: Vec<&str> = projects.iter().map(|p| p.data_json.trim()).collect();
-    let data_island = escape_island(&format!("{{\"projects\":[{}]}}", raw.join(",")));
+    let data_island = escape_island(&format!(
+        "{{\"projects\":[{}],\"repo_aliases\":{}}}",
+        raw.join(","),
+        serde_json::to_string(&repo_aliases)?
+    ));
     let relations_json = escape_island(&serde_json::to_string(&edges)?);
 
     let mut env = build_env()?;
@@ -223,4 +230,77 @@ fn path_basename(path: &str) -> String {
         .and_then(|n| n.to_str())
         .unwrap_or(path)
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{Value, json};
+
+    fn island(html: &str, id: &str) -> Value {
+        let start = format!("<script id=\"{id}\" type=\"application/json\">");
+        let json = html
+            .split_once(&start)
+            .unwrap()
+            .1
+            .split_once("</script>")
+            .unwrap()
+            .0;
+        serde_json::from_str(json).unwrap()
+    }
+
+    #[test]
+    fn portfolio_aliases_share_first_input_wins_resolution_with_cords() {
+        let aliases = ["PROJECT", "Label", "basename", "__proto__", "missing", ""];
+        let inputs = vec![
+            ProjectInput {
+                label: "Label".into(),
+                path_display: "/repos/basename".into(),
+                data_json: json!({"project": "Project", "custom": {"preserved": true}}).to_string(),
+            },
+            ProjectInput {
+                label: "__proto__".into(),
+                path_display: "/other/LABEL".into(),
+                data_json: json!({"project": "PROJECT"}).to_string(),
+            },
+            ProjectInput {
+                label: "".into(),
+                path_display: "".into(),
+                data_json: json!({"project": "basename"}).to_string(),
+            },
+            ProjectInput {
+                label: "Source".into(),
+                path_display: "/repos/source".into(),
+                data_json: json!({"project": "Source", "task": [{
+                    "id": 1, "cross_repo": aliases.map(|repo| json!({
+                        "repo": repo, "task_id": 1, "relation": "blocks"
+                    }))
+                }]})
+                .to_string(),
+            },
+        ];
+        let html = render_portfolio_str(&inputs, "2026-09-29").unwrap();
+        let data = island(&html, "rmap-data");
+        assert_eq!(
+            data["repo_aliases"],
+            json!({
+                "project": 0, "label": 0, "basename": 0, "__proto__": 1, "source": 3
+            })
+        );
+        for (i, input) in inputs.iter().enumerate() {
+            assert_eq!(
+                data["projects"][i],
+                serde_json::from_str::<Value>(&input.data_json).unwrap()
+            );
+            assert!(html.contains(input.data_json.as_str()));
+        }
+        assert_eq!(
+            island(&html, "rmap-relations"),
+            json!([
+                {"source": "source-3", "target": "project-0", "relation": "blocks"},
+                {"source": "source-3", "target": "project-1", "relation": "blocks"}
+            ])
+        );
+        assert_eq!(html, render_portfolio_str(&inputs, "2026-09-29").unwrap());
+    }
 }
