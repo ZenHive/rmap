@@ -263,3 +263,56 @@ fn terminal_references_are_not_rechecked_and_empty_specs_are_valid() {
     fs::write(&path, BASE).unwrap();
     assert!(!run(&dir, &["validate"]).status.success());
 }
+
+#[test]
+fn git_snapshot_validation_does_not_require_spec_files() {
+    // `rmap diff` validates `git show` output at `{ref}:roadmap/tasks.toml`.
+    let tasks = rmap::validate::validate_tasks_str("main:roadmap/tasks.toml", BASE)
+        .expect("snapshot label is not a tasks file");
+    assert!(tasks.specs.contains_key("access"));
+    assert_eq!(tasks.task[0].spec_changes.len(), 2);
+}
+
+#[test]
+fn diff_against_committed_specs_reports_task_edits() {
+    let dir = fixture("tests", "Cargo.toml");
+    git(&dir, &["init", "-b", "main"]);
+    git(
+        &dir,
+        &["add", "roadmap/tasks.toml", "docs/access.md", "ROADMAP.md"],
+    );
+    git(
+        &dir,
+        &[
+            "-c",
+            "user.email=rmap@example.test",
+            "-c",
+            "user.name=rmap",
+            "commit",
+            "-m",
+            "initial",
+        ],
+    );
+    let path = dir.path().join("roadmap/tasks.toml");
+    let updated = fs::read_to_string(&path).unwrap().replace(
+        "title = \"Update access\"",
+        "title = \"Update access rules\"",
+    );
+    fs::write(&path, updated).unwrap();
+    let stdout = ok(&dir, &["diff", "--against", "main"]);
+    assert!(stdout.contains("changed Task 1: title"), "{stdout}");
+}
+
+fn git(dir: &TempDir, args: &[&str]) {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(dir.path())
+        .args(args)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}

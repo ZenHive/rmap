@@ -204,9 +204,10 @@ impl DoctorReport {
     /// stale in-progress tasks (>`thresholds.days` via `started_at`), score-decay
     /// candidates (`scored_at` missing or >`thresholds.days`), phase/focus/milestone
     /// state-drift advisories, and render drift (when `roadmap_input` is supplied).
-    /// Pure — no I/O. `today` is the `YYYY-MM-DD` reference date. `thresholds`
+    /// `today` is the `YYYY-MM-DD` reference date. `thresholds`
     /// carries the effective stale/decay and AC cutoffs for this invocation (defaults
-    /// unless overridden on the CLI).
+    /// unless overridden on the CLI). Registered spec files are read when `path`
+    /// names an existing tasks.toml; non-file labels skip that read.
     pub fn run(
         tasks: &Tasks,
         path: &str,

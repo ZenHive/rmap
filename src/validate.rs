@@ -134,7 +134,15 @@ pub fn collect_findings(tasks: &Tasks, path: &str, input: &str) -> Vec<ValidateE
 }
 
 fn validate_specs(path: &str, tasks: &Tasks) -> Result<(), ValidateError> {
-    crate::specs::load(tasks, Path::new(path))
+    // `rmap diff` re-validates `git show <ref>:<tasks.toml>` under that synthetic
+    // label. Spec markdown lives in the tree, not beside the blob path, so
+    // requiring those files would reject every diff of a roadmap that registers
+    // specs. Rule text is checked only when `path` is a real tasks file.
+    let tasks_path = Path::new(path);
+    if !tasks_path.is_file() {
+        return Ok(());
+    }
+    crate::specs::load(tasks, tasks_path)
         .and_then(|specs| crate::specs::validate_changes(tasks, &specs))
         .map_err(|message| semantic_error(path, 1, message))
 }
