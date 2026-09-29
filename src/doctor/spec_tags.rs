@@ -94,7 +94,15 @@ fn scan_tags(root: &Path, globs: &[&str], marker: &str) -> BTreeMap<String, BTre
                 if entry.file_name() == ".git" {
                     continue;
                 }
-                stack.push(entry.path());
+                let path = entry.path();
+                // Skip trees no glob can reach (`target/`, `node_modules/`, ...).
+                if let Ok(relative) = path.strip_prefix(root) {
+                    let relative = relative.to_string_lossy().replace('\\', "/");
+                    if !globs.iter().any(|glob| glob_may_contain(glob, &relative)) {
+                        continue;
+                    }
+                }
+                stack.push(path);
                 continue;
             }
             if !file_type.is_file() {
@@ -147,6 +155,24 @@ fn glob_match(pattern: &str, path: &str) -> bool {
     match_parts(&pattern, &path)
 }
 
+/// Whether some path below directory `dir` could match `pattern`.
+fn glob_may_contain(pattern: &str, dir: &str) -> bool {
+    let pattern: Vec<&str> = pattern.split('/').filter(|part| !part.is_empty()).collect();
+    let dir: Vec<&str> = dir.split('/').filter(|part| !part.is_empty()).collect();
+    prefix_parts(&pattern, &dir)
+}
+
+fn prefix_parts(pattern: &[&str], dir: &[&str]) -> bool {
+    match (pattern, dir) {
+        (_, []) => true,
+        ([], _) => false,
+        (["**", ..], _) => true,
+        ([head, rest @ ..], [segment, dir_rest @ ..]) => {
+            segment_match(head, segment) && prefix_parts(rest, dir_rest)
+        }
+    }
+}
+
 fn match_parts(pattern: &[&str], path: &[&str]) -> bool {
     if pattern.is_empty() {
         return path.is_empty();
@@ -190,6 +216,17 @@ mod tests {
         assert!(!glob_match("*.rs", "src/a.rs"));
         assert!(glob_match("**/*.exs", "test/a.exs"));
         assert!(glob_match("db/**/*.sql", "db/covered.sql"));
+    }
+
+    #[test]
+    fn directory_pruning_keeps_only_reachable_trees() {
+        assert!(glob_may_contain("tests/**/*.rs", "tests"));
+        assert!(glob_may_contain("tests/**/*.rs", "tests/a/b"));
+        assert!(!glob_may_contain("tests/**/*.rs", "target"));
+        assert!(!glob_may_contain("*.rs", "src"));
+        assert!(glob_may_contain("**/*.exs", "deep/nested"));
+        assert!(glob_may_contain("t*/unit/*.py", "test/unit"));
+        assert!(!glob_may_contain("t*/unit/*.py", "test/other"));
     }
 
     #[test]

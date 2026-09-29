@@ -71,12 +71,12 @@ pub struct LoadedSpec<'a> {
 
 pub type Catalog<'a> = BTreeMap<&'a str, LoadedSpec<'a>>;
 
-/// IDs start at column one, with an ASCII letter prefix and decimal suffix.
-/// Whitespace or a colon separates the ID from its declarative text.
 pub(crate) fn is_rule_id(id: &str) -> bool {
     rule_prefix(id).is_some()
 }
 
+/// IDs start at column one, with an ASCII letter prefix and decimal suffix.
+/// Whitespace or a colon separates the ID from its declarative text.
 fn rule_prefix(id: &str) -> Option<&str> {
     let (prefix, number) = id.rsplit_once('-')?;
     (!prefix.is_empty()
