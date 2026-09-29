@@ -58,7 +58,7 @@ gantt
     section Phase 16 — Graph queries
     doctor— spec-quality advisories — placeholder/vague acceptance criteria and near-duplicate open tasks :done, 2026-07-15, 2026-07-15
     section Phase 17 — Spec-driven agent contract
-    Cut the per-field edit cost— single-source task field registry— typed enums— split main.rs :active, 2026-09-29, 2026-09-29
+    Cut the per-field edit cost— single-source task field registry— typed enums— split main.rs :done, 2026-09-29, 2026-09-29
 ```
 <!-- MERMAID:END -->
 

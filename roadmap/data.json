@@ -2346,7 +2346,7 @@
       "id": 60,
       "phase": 17,
       "bundle": "agent_era_maintenance",
-      "status": "in_progress",
+      "status": "done",
       "title": "Cut the per-field edit cost: single-source task field registry, typed enums, split main.rs",
       "scores": {
         "d": 7,
@@ -2385,10 +2385,17 @@
       "domains": [
         "rust"
       ],
+      "shipped_in": "fa3207bfc8a11409b7401dbe5fa57659af7990bc",
       "body": "Adding one creation-time field to `Task` today means hand-editing six mirror surfaces (StdinTask, NewTaskFields, add_task_str, canonical_task_key_index, diff_fields!, ExportedTask + EXPORTED_TASK_FIELDS) and keeping them in sync by convention — see the MIRROR SURFACES doc comment on `Task` in src/schema.rs. Status, marker and cross-repo-relation vocabularies are `String`s validated against constants in validate.rs, while render.rs match arms keep a second, unshared copy. main.rs is ~2,500 lines.\n\nPhase 17 is about to add several task fields and a top-level `[specs]` table (spec layer, context refs, check hints). Make that cheap and hard to get wrong first: one place declares a task field (name, creation- vs transition-time, export/diff/verbose participation) and the other surfaces derive from it; vocabularies become enums with the existing string wire format; main.rs splits by command.\n\nPick the mechanism (declarative macro, derive, or a table + tests) yourself. This is a pure refactor: every observable output stays identical.\n",
       "created_at": "2026-09-29",
       "started_at": "2026-09-29",
+      "done_at": "2026-09-29",
       "scored_at": "2026-09-29",
+      "implemented": "Landed by codex via merge-train; reviewer-approved (run run-1790669450005-a603998e, fa3207bfc8a11409b7401dbe5fa57659af7990bc).",
+      "delivered_by": "codex",
+      "verified": true,
+      "verified_by": "claude",
+      "verification_ref": "harness-run:run-1790669450005-a603998e",
       "cross_repo": []
     },
     {
