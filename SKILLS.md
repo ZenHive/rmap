@@ -462,7 +462,7 @@ rmap diff --json
 
 ## Health
 
-`rmap doctor` is the soft-signal aggregator. Findings: validate findings + render drift + stale (>30d in-progress) + awaiting-landing (`in_progress` tasks carrying a `landing_ref` — waiting on a human merge, not an implementer; excluded from the stalled list and reported under `awaiting landing (N)`, JSON kind `awaiting_landing`) + score-decay (>30d `scored_at` or missing) + degenerate-bundle + missing-`acceptance_criteria` + claimed-not-graded (a `done` task without `verified` set — "claimed, not graded") + verified-without-provenance (legacy `verified = true` without `verified_by`), plus four soft families:
+`rmap doctor` is the soft-signal aggregator. Findings: validate findings + render drift + stale (>30d in-progress) + awaiting-landing (`in_progress` tasks carrying a `landing_ref` — waiting on a human merge, not an implementer; excluded from the stalled list and reported under `awaiting landing (N)`, JSON kind `awaiting_landing`) + score-decay (open tasks only — `done`/`superseded` are never re-ranked; >30d `scored_at` or missing) + degenerate-bundle + missing-`acceptance_criteria` + claimed-not-graded (a `done` task without `verified` set — "claimed, not graded") + verified-without-provenance (legacy `verified = true` without `verified_by`), plus four soft families:
 
 - **phase drift** — phase all-done-but-still-open, a pending phase holding ≥1 in-progress task, and focus-phase-closed (`[focus].phase` points at a phase that looks done).
 - **milestone drift** — milestone all-done-but-still-open, and multiple-active-milestones (keep exactly one `active`).

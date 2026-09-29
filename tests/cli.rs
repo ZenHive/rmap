@@ -11726,3 +11726,66 @@ landing_ref = "https://github.com/org/repo/pull/42"
         "expected landing_ref in --verbose values: {value}"
     );
 }
+
+const DOCTOR_DECAY_TERMINAL_TASKS: &str = r#"schema_version = 2
+project = "decay_terminal"
+default_branch = "main"
+
+[phases.1]
+name = "One"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "alpha"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+status = "done"
+title = "Shipped long ago"
+scores = { d = 2, b = 5, u = 5 }
+scored_at = "2026-01-01"
+implemented = "as specified in body"
+
+[[task]]
+id = 2
+phase = 1
+bundle = "alpha"
+status = "superseded"
+title = "Replaced"
+scores = { d = 2, b = 5, u = 5 }
+
+[[task]]
+id = 3
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Still open"
+scores = { d = 2, b = 5, u = 5 }
+scored_at = "2026-01-01"
+"#;
+
+#[test]
+fn doctor_score_decay_skips_terminal_tasks() {
+    let path = write_temp_tasks("doctor_decay_terminal.toml", DOCTOR_DECAY_TERMINAL_TASKS);
+    let output = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .env("RMAP_TODAY", "2026-05-11")
+        .args(["doctor", "--json", "--tasks-path"])
+        .arg(&path)
+        .output()
+        .expect("run rmap doctor");
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("doctor json");
+    let decayed: Vec<String> = json["findings"]
+        .as_array()
+        .expect("findings array")
+        .iter()
+        .filter(|f| f["kind"] == "score_decay")
+        .map(|f| f["id"].as_str().unwrap_or_default().to_string())
+        .collect();
+    assert_eq!(decayed, vec!["3".to_string()], "only the open task decays");
+}

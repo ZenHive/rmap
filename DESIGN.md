@@ -14,7 +14,7 @@ This file is the **design contract** — schema, CLI surface, invariants, deferr
 ## Source format: `roadmap/tasks.toml`
 
 ```toml
-schema_version = 1
+schema_version = 2
 project = "ccxt_extract"
 default_branch = "main"
 
@@ -50,7 +50,7 @@ status = "done"                               # pending | in_progress | blocked 
 title = "parseTicker field map + coercion + enums"
 scores = { d = 5, b = 8, u = 8 }              # eff = (b+u)/(2d) computed by rmap, never stored
 scored_at = "2026-04-15"                      # last D/B/U revision; >30d renders with `?` suffix
-markers = ["parallel"]                        # subset of: parallel | cx | csr
+markers = ["parallel"]                        # subset of: parallel | cx | csr | bug | security | docs | handbuild
 assignee = "claude"                           # execution target (optional; see delegate targets)
 model = "claude-opus-4-7"                     # LLM model to use (optional, free-text); rmap delegate surfaces it
 domains = ["rust", "otp"]                     # optional free-text capability tags; downstream owns vocabulary
@@ -101,8 +101,8 @@ Multi-line prompt-style body when needed. Optional.
 rmap render                          # write ROADMAP.md + data.json from tasks.toml; renders into TASKS / FOCUS / MERMAID / MILESTONES marker pairs when present (zero-config)
 rmap render --dry                    # print would-write diff, no file changes
 rmap render --stdout                 # render ROADMAP.md to stdout (for diffing in hooks)
-rmap render --html                   # planned — single-project view → roadmap/dist/index.html
-rmap render --html --multi P1 P2     # planned — portfolio HTML across N repos/data.json paths
+rmap render --html                   # single-project view → roadmap/dist/index.html
+rmap render --html --multi P1 P2     # portfolio HTML across N repos/data.json paths
 rmap export json                     # data.json to stdout (for piping)
 rmap export dot                      # Graphviz DOT digraph of depends_on (pipe to dot)
 rmap waves [--json]                  # parallel dispatch schedule by dep_layer
@@ -136,9 +136,9 @@ rmap new --from-stdin                # non-interactive — agent piping
 # delegation — cloud-agent workflow
 rmap delegate <id> --to claude|codex|cursor|grok|antigravity|pi|droid|kimi   # emit paste-ready Markdown prompt: title + body + deps + AC + per-agent environment-notes footer
 
-# live dev — planned
+# live dev
 rmap watch                           # FS watch on tasks.toml, render on change
-rmap watch --json                    # planned — event stream for agent consumers
+rmap watch --json                    # JSON event stream for agent consumers
 ```
 
 **Cross-cutting invariant.** The `--json` outputs of `show`, `list`, `blocks`, `deps`, `next`, `schema`, `diff`, and `doctor` are the agent contract. Every per-task `--json` payload also carries the computed `unlocks` leverage field (transitive-dependent count) alongside `eff` / `dep_layer`. Treat them like a public API: add fields freely, but never rename or remove without a `schema_version` bump.

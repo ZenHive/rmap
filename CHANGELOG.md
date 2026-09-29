@@ -6,6 +6,11 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### doctor: score decay only on open tasks (0.5.2)
+
+- `rmap doctor` no longer reports score decay for `done` / `superseded` tasks; they are never re-ranked, so the finding was noise (rmap's own roadmap: 148 → 95 findings).
+- DESIGN.md: corrected the `schema_version` example, the marker list, and `render --html` / `watch --json` still labelled "planned".
+
 ### Dependency updates (0.5.1)
 
 - Updated direct and transitive Rust dependencies, including dialoguer 0.12, jsonschema 0.56, toml 1, and toml_edit 0.25.

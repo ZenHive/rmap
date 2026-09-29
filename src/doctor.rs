@@ -242,8 +242,12 @@ impl DoctorReport {
             });
         }
 
-        // 3. score decay (missing or stale scored_at)
+        // 3. score decay (missing or stale scored_at) — open tasks only; a
+        // terminal task is never re-ranked, so its score age is not actionable.
         for task in &tasks.task {
+            if matches!(task.status.as_str(), "done" | "superseded") {
+                continue;
+            }
             let decayed = match task.scored_at.as_deref() {
                 None => true,
                 Some(s) => days_since(today, s)
