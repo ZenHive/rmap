@@ -1712,7 +1712,7 @@ depends_on = [61]
 id = 63
 phase = 17
 bundle = "agent_context"
-status = "in_progress"
+status = "done"
 title = "Delegate prompt for current agents: read-first refs, reviewer check hints, runtime-accurate footer"
 scores = { d = 5, b = 7, u = 7 }
 depends_on = [60]
@@ -1732,9 +1732,16 @@ body = """
 
 Add two optional creation-time list fields: `context_refs` (paths or URLs to read before starting) and `checks` (free-text commands that demonstrate the acceptance criteria). **`checks` are hints for the reviewer, not a gate**: rmap never executes them and nothing in the contract implies harness does — the reviewer runs and judges them (harness deliberately removed mechanical verification gates). Render both in delegate as their own sections; make the footer describe the execution runtime without naming any language toolchain; render criteria of done tasks as checked.
 """
+implemented = "Landed by grok via merge-train; reviewer-approved (run run-1790671360219-c3101d36, be9071aadadb364279f1003253f1e458cc411690)."
+delivered_by = "grok"
+verified = true
+verified_by = "cursor"
+verification_ref = "harness-run:run-1790671360219-c3101d36"
 created_at = "2026-09-29"
 started_at = "2026-09-29"
 scored_at = "2026-09-29"
+done_at = "2026-09-29"
+shipped_in = "be9071aadadb364279f1003253f1e458cc411690"
 
 [[task]]
 id = 64
