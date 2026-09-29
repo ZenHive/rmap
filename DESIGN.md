@@ -281,3 +281,12 @@ Read this section before changing anything. The schema example above IS the cont
 - **No `--help` polish beyond `clap` defaults**, no man pages, no shell completions.
 - **No render-template authoring surface.** Templates ship inside the binary; users don't fork `minijinja` files. If a render shape is wrong, fix it upstream and ship a new binary.
 - **No process-side roadmap conventions.** Coverage gates (`mix test --cover` tiers), Ceremony Floor (review-time triage of small findings), auto-CHANGELOG / auto-CLAUDE.md / auto-README updates on task completion: these are review and audit skill behaviors *applied to* roadmaps, not roadmap data. The schema deliberately stops at the data surface — `rmap` doesn't enforce or automate them.
+
+## Prioritization model (decided 2026-09-29)
+
+D/B/U and `eff = (b + u) / (2 × d)` stay. Replacing them would be a `schema_version` bump across every rmap roadmap and harness, with no evidence that a different model ranks agent work better.
+
+- **D is landing cost and risk, not hours.** Score how hard it is for an agent to land the task correctly in one implement → review → land cycle: ambiguity, blast radius, how hard the reviewer's judgment is. Typing is cheap for agents; rework is not. The scale lives in `~/.claude/includes/task-prioritization.md`.
+- **Graph leverage is computed, not guessed, for ties.** `next` / `ready` rank tier → Eff desc → `unlocks` desc → TOML order. `U` stays a judgment score (urgency, query frequency, gap visibility); `unlocks` only settles equal Eff.
+- **No `risk` / `size` fields.** D absorbs both; a second cost axis would split one judgment into two that drift apart.
+- **Score decay only matters for open tasks.** `doctor` ignores `done` / `superseded` tasks.

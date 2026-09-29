@@ -6,9 +6,10 @@ use crate::query::{
 };
 use crate::schema::{Task, Tasks};
 use crate::scoring::{efficiency, format_efficiency, tier_glyph};
+use crate::topo::compute_unlocks;
 
 /// Top `count` `pending` tasks whose `depends_on` are all `done`, ranked by
-/// a lexicographic key: **(focus-phase × active-milestone) → Eff desc**.
+/// a lexicographic key: **(focus-phase × active-milestone) → Eff desc → unlocks desc**.
 ///
 /// Honors `filter.marker`, `filter.bundle`, and `filter.milestone`.
 /// `filter.status` and `filter.phase` are ignored (next is implicitly
@@ -22,7 +23,8 @@ use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 ///   1 — in `[focus].phase` only
 ///   2 — pinned to an `active` milestone only
 ///   3 — neither
-/// Within a tier, Eff descending; ties preserve TOML order (stable sort).
+/// Within a tier, Eff descending; equal Eff breaks on `unlocks` descending
+/// (transitive-dependent count over the full graph), then TOML order (stable sort).
 ///
 /// Degenerate cases preserve prior behavior: when `[focus]` is unset every
 /// task is treated as "in focus" for tiering purposes, so tiers collapse to
@@ -92,9 +94,9 @@ pub fn next_task<'a>(tasks: &'a Tasks, filter: &TaskFilter) -> Option<&'a Task> 
 }
 
 /// Sort tasks in place by the 4-tier lexicographic key (focus-phase ×
-/// active-milestone, focus dominant) then Eff descending. Shared by
-/// [`next_tasks`] and [`ready_tasks`] so the ranking stays a single source of
-/// truth. Ties preserve TOML order (stable sort).
+/// active-milestone, focus dominant), then Eff descending, then `unlocks`
+/// descending. Shared by [`next_tasks`] and [`ready_tasks`] so the ranking
+/// stays a single source of truth. Remaining ties preserve TOML order.
 fn rank_tasks(candidates: &mut [&Task], tasks: &Tasks) {
     let focus_phase = tasks.focus.as_ref().map(|focus| focus.phase);
     let active_milestones: HashSet<&str> = tasks
@@ -103,6 +105,9 @@ fn rank_tasks(candidates: &mut [&Task], tasks: &Tasks) {
         .filter(|(_, milestone)| milestone.status == "active")
         .map(|(name, _)| name.as_str())
         .collect();
+    let all: Vec<&Task> = tasks.task.iter().collect();
+    let unlocks = compute_unlocks(&all);
+    let leverage = |task: &Task| unlocks.get(&task.id.to_string()).copied().unwrap_or(0);
 
     candidates.sort_by(|a, b| {
         tier(a, focus_phase, &active_milestones)
@@ -112,6 +117,7 @@ fn rank_tasks(candidates: &mut [&Task], tasks: &Tasks) {
                     .partial_cmp(&efficiency(a))
                     .unwrap_or(Ordering::Equal)
             })
+            .then_with(|| leverage(b).cmp(&leverage(a)))
     });
 }
 

@@ -23,6 +23,11 @@
       "order": 16,
       "status": "in_progress"
     },
+    "17": {
+      "name": "Spec-driven agent contract",
+      "order": 17,
+      "status": "pending"
+    },
     "6": {
       "name": "HTML render",
       "order": 6,
@@ -35,10 +40,20 @@
     }
   },
   "bundles": {
+    "agent_context": {
+      "phase": 17,
+      "order": 3,
+      "description": "What a dispatched agent reads before and verifies after — context refs, reviewer check hints, a delegate prompt matched to today's runtimes"
+    },
     "agent_dispatch": {
       "phase": 15,
       "order": 7,
       "description": "Agent-dispatch ergonomics — make 'the set of tasks I can dispatch in parallel right now' a first-class query (rmap ready + dep_layer + handbuild/--dispatchable + touches + --fields)"
+    },
+    "agent_era_maintenance": {
+      "phase": 17,
+      "order": 1,
+      "description": "Remove noise and per-field edit cost that make rmap expensive to extend for current agents (2026-09 review)"
     },
     "agent_routing": {
       "phase": 15,
@@ -110,6 +125,11 @@
       "order": 1,
       "description": "rmap import: emit a paste-ready ROADMAP.md→tasks.toml migration prompt (the delegate pattern, applied to migration)"
     },
+    "prioritization_model": {
+      "phase": 17,
+      "order": 4,
+      "description": "Keep D/B/U; D redefined as landing cost + risk; computed unlocks breaks equal Eff (decided 2026-09-29, DESIGN.md § Prioritization model)"
+    },
     "render_changelog_link": {
       "phase": 15,
       "order": 40,
@@ -134,6 +154,11 @@
       "phase": 13,
       "order": 1,
       "description": "Phase 13b: schema additions for vision, branch, excluded-category markers, range validation"
+    },
+    "spec_layer": {
+      "phase": 17,
+      "order": 2,
+      "description": "Durable, language-agnostic capability specs with rule ids that tasks change and tests tag — the 'why' lives in the spec, not re-told in every task body"
     },
     "watch_core": {
       "phase": 7,
@@ -2224,6 +2249,287 @@
           "relation": "blocks"
         }
       ]
+    },
+    {
+      "id": 57,
+      "phase": 17,
+      "bundle": "agent_era_maintenance",
+      "status": "done",
+      "title": "doctor: report score decay only on open tasks",
+      "scores": {
+        "d": 1,
+        "b": 5,
+        "u": 5
+      },
+      "eff": 5.0,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [
+        "bug"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "rmap doctor emits no score_decay finding for done or superseded tasks",
+        "Open tasks with missing or >threshold scored_at still produce score_decay"
+      ],
+      "shipped_in": "c89e49cc664bdd7e25d8102df1c06c656c339443",
+      "body": "rmap doctor reported score decay for every done/superseded task (148 findings on rmap's own roadmap, almost all decay on shipped work). Terminal tasks are never re-ranked, so their score age is not actionable and buried real findings.",
+      "created_at": "2026-09-29",
+      "done_at": "2026-09-29",
+      "scored_at": "2026-09-29",
+      "implemented": "Shipped inline during the 2026-09 agent-era review (see CHANGELOG 0.5.2).",
+      "delivered_by": "claude",
+      "cross_repo": []
+    },
+    {
+      "id": 58,
+      "phase": 17,
+      "bundle": "agent_era_maintenance",
+      "status": "done",
+      "title": "DESIGN.md: correct stale schema_version, marker list, and 'planned' labels",
+      "scores": {
+        "d": 1,
+        "b": 3,
+        "u": 4
+      },
+      "eff": 3.5,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [
+        "docs"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "DESIGN.md example uses schema_version = 2 and lists every VALID_MARKERS entry",
+        "No shipped command is labelled planned"
+      ],
+      "shipped_in": "c89e49cc664bdd7e25d8102df1c06c656c339443",
+      "body": "DESIGN.md showed schema_version = 1 (2 is required), listed only three markers, and labelled the shipped render --html and watch --json as planned. Agents read DESIGN.md as the design contract.",
+      "created_at": "2026-09-29",
+      "done_at": "2026-09-29",
+      "scored_at": "2026-09-29",
+      "implemented": "Shipped inline during the 2026-09 agent-era review (see CHANGELOG 0.5.2).",
+      "delivered_by": "claude",
+      "cross_repo": []
+    },
+    {
+      "id": 59,
+      "phase": 17,
+      "bundle": "prioritization_model",
+      "status": "pending",
+      "title": "Decide the prioritization model for agent-dispatched work",
+      "scores": {
+        "d": 2,
+        "b": 6,
+        "u": 6
+      },
+      "eff": 3.0,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "DESIGN.md records the decision and its reasons",
+        "Equal-Eff ties in next/ready break on computed unlocks, covered by a CLI test",
+        "task-prioritization.md D scale describes landing cost/risk instead of hours"
+      ],
+      "body": "The 2026-09 review asked whether human-PM-era D/B/U (D in hours/days) still ranks agent work correctly. Decide now rather than park it as a spike.",
+      "created_at": "2026-09-29",
+      "scored_at": "2026-09-29",
+      "cross_repo": []
+    },
+    {
+      "id": 60,
+      "phase": 17,
+      "bundle": "agent_era_maintenance",
+      "status": "pending",
+      "title": "Cut the per-field edit cost: single-source task field registry, typed enums, split main.rs",
+      "scores": {
+        "d": 7,
+        "b": 6,
+        "u": 8
+      },
+      "eff": 1.0,
+      "dep_layer": 0,
+      "unlocks": 3,
+      "markers": [],
+      "depends_on": [],
+      "assignee": "codex",
+      "model": "gpt-6-astra",
+      "acceptance_criteria": [
+        "Every existing test, golden fixture and skills_smoke passes unchanged (no fixture or expected-output edits)",
+        "`--json` of show/list/next/ready/doctor/diff and `rmap schema` are byte-identical to the pre-refactor binary on rmap's own roadmap and tests/skills_fixture",
+        "Adding a new creation-time optional task field needs edits in at most two places; the Task doc comment and CLAUDE.md § Mirror-surface edit rules describe the new procedure",
+        "A test fails if a Task field is missing from the export field set or the canonical key order (replaces convention with a check)",
+        "Task status, marker and cross-repo relation are typed enums serialized as today's strings; every agent-grep error string listed in CLAUDE.md is unchanged",
+        "main.rs is split so no source file exceeds ~800 lines; the CLI surface (`rmap --help` for every subcommand) is unchanged"
+      ],
+      "out_of_scope": [
+        "Any new field or behavior change",
+        "schema_version bump",
+        "Harness-side changes"
+      ],
+      "touches": [
+        "src/schema.rs",
+        "src/main.rs",
+        "src/mutate.rs",
+        "src/diff.rs",
+        "src/export.rs",
+        "src/validate.rs",
+        "src/render.rs"
+      ],
+      "domains": [
+        "rust"
+      ],
+      "body": "Adding one creation-time field to `Task` today means hand-editing six mirror surfaces (StdinTask, NewTaskFields, add_task_str, canonical_task_key_index, diff_fields!, ExportedTask + EXPORTED_TASK_FIELDS) and keeping them in sync by convention — see the MIRROR SURFACES doc comment on `Task` in src/schema.rs. Status, marker and cross-repo-relation vocabularies are `String`s validated against constants in validate.rs, while render.rs match arms keep a second, unshared copy. main.rs is ~2,500 lines.\n\nPhase 17 is about to add several task fields and a top-level `[specs]` table (spec layer, context refs, check hints). Make that cheap and hard to get wrong first: one place declares a task field (name, creation- vs transition-time, export/diff/verbose participation) and the other surfaces derive from it; vocabularies become enums with the existing string wire format; main.rs splits by command.\n\nPick the mechanism (declarative macro, derive, or a table + tests) yourself. This is a pure refactor: every observable output stays identical.\n",
+      "created_at": "2026-09-29",
+      "scored_at": "2026-09-29",
+      "cross_repo": []
+    },
+    {
+      "id": 61,
+      "phase": 17,
+      "bundle": "spec_layer",
+      "status": "pending",
+      "title": "Spec layer: capability specs with rule ids, and a spec_changes task field",
+      "scores": {
+        "d": 7,
+        "b": 9,
+        "u": 8
+      },
+      "eff": 1.21,
+      "dep_layer": 1,
+      "unlocks": 1,
+      "markers": [],
+      "depends_on": [
+        60
+      ],
+      "assignee": "codex",
+      "model": "gpt-6-astra",
+      "acceptance_criteria": [
+        "A roadmap with no [specs] table and no spec_changes renders, validates and exports byte-identically to before (rmap's own roadmap and tests/skills_fixture)",
+        "Rule ids are parsed from the registered Markdown files; tasks.toml holds only path + status per spec",
+        "rmap validate rejects: change/remove on a live task naming a rule absent from its spec; an add whose prefix matches no registered spec; duplicate rule ids; a registered spec path that does not exist — each with a message naming the rule or path, tasks.toml byte-equal on rejection",
+        "rmap delegate on a task with spec_changes quotes the current text of each referenced rule and its op",
+        "rmap list --rule <ID> returns exactly the tasks whose spec_changes name that rule, composing with existing selectors",
+        "A spec listing command (human + --json) shows each spec, its rules, and per rule the tasks that changed it",
+        "Tests cover at least two fixture projects in different languages' layouts (e.g. one with tests/ and one with spec/ or __tests__/) to prove nothing is language-specific",
+        "SKILLS.md (skills_smoke green), DESIGN.md, CLAUDE.md mirror/invariant lists and ~/.claude/includes/rmap.md document the format and commands; additive change, no schema_version bump; Cargo version bumped with a CHANGELOG entry"
+      ],
+      "out_of_scope": [
+        "Linking rules to tests (separate doctor task)",
+        "Harness consuming spec_changes",
+        "Generating or editing spec Markdown",
+        "Any spec template or language-specific tooling"
+      ],
+      "touches": [
+        "src/schema.rs",
+        "src/validate.rs",
+        "src/query.rs",
+        "src/delegate.rs",
+        "src/export.rs",
+        "src/main.rs",
+        "SKILLS.md",
+        "DESIGN.md"
+      ],
+      "domains": [
+        "rust"
+      ],
+      "body": "rmap tracks tickets, not specifications. A task's intent lives only in its `body`, retold per task and stale once shipped; nothing durable records *what the system must do* or which task changed which rule. Agents re-derive intent from prose every dispatch.\n\nAdd a spec layer, shaped with the star_specs session (2026-09-29):\n\n- **Spec files are plain Markdown in the consuming repo**, one per capability, at any path (e.g. `docs/specs/access.md`). A rule is one line starting with a rule id `<PREFIX>-<n>` (e.g. `ACCESS-4`), written declaratively. No EARS or other template is imposed.\n- **`tasks.toml` registers specs, it does not duplicate them**: a top-level `[specs.<capability>]` table with `path` and `status` (`draft | active | retired`). Rule ids are parsed from the file at read time — never copied into TOML, so they cannot drift. Rule-id prefixes are globally unique across specs, so references need no `slug#` qualifier.\n- **A task states its delta, not just \"implements\"**: creation-time field `spec_changes = [{ rule = \"ACCESS-3\", op = \"add\" | \"change\" | \"remove\" }]`. Tasks often change an existing rule; the op makes that explicit.\n- **Validation**: on live tasks (pending/in_progress), `change`/`remove` must name a rule present in its spec file; `add` must use a prefix belonging to a registered spec (the rule may already exist — spec-first authoring). Terminal tasks are not re-checked (a removed rule legitimately disappears). Duplicate rule ids across or within spec files are an error. Missing spec file → error naming the path.\n- **Surfaces**: `rmap show` / `--json` / data.json carry `spec_changes`; `rmap delegate` renders a section quoting each referenced rule's current text with its op, so the implementer gets the rule, not a pointer; `rmap list --rule <ID>` filters; a read command lists specs with their rules and, per rule, the tasks that changed it (the derived change history — no hand-kept history section needed).\n\nLanguage-agnostic by construction: rmap reads Markdown and matches ids; it knows nothing about the project's language, test framework or build tool.\n",
+      "created_at": "2026-09-29",
+      "scored_at": "2026-09-29",
+      "cross_repo": []
+    },
+    {
+      "id": 62,
+      "phase": 17,
+      "bundle": "spec_layer",
+      "status": "pending",
+      "title": "doctor: spec rules without a tagged test, and test tags naming unknown rules",
+      "scores": {
+        "d": 4,
+        "b": 7,
+        "u": 6
+      },
+      "eff": 1.63,
+      "dep_layer": 2,
+      "unlocks": 0,
+      "markers": [],
+      "depends_on": [
+        61
+      ],
+      "assignee": "cursor",
+      "model": "grok-4.7-high",
+      "acceptance_criteria": [
+        "doctor reports each active-spec rule with no tagging test and each tag naming an unknown rule (human lines cite rule id and file; additive JSON kinds)",
+        "Draft and retired specs produce no untested-rule findings",
+        "Tag detection is language-agnostic plain-text matching; tests prove it with tags in at least three comment syntaxes (e.g. //, #, --)",
+        "Without spec-test configuration or without specs, doctor output is unchanged",
+        "doctor still exits 0; SKILLS.md and ~/.claude/includes/rmap.md document the config; version bump + CHANGELOG"
+      ],
+      "out_of_scope": [
+        "Running tests or reading coverage reports",
+        "Failing validate on missing coverage — advisory only"
+      ],
+      "touches": [
+        "src/doctor.rs",
+        "src/schema.rs",
+        "SKILLS.md"
+      ],
+      "domains": [
+        "rust"
+      ],
+      "body": "The valuable coverage edge is rule → test, not rule → task (star_specs, 2026-09-29): already-built rules have no open task, so \"rule without task\" measures the wrong thing. Tests declare the rules they pin with a plain-text tag, e.g. a comment `spec-tags: ACCESS-4, ACCESS-9`, in whatever comment syntax the language uses.\n\nAdd two soft doctor advisories over rules of `active` specs: a rule no test tags, and a tag naming a rule that exists in no registered spec. Which files are scanned and what the tag marker is are configured in tasks.toml (e.g. globs + marker string), with a sensible default marker. Scanning is plain text — no parsing of any language.\n",
+      "created_at": "2026-09-29",
+      "scored_at": "2026-09-29",
+      "cross_repo": []
+    },
+    {
+      "id": 63,
+      "phase": 17,
+      "bundle": "agent_context",
+      "status": "pending",
+      "title": "Delegate prompt for current agents: read-first refs, reviewer check hints, runtime-accurate footer",
+      "scores": {
+        "d": 5,
+        "b": 7,
+        "u": 7
+      },
+      "eff": 1.4,
+      "dep_layer": 1,
+      "unlocks": 0,
+      "markers": [],
+      "depends_on": [
+        60
+      ],
+      "assignee": "grok",
+      "model": "grok-4.7",
+      "acceptance_criteria": [
+        "context_refs and checks round-trip through rmap new --from-stdin, show, --json and data.json; tasks without them render and export byte-identically",
+        "rmap delegate renders a read-first section for context_refs and a reviewer-checks section for checks, stating that checks are hints for the reviewer, not an automated gate",
+        "No delegate footer line names a specific language, toolchain or package manager; a test asserts this across all eight --to targets",
+        "Done tasks render acceptance criteria as - [x]; open tasks keep - [ ]",
+        "emits_canonical_section_order_with_distinguishing_line and the harness-driver skill contract are updated for the new sections; ../harness/lib/harness/roadmap.ex is checked for any assumption about delegate section layout, with the result noted in the commit",
+        "Docs examples for checks use commands from at least two different ecosystems; SKILLS.md, ~/.claude/includes/rmap.md, version bump + CHANGELOG"
+      ],
+      "out_of_scope": [
+        "Executing checks in rmap or harness",
+        "Validating that referenced paths exist"
+      ],
+      "touches": [
+        "src/delegate.rs",
+        "src/schema.rs",
+        "src/export.rs",
+        "src/main.rs",
+        "SKILLS.md"
+      ],
+      "domains": [
+        "rust"
+      ],
+      "body": "`rmap delegate` output is the verbatim prompt harness dispatches, and it still reflects the cloud-agent era:\n\n- There is no way to tell the agent what to read first. `touches` / `files_to_modify` say what it may write; specs, ADRs, design docs and reference files have no home except prose in `body`.\n- Acceptance criteria are prose the reviewer re-interprets every run; the task author cannot hand over the concrete commands that would demonstrate the change.\n- The Environment notes footer is written for hosted cloud sandboxes and names specific language toolchains (e.g. \"Elixir/Erlang/mix are absent\"), which is wrong for local harness runs and ties a language-agnostic tool to one ecosystem.\n- A `done` task renders its criteria as unchecked `- [ ]` boxes.\n\nAdd two optional creation-time list fields: `context_refs` (paths or URLs to read before starting) and `checks` (free-text commands that demonstrate the acceptance criteria). **`checks` are hints for the reviewer, not a gate**: rmap never executes them and nothing in the contract implies harness does — the reviewer runs and judges them (harness deliberately removed mechanical verification gates). Render both in delegate as their own sections; make the footer describe the execution runtime without naming any language toolchain; render criteria of done tasks as checked.\n",
+      "created_at": "2026-09-29",
+      "scored_at": "2026-09-29",
+      "cross_repo": []
     }
   ]
 }

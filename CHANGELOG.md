@@ -6,6 +6,11 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Prioritization model decided: keep D/B/U, D = landing risk, unlocks breaks ties (0.6.0)
+
+- `rmap next` / `rmap ready` now break equal Eff on the computed `unlocks` count (transitive dependents), then TOML order. Previously ties fell to TOML order only.
+- Decision recorded in DESIGN.md § "Prioritization model": D/B/U and the Eff formula stay (portfolio-wide contract; no evidence a new model ranks better). D is redefined as the cost and risk of landing a task in one implement → review → land cycle, not human hours.
+
 ### doctor: score decay only on open tasks (0.5.2)
 
 - `rmap doctor` no longer reports score decay for `done` / `superseded` tasks; they are never re-ranked, so the finding was noise (rmap's own roadmap: 148 → 95 findings).

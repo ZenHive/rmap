@@ -11789,3 +11789,69 @@ fn doctor_score_decay_skips_terminal_tasks() {
         .collect();
     assert_eq!(decayed, vec!["3".to_string()], "only the open task decays");
 }
+
+const RANK_UNLOCKS_TIEBREAK_TASKS: &str = r#"schema_version = 2
+project = "rank_unlocks"
+default_branch = "main"
+
+[phases.1]
+name = "One"
+order = 1
+status = "in_progress"
+
+[bundles.alpha]
+phase = 1
+order = 1
+description = "alpha"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Leaf, equal Eff"
+scores = { d = 2, b = 6, u = 6 }
+
+[[task]]
+id = 2
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Gatekeeper, equal Eff"
+scores = { d = 2, b = 6, u = 6 }
+
+[[task]]
+id = 3
+phase = 1
+bundle = "alpha"
+status = "pending"
+title = "Waits on 2"
+scores = { d = 5, b = 2, u = 2 }
+depends_on = [2]
+"#;
+
+#[test]
+fn next_and_ready_break_equal_eff_on_unlocks() {
+    let path = write_temp_tasks("rank_unlocks.toml", RANK_UNLOCKS_TIEBREAK_TASKS);
+    let next = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["next", "--tasks-path"])
+        .arg(&path)
+        .output()
+        .expect("run rmap next");
+    assert!(next.status.success());
+    let stdout = String::from_utf8_lossy(&next.stdout);
+    assert!(
+        stdout.starts_with("Task 2 "),
+        "gatekeeper wins the tie:\n{stdout}"
+    );
+
+    let ready = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .args(["ready", "--fields", "id", "--tasks-path"])
+        .arg(&path)
+        .output()
+        .expect("run rmap ready");
+    assert!(ready.status.success());
+    let ids: Vec<serde_json::Value> = serde_json::from_slice(&ready.stdout).expect("ready json");
+    let ids: Vec<String> = ids.iter().map(|t| t["id"].to_string()).collect();
+    assert_eq!(ids, vec!["2", "1"], "ready uses the same tiebreak");
+}
