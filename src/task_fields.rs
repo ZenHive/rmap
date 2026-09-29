@@ -22,29 +22,39 @@ macro_rules! task_fields {
             markers: Markers => [8, true, true, always] [Vec<String>; &'a [&'a str]; strings; array];
             #[serde(default)]
             depends_on: Vec<TaskId> => [9, true, true, always] [Vec<TaskId>; &'a [u32]; deps; numbers];
-            linear_id: Option<String> => [17, true, true, optional] [Option<String>; Option<&'a str>; optional; optional];
-            assignee: Option<String> => [16, true, true, optional] [Option<String>; Option<&'a str>; optional; optional];
-            module: Option<String> => [18, true, true, optional] [Option<String>; Option<&'a str>; optional; optional];
-            branch: Option<String> => [20, true, true, optional] [Option<String>; Option<&'a str>; optional; optional];
-            model: Option<String> => [19, true, true, optional] [Option<String>; Option<&'a str>; optional; optional];
+            linear_id: Option<String> => [19, true, true, optional] [Option<String>; Option<&'a str>; optional; optional];
+            assignee: Option<String> => [18, true, true, optional] [Option<String>; Option<&'a str>; optional; optional];
+            module: Option<String> => [20, true, true, optional] [Option<String>; Option<&'a str>; optional; optional];
+            branch: Option<String> => [22, true, true, optional] [Option<String>; Option<&'a str>; optional; optional];
+            model: Option<String> => [21, true, true, optional] [Option<String>; Option<&'a str>; optional; optional];
             #[serde(default)]
             acceptance_criteria: Vec<String> => [10, true, false, nonempty] [Vec<String>; &'a [&'a str]; strings; array];
+            /// Free-text commands that demonstrate the acceptance criteria.
+            /// Hints for the reviewer: rmap never executes them, and nothing here
+            /// implies a consumer does. Unvalidated; creation-time field.
             #[serde(default)]
-            out_of_scope: Vec<String> => [11, true, false, nonempty] [Vec<String>; &'a [&'a str]; strings; array];
+            checks: Vec<String> => [11, true, false, nonempty] [Vec<String>; &'a [String]; slice; array];
             #[serde(default)]
-            files_to_modify: Vec<String> => [12, true, false, nonempty] [Vec<String>; &'a [String]; slice; array];
+            out_of_scope: Vec<String> => [12, true, false, nonempty] [Vec<String>; &'a [&'a str]; strings; array];
+            /// Paths or URLs to read before starting. Unvalidated free-text —
+            /// a missing path is the consumer's problem. Distinct from
+            /// `files_to_modify` (write targets) and `touches` (collision hint).
+            #[serde(default)]
+            context_refs: Vec<String> => [13, true, false, nonempty] [Vec<String>; &'a [String]; slice; array];
+            #[serde(default)]
+            files_to_modify: Vec<String> => [14, true, false, nonempty] [Vec<String>; &'a [String]; slice; array];
             /// Advisory collision-prediction hint: files this task may read or write —
             /// typically a superset of `files_to_modify`. Used by an orchestrator to
             /// predict parallel-dispatch conflicts (two tasks conflict when the union
             /// of their `touches` + `files_to_modify` overlaps). Free-text, unvalidated
             /// (posture of `model` / `assignee`); creation-time field.
             #[serde(default)]
-            touches: Vec<String> => [13, true, false, nonempty] [Vec<String>; &'a [String]; slice; array];
+            touches: Vec<String> => [15, true, false, nonempty] [Vec<String>; &'a [String]; slice; array];
             /// Advisory capability-routing tags consumed by orchestrators. Free-text,
             /// unvalidated in rmap; downstream tooling owns any vocabulary.
             #[serde(default)]
-            domains: Vec<String> => [14, true, false, nonempty] [Vec<String>; &'a [String]; slice; array];
-            shipped_in: Option<String> => [32, true, true, optional] [];
+            domains: Vec<String> => [16, true, false, nonempty] [Vec<String>; &'a [String]; slice; array];
+            shipped_in: Option<String> => [34, true, true, optional] [];
             /// Open landing pointer (PR URL, Linear issue, GitLab MR, Gerrit change,
             /// or any other free-text ref). Transition-time: settable only on
             /// `in_progress` via `rmap status <id> in_progress --landing-ref <ref>`;
@@ -52,23 +62,23 @@ macro_rules! task_fields {
             /// `shipped_in`) and `blocked` (a PR closed unmerged is when the ref
             /// matters); cleared on `pending` (the work is being redone — the old
             /// ref belongs in `attempts`). Never parsed or fetched.
-            landing_ref: Option<String> => [33, true, true, optional] [];
-            body: Option<String> => [22, true, false, optional] [Option<String>; Option<&'a str>; optional; optional];
-            created_at: Option<String> => [28, true, true, optional] [Option<String>; Option<&'a str>; date; optional];
-            started_at: Option<String> => [29, true, true, optional] [];
-            done_at: Option<String> => [31, true, true, optional] [];
-            scored_at: Option<String> => [30, true, true, optional] [Option<String>; Option<&'a str>; date; optional];
-            blocked_reason: Option<String> => [21, true, true, optional] [];
-            implemented: Option<String> => [23, true, true, optional] [];
-            delivered_by: Option<String> => [24, true, true, optional] [];
-            verified: Option<bool> => [25, true, true, optional] [];
+            landing_ref: Option<String> => [35, true, true, optional] [];
+            body: Option<String> => [24, true, false, optional] [Option<String>; Option<&'a str>; optional; optional];
+            created_at: Option<String> => [30, true, true, optional] [Option<String>; Option<&'a str>; date; optional];
+            started_at: Option<String> => [31, true, true, optional] [];
+            done_at: Option<String> => [33, true, true, optional] [];
+            scored_at: Option<String> => [32, true, true, optional] [Option<String>; Option<&'a str>; date; optional];
+            blocked_reason: Option<String> => [23, true, true, optional] [];
+            implemented: Option<String> => [25, true, true, optional] [];
+            delivered_by: Option<String> => [26, true, true, optional] [];
+            verified: Option<bool> => [27, true, true, optional] [];
             /// Independent evaluator that supplied `verified = true`. Free-text and
             /// transition-time; new verified transitions require a non-empty value.
-            verified_by: Option<String> => [26, true, true, optional] [];
+            verified_by: Option<String> => [28, true, true, optional] [];
             /// Durable pointer to the evidence behind verification (for example a
             /// harness run id, CI URL, or review artifact). Optional, free-text, and
             /// meaningful only when `verified = true`.
-            verification_ref: Option<String> => [27, true, true, optional] [];
+            verification_ref: Option<String> => [29, true, true, optional] [];
             /// Append-only history of dispatch attempts that failed and returned the
             /// task to the queue, each carrying its failure evidence (e.g. a reviewer's
             /// rejection report). A transition-time field — appended by
@@ -78,11 +88,11 @@ macro_rules! task_fields {
             /// this history instead of starting blind. Empty = never failed (skipped on
             /// every output surface so untouched tasks round-trip byte-identically).
             #[serde(default)]
-            attempts: Vec<Attempt> => [34, true, false, nonempty] [];
+            attempts: Vec<Attempt> => [36, true, false, nonempty] [];
             /// Links this task to related tasks in other roadmaps. These relationships
             /// do not choose where this task's own work lands; `target_repo` does that.
             #[serde(default)]
-            cross_repo: Vec<CrossRepo> => [15, true, false, always] [Vec<CrossRepo>; &'a [CrossRepo]; slice; cross_repo];
+            cross_repo: Vec<CrossRepo> => [17, true, false, always] [Vec<CrossRepo>; &'a [CrossRepo]; slice; cross_repo];
         }
     };
 }

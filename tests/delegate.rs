@@ -60,6 +60,14 @@ files_to_modify = [
   "src/parse_order.rs",
   "tests/parse_order.rs",
 ]
+context_refs = [
+  "docs/order-parsing.md",
+  "https://example.com/adr/0012-order-map",
+]
+checks = [
+  "cargo test --test parse_order",
+  "mix test test/order_map_test.exs",
+]
 cross_repo = [
   { repo = "ccxt_client", task_id = 42, linear_id = "INE-310", relation = "blocks" },
 ]
@@ -153,6 +161,8 @@ fn formats_full_delegate_prompt_for_agent_target() {
         prompt.contains("- blocks ccxt_client task 42 (INE-310)"),
         "{prompt}"
     );
+    assert!(prompt.contains("## Read first"), "{prompt}");
+    assert!(prompt.contains("- docs/order-parsing.md"), "{prompt}");
     assert!(prompt.contains("## Task"), "{prompt}");
     assert!(
         prompt.contains("Normalize order payloads across exchanges."),
@@ -161,6 +171,15 @@ fn formats_full_delegate_prompt_for_agent_target() {
     assert!(prompt.contains("## Acceptance criteria"), "{prompt}");
     assert!(
         prompt.contains("- [ ] parseOrder accepts spot and futures payloads"),
+        "{prompt}"
+    );
+    assert!(prompt.contains("## Reviewer checks"), "{prompt}");
+    assert!(
+        prompt.contains("Hints for the reviewer, not an automated gate."),
+        "{prompt}"
+    );
+    assert!(
+        prompt.contains("- cargo test --test parse_order"),
         "{prompt}"
     );
     assert!(prompt.contains("## Out of scope"), "{prompt}");
@@ -237,6 +256,8 @@ fn formats_minimal_delegate_prompt_without_optional_sections() {
     assert!(!prompt.contains("### Cross-repo dependencies"), "{prompt}");
     assert!(!prompt.contains("## Task\n"), "{prompt}");
     assert!(!prompt.contains("## Acceptance criteria"), "{prompt}");
+    assert!(!prompt.contains("## Read first"), "{prompt}");
+    assert!(!prompt.contains("## Reviewer checks"), "{prompt}");
     assert!(!prompt.contains("## Out of scope"), "{prompt}");
     assert!(!prompt.contains("## Files to modify"), "{prompt}");
 }
@@ -246,16 +267,22 @@ fn emits_canonical_section_order_with_distinguishing_line() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
     let prompt = format_delegate_prompt(&tasks, "75", DelegateTarget::Claude).expect("task 75");
 
-    // (header, distinguishing line). The seven headers are the AC4 contract:
-    // Context → Task → Acceptance criteria → Out of scope → Files to modify
-    // → Scoring → Environment notes. `## Instructions` is the footer; not part
-    // of the section contract but does follow Environment notes.
+    // (header, distinguishing line). Locked order when the optional sections
+    // are present: Context → Read first → Task → Acceptance criteria →
+    // Reviewer checks → Out of scope → Files to modify → Scoring →
+    // Environment notes. `## Prior attempts`, `## What was actually
+    // implemented`, and `## Instructions` stay outside this contract.
     let expected: &[(&str, &str)] = &[
         ("## Context", "- Target: claude"),
+        ("## Read first", "docs/order-parsing.md"),
         ("## Task", "Normalize order payloads across exchanges."),
         (
             "## Acceptance criteria",
             "- [ ] parseOrder accepts spot and futures payloads",
+        ),
+        (
+            "## Reviewer checks",
+            "Hints for the reviewer, not an automated gate.",
         ),
         ("## Out of scope", "- Do not refactor parseTicker"),
         ("## Files to modify", "- src/parse_order.rs"),
@@ -277,6 +304,61 @@ fn emits_canonical_section_order_with_distinguishing_line() {
             "section {header:?} appeared out of canonical order in:\n{prompt}"
         );
         last_index = header_index;
+    }
+}
+
+#[test]
+fn done_tasks_check_acceptance_criteria_open_tasks_do_not() {
+    let base = r#"
+schema_version = 2
+project = "demo"
+default_branch = "main"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "pending"
+
+[bundles.core]
+phase = 1
+order = 1
+description = "core"
+
+[[task]]
+id = 1
+phase = 1
+bundle = "core"
+status = "STATUS"
+title = "checkbox"
+scores = { d = 2, b = 4, u = 4 }
+acceptance_criteria = ["the box tracks status"]
+IMPLEMENTED
+"#;
+
+    for (status, extra, mark) in [
+        ("pending", "", " "),
+        ("in_progress", "", " "),
+        ("blocked", "blocked_reason = \"waiting\"\n", " "),
+        ("superseded", "", " "),
+        ("done", "implemented = \"shipped\"\n", "x"),
+    ] {
+        let input = base.replace("STATUS", status).replace("IMPLEMENTED", extra);
+        let tasks = validate_tasks_str("roadmap/tasks.toml", &input).unwrap_or_else(|err| {
+            panic!("{status} fixture should validate: {err}");
+        });
+        let prompt = format_delegate_prompt(&tasks, "1", DelegateTarget::Claude)
+            .unwrap_or_else(|| panic!("{status} prompt"));
+        let expected = format!("- [{mark}] the box tracks status");
+        assert!(
+            prompt.contains(&expected),
+            "{status} should render {expected:?}:\n{prompt}"
+        );
+        if mark == " " {
+            assert!(
+                !prompt.contains("- [x]"),
+                "{status} must stay unchecked:\n{prompt}"
+            );
+        }
     }
 }
 
@@ -312,7 +394,11 @@ fn codex_target_emits_codex_environment_footer() {
 
     assert!(prompt.contains("## Environment notes"), "{prompt}");
     assert!(prompt.contains("Network access varies"), "{prompt}");
-    assert!(prompt.contains("hex.pm"), "{prompt}");
+    assert!(
+        prompt.contains("Project toolchains are not guaranteed"),
+        "{prompt}"
+    );
+    assert!(!footer_names_toolchain(environment_notes(&prompt)));
     // Cursor-specific phrasing must NOT bleed into the Codex footer.
     assert!(!prompt.contains("Run the full project harness"), "{prompt}");
 }
@@ -415,6 +501,106 @@ fn delegate_emits_milestone_bullet_without_target_version() {
         !prompt.contains("- Milestone: v1_0 (target="),
         "no target qualifier when unset; got:\n{prompt}"
     );
+}
+
+#[test]
+fn environment_footer_names_no_language_toolchain_or_package_manager() {
+    let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");
+    let targets = [
+        DelegateTarget::Claude,
+        DelegateTarget::Codex,
+        DelegateTarget::Cursor,
+        DelegateTarget::Grok,
+        DelegateTarget::Antigravity,
+        DelegateTarget::Pi,
+        DelegateTarget::Droid,
+        DelegateTarget::Kimi,
+    ];
+    assert_eq!(targets.len(), 8, "one footer per --to target");
+
+    for target in targets {
+        let prompt = format_delegate_prompt(&tasks, "75", target).expect("task 75");
+        let notes = environment_notes(&prompt);
+        assert!(
+            notes.contains("## Environment notes"),
+            "{target} missing footer:\n{prompt}"
+        );
+        assert!(
+            !footer_names_toolchain(notes),
+            "{target} environment notes name a language, toolchain, or package manager:\n{notes}"
+        );
+    }
+}
+
+fn environment_notes(prompt: &str) -> &str {
+    let start = prompt
+        .find("## Environment notes")
+        .expect("environment notes");
+    let rest = &prompt[start..];
+    let end = rest
+        .find("\n## ")
+        .map(|index| index + 1)
+        .unwrap_or(rest.len());
+    &rest[..end]
+}
+
+fn footer_names_toolchain(notes: &str) -> bool {
+    const BANNED: &[&str] = &[
+        "elixir",
+        "erlang",
+        "rust",
+        "python",
+        "ruby",
+        "javascript",
+        "typescript",
+        "golang",
+        "java",
+        "kotlin",
+        "swift",
+        "php",
+        "dart",
+        "node",
+        "mix",
+        "cargo",
+        "npm",
+        "pip",
+        "bundler",
+        "asdf",
+        "hex.pm",
+        "crates.io",
+        "npmjs",
+        "pypi",
+        "rubygems",
+        "yarn",
+        "pnpm",
+        "maven",
+        "gradle",
+        "composer",
+        "poetry",
+    ];
+    notes.lines().any(|line| {
+        let lower = line.to_ascii_lowercase();
+        BANNED.iter().any(|word| contains_word(&lower, word))
+    })
+}
+
+fn contains_word(haystack: &str, word: &str) -> bool {
+    let bytes = haystack.as_bytes();
+    let needle = word.as_bytes();
+    let mut start = 0;
+    while let Some(pos) = haystack[start..].find(word) {
+        let abs = start + pos;
+        let before_ok = abs == 0 || !bytes[abs - 1].is_ascii_alphanumeric();
+        let after = abs + needle.len();
+        let after_ok = after >= bytes.len() || !bytes[after].is_ascii_alphanumeric();
+        // Treat '.' as part of a registry host (`hex.pm`) rather than a boundary.
+        let after_ok = after_ok && (after >= bytes.len() || bytes[after] != b'.');
+        if before_ok && after_ok {
+            return true;
+        }
+        start = abs + 1;
+    }
+    false
 }
 
 #[test]

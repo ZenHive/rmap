@@ -106,6 +106,24 @@ fn exports_validated_tasks_with_computed_efficiency() {
         value["task"][1].get("domains").is_none(),
         "task 75 should omit domains when empty, got {value}"
     );
+    // context_refs and checks skip serialization when empty, so a task that
+    // never set them exports the same keys as before the fields existed.
+    assert!(
+        value["task"][1].get("context_refs").is_none(),
+        "task 75 should omit context_refs when empty, got {value}"
+    );
+    assert!(
+        value["task"][1].get("checks").is_none(),
+        "task 75 should omit checks when empty, got {value}"
+    );
+    assert!(
+        !json.contains("context_refs"),
+        "empty context_refs must not appear in the export bytes: {json}"
+    );
+    assert!(
+        !json.contains("\"checks\""),
+        "empty checks must not appear in the export bytes: {json}"
+    );
 }
 
 #[test]

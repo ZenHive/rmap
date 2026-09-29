@@ -150,6 +150,16 @@ pub fn format_task(task: &Task) -> String {
         lines.extend(task.out_of_scope.iter().map(|item| format!("- {item}")));
     }
 
+    if !task.context_refs.is_empty() {
+        lines.push("context_refs:".to_string());
+        lines.extend(task.context_refs.iter().map(|item| format!("- {item}")));
+    }
+
+    if !task.checks.is_empty() {
+        lines.push("checks:".to_string());
+        lines.extend(task.checks.iter().map(|item| format!("- {item}")));
+    }
+
     if let Some(shipped_in) = &task.shipped_in {
         lines.push(format!("shipped_in: {shipped_in}"));
     }

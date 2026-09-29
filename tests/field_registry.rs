@@ -46,6 +46,8 @@ target_repo = "other"
 body = "details"
 touches = ["src/lib.rs"]
 domains = ["rust"]
+context_refs = ["DESIGN.md", "https://example.com/adr"]
+checks = ["cargo test --test field_registry", "mix test test/order_test.exs"]
 "#,
     )
     .unwrap();
@@ -64,11 +66,30 @@ domains = ["rust"]
     assert_eq!(added.body.as_deref(), Some("details"));
     assert_eq!(added.touches, ["src/lib.rs"]);
     assert_eq!(added.domains, ["rust"]);
+    assert_eq!(added.context_refs, ["DESIGN.md", "https://example.com/adr"]);
+    assert_eq!(
+        added.checks,
+        [
+            "cargo test --test field_registry",
+            "mix test test/order_test.exs"
+        ]
+    );
     assert_eq!(added.created_at.as_deref(), Some("2026-09-29"));
     let json: serde_json::Value =
         serde_json::from_str(&export_task_json_str(&tasks, Some(added)).unwrap()).unwrap();
     assert_eq!(json["target_repo"], "other");
     assert_eq!(json["touches"], serde_json::json!(["src/lib.rs"]));
+    assert_eq!(
+        json["context_refs"],
+        serde_json::json!(["DESIGN.md", "https://example.com/adr"])
+    );
+    assert_eq!(
+        json["checks"],
+        serde_json::json!([
+            "cargo test --test field_registry",
+            "mix test test/order_test.exs"
+        ])
+    );
 
     let changed = output
         .replace("target_repo = \"other\"", "target_repo = \"elsewhere\"")

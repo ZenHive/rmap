@@ -133,8 +133,8 @@ rmap depend <id> on <id> [--cross-repo <repo>:<task_id>[:<relation>]]   # add de
 rmap new                             # interactive task creation (dialoguer)
 rmap new --from-stdin                # non-interactive — agent piping
 
-# delegation — cloud-agent workflow
-rmap delegate <id> --to claude|codex|cursor|grok|antigravity|pi|droid|kimi   # emit paste-ready Markdown prompt: title + body + deps + AC + per-agent environment-notes footer
+# delegation — agent prompt
+rmap delegate <id> --to claude|codex|cursor|grok|antigravity|pi|droid|kimi   # emit paste-ready Markdown prompt: title + body + deps + AC + read-first refs + reviewer-check hints + per-agent runtime footer
 
 # live dev
 rmap watch                           # FS watch on tasks.toml, render on change

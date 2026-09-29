@@ -15,7 +15,7 @@ No daemon, no server, no database, no language assumptions. Drop it into a Rust 
 
 Most roadmap tools either lock you into a SaaS UI (Linear, Jira) or scatter intent across hand-edited Markdown that drifts the moment two people touch it. `rmap` keeps the **source of truth as a typed file** and treats `ROADMAP.md` as a generated view. Comments and hand-written prose around marker pairs are byte-preserved across rewrites, so you can edit the Markdown freely and the next render won't fight you.
 
-It is also explicitly designed for **agent-driven workflows**: every read command has a `--json` envelope, mutations are atomic and validate before writing, and `rmap delegate` formats a task as a Markdown prompt for cloud agents (Codex, Cursor).
+It is also explicitly designed for **agent-driven workflows**: every read command has a `--json` envelope, mutations are atomic and validate before writing, and `rmap delegate` formats a task as a Markdown prompt for the agent that will implement it.
 
 ## Install
 
@@ -79,7 +79,7 @@ rmap status 1 done --implemented "wired up postgres + ecto repo"
 | `rmap mark <id> +x -y` | Add/remove markers idempotently. | yes (toml) |
 | `rmap depend <id> on <id>` | Add in-repo or `--cross-repo` dependency. | yes (toml) |
 | `rmap diff` | Show changes vs `--against <ref>` (default: `default_branch`). | no |
-| `rmap delegate <id> --to codex\|cursor` | Format task as a cloud-agent prompt. | no |
+| `rmap delegate <id> [--to <agent>]` | Format task as an agent prompt. | no |
 | `rmap stale` | In-progress tasks idle past a threshold (`7d`/`2w`/`1y`). | no |
 | `rmap doctor` | Aggregate soft signals (validate, stale, score decay, drift, …). | no |
 | `rmap schema --json` | Emit JSON Schema for `tasks.toml` (agent self-description). | no |
@@ -109,7 +109,7 @@ Optional, all additive:
 - `changelog_path` / per-phase `changelog` — archive-collapse link target (path, or `false` to omit the link)
 - `[focus] phase = N` — bias `rmap next` toward a focus phase; surfaces a FOCUS block in `ROADMAP.md`
 - `[linear] team_key = "ENG"` — opt-in Linear cross-reference (validated only when present)
-- per-task: `markers`, `depends_on`, `cross_repo`, `target_repo`, `module`, `assignee`, `model`, `domains`, `linear_id`, `acceptance_criteria`, `blocked_reason`, `started_at`, `done_at`, `shipped_in`, `landing_ref`, `delivered_by`, `verified`, `verified_by`, `verification_ref`, `scored_at`
+- per-task: `markers`, `depends_on`, `cross_repo`, `target_repo`, `module`, `assignee`, `model`, `domains`, `linear_id`, `acceptance_criteria`, `checks`, `out_of_scope`, `context_refs`, `files_to_modify`, `touches`, `blocked_reason`, `started_at`, `done_at`, `shipped_in`, `landing_ref`, `delivered_by`, `verified`, `verified_by`, `verification_ref`, `scored_at`
 
 **Efficiency** is computed at read time as `(b + u) / (2 * d)`, never stored. Scores older than 30 days get a decay suffix in the rendered view.
 
@@ -140,7 +140,7 @@ The `--json` outputs of `show`, `list`, `next`, `schema`, `diff`, and `doctor` a
 - **append-only** — fields may be added; renames or removals require bumping `schema_version`
 - `schema --json` emits the live JSON Schema derived from the Rust types (no hand-authored parallel schema)
 - `SKILLS.md` is the agent-facing user manual; every fenced command in it runs in CI (`tests/skills_smoke.rs`)
-- `rmap delegate <id> --to <agent>` formats a Markdown prompt + per-agent environment notes (mirroring `~/.claude/includes/cloud-agent-environments.md` when present)
+- `rmap delegate <id> --to <agent>` formats a Markdown prompt plus per-agent environment notes that describe the execution runtime and name no language toolchain
 
 ## Determinism
 

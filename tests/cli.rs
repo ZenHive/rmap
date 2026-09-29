@@ -4800,7 +4800,7 @@ touches = ["src/foo.rs", "src/shared.rs"]
         tasks.contains("files_to_modify = [\"src/foo.rs\"]"),
         "files_to_modify should remain a separate field; tasks: {tasks}"
     );
-    // Canonical order: files_to_modify (11) precedes touches (12).
+    // Canonical order: files_to_modify precedes touches.
     let p_ftm = tasks
         .find("files_to_modify")
         .expect("files_to_modify present");
@@ -4831,6 +4831,230 @@ touches = ["src/foo.rs", "src/shared.rs"]
         .expect("files_to_modify is an array");
     assert_eq!(files.len(), 1);
     assert_eq!(files[0], "src/foo.rs");
+}
+
+#[test]
+fn new_from_stdin_round_trips_context_refs_and_checks() {
+    let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+
+    let payload = r#"
+[[task]]
+phase = 1
+bundle = "foundation"
+title = "Read-first task"
+scores = { d = 2, b = 6, u = 6 }
+acceptance_criteria = ["the prompt names what to read and how to show it"]
+checks = ["cargo test --test delegate", "mix test test/harness/roadmap_test.exs"]
+out_of_scope = ["Do not execute the checks"]
+context_refs = ["DESIGN.md", "https://example.com/adr/0012"]
+files_to_modify = ["src/delegate.rs"]
+"#;
+
+    let output = run_new_from_stdin(
+        &tasks_path,
+        &roadmap_path,
+        &data_path,
+        payload,
+        "2026-05-12",
+    );
+    assert!(
+        output.status.success(),
+        "expected success, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let tasks = fs::read_to_string(&tasks_path).expect("read updated tasks");
+    assert!(
+        tasks.contains("context_refs = [\"DESIGN.md\", \"https://example.com/adr/0012\"]"),
+        "context_refs should round-trip into tasks.toml; tasks: {tasks}"
+    );
+    assert!(
+        tasks.contains(
+            "checks = [\"cargo test --test delegate\", \"mix test test/harness/roadmap_test.exs\"]"
+        ),
+        "checks should round-trip into tasks.toml; tasks: {tasks}"
+    );
+    // checks (11) < out_of_scope (12) < context_refs (13) < files_to_modify (14).
+    let checks_idx = tasks.find("\nchecks = ").expect("checks present");
+    let oos_idx = tasks
+        .find("\nout_of_scope = ")
+        .expect("out_of_scope present");
+    let refs_idx = tasks
+        .find("\ncontext_refs = ")
+        .expect("context_refs present");
+    let files_idx = tasks
+        .find("\nfiles_to_modify = ")
+        .expect("files_to_modify present");
+    assert!(
+        checks_idx < oos_idx && oos_idx < refs_idx && refs_idx < files_idx,
+        "canonical order checks < out_of_scope < context_refs < files_to_modify; tasks:\n{tasks}"
+    );
+
+    let show = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show");
+    assert!(show.status.success());
+    let show_text = String::from_utf8_lossy(&show.stdout);
+    assert!(
+        show_text.contains("context_refs:\n- DESIGN.md\n- https://example.com/adr/0012"),
+        "show should list context_refs; stdout: {show_text}"
+    );
+    assert!(
+        show_text.contains(
+            "checks:\n- cargo test --test delegate\n- mix test test/harness/roadmap_test.exs"
+        ),
+        "show should list checks; stdout: {show_text}"
+    );
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("2")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show --json");
+    assert!(json.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    assert_eq!(
+        value["context_refs"],
+        serde_json::json!(["DESIGN.md", "https://example.com/adr/0012"])
+    );
+    assert_eq!(
+        value["checks"],
+        serde_json::json!([
+            "cargo test --test delegate",
+            "mix test test/harness/roadmap_test.exs"
+        ])
+    );
+
+    let data_json = fs::read_to_string(&data_path).expect("read rendered data.json");
+    let data: serde_json::Value = serde_json::from_str(&data_json).expect("data.json is valid");
+    assert_eq!(
+        data["task"][1]["context_refs"],
+        serde_json::json!(["DESIGN.md", "https://example.com/adr/0012"])
+    );
+    assert_eq!(
+        data["task"][1]["checks"],
+        serde_json::json!([
+            "cargo test --test delegate",
+            "mix test test/harness/roadmap_test.exs"
+        ])
+    );
+
+    let prompt = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("2")
+        .arg("--to")
+        .arg("claude")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap delegate");
+    assert!(
+        prompt.status.success(),
+        "{}",
+        String::from_utf8_lossy(&prompt.stderr)
+    );
+    let prompt_text = String::from_utf8_lossy(&prompt.stdout);
+    assert!(prompt_text.contains("## Read first"), "{prompt_text}");
+    assert!(prompt_text.contains("- DESIGN.md"), "{prompt_text}");
+    assert!(prompt_text.contains("## Reviewer checks"), "{prompt_text}");
+    assert!(
+        prompt_text.contains("Hints for the reviewer, not an automated gate."),
+        "{prompt_text}"
+    );
+    assert!(
+        prompt_text.contains("- cargo test --test delegate"),
+        "{prompt_text}"
+    );
+    assert!(
+        prompt_text.contains("- [ ] the prompt names what to read and how to show it"),
+        "{prompt_text}"
+    );
+}
+
+#[test]
+fn tasks_without_context_refs_or_checks_omit_them_everywhere() {
+    let (dir, tasks_path, _roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
+    let tasks = fs::read_to_string(&tasks_path).expect("read tasks");
+    assert!(!tasks.contains("context_refs"), "{tasks}");
+    assert!(!tasks.contains("checks"), "{tasks}");
+
+    let show = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("1")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show");
+    assert!(show.status.success());
+    let show_text = String::from_utf8_lossy(&show.stdout);
+    assert!(!show_text.contains("context_refs:"), "{show_text}");
+    assert!(!show_text.contains("checks:"), "{show_text}");
+
+    let json = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("show")
+        .arg("1")
+        .arg("--json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap show --json");
+    assert!(json.status.success());
+    let value: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("stdout is valid json");
+    assert!(value.get("context_refs").is_none(), "{value}");
+    assert!(value.get("checks").is_none(), "{value}");
+
+    let data_json = fs::read_to_string(&data_path).expect("read data.json");
+    assert!(
+        !data_json.contains("context_refs") && !data_json.contains("\"checks\""),
+        "tasks without the fields must export byte-identically (keys absent): {data_json}"
+    );
+
+    let exported = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("export")
+        .arg("json")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .current_dir(&dir)
+        .output()
+        .expect("run rmap export json");
+    assert!(
+        exported.status.success(),
+        "{}",
+        String::from_utf8_lossy(&exported.stderr)
+    );
+    let exported_text = String::from_utf8_lossy(&exported.stdout);
+    assert_eq!(
+        exported_text.trim_end(),
+        data_json.trim_end(),
+        "export json and rendered data.json should match"
+    );
+
+    let prompt = Command::new(env!("CARGO_BIN_EXE_rmap"))
+        .arg("delegate")
+        .arg("1")
+        .arg("--to")
+        .arg("claude")
+        .arg("--tasks-path")
+        .arg(&tasks_path)
+        .output()
+        .expect("run rmap delegate");
+    assert!(
+        prompt.status.success(),
+        "{}",
+        String::from_utf8_lossy(&prompt.stderr)
+    );
+    let prompt_text = String::from_utf8_lossy(&prompt.stdout);
+    assert!(!prompt_text.contains("## Read first"), "{prompt_text}");
+    assert!(!prompt_text.contains("## Reviewer checks"), "{prompt_text}");
 }
 
 #[test]
@@ -4977,8 +5201,8 @@ cross_repo = [
 #[test]
 fn new_from_stdin_emits_canonical_order_for_creation_fields() {
     // Asserts the writer in add_task_str + canonical_task_key_index produce
-    // the expected key ordering when all three Task-25 fields are present:
-    //   out_of_scope (10) < files_to_modify (11) < touches (12) < domains (13) < cross_repo (14) < model (18) < branch (19)
+    // the expected key ordering when the creation fields are present:
+    //   out_of_scope (12) < files_to_modify (14) < touches (15) < domains (16) < cross_repo (17) < model (21) < branch (22)
     let (_dir, tasks_path, roadmap_path, data_path) = write_new_stdin_fixture(NEW_STDIN_TASKS);
 
     let payload = r#"

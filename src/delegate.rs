@@ -89,10 +89,12 @@ fn format_prompt(tasks: &Tasks, task: &Task, target: DelegateTarget) -> String {
     line!(prompt, "# Task {}: {}", task.id, task.title);
 
     append_context(&mut prompt, tasks, task, target);
+    append_context_refs(&mut prompt, task);
     append_task_body(&mut prompt, task);
     append_prior_attempts(&mut prompt, task);
     append_implemented(&mut prompt, task);
     append_acceptance_criteria(&mut prompt, task);
+    append_checks(&mut prompt, task);
     append_out_of_scope(&mut prompt, task);
     append_files_to_modify(&mut prompt, task);
     append_scoring(&mut prompt, task);
@@ -256,15 +258,47 @@ fn append_implemented(prompt: &mut String, task: &Task) {
     line!(prompt, "{implemented}");
 }
 
+fn append_context_refs(prompt: &mut String, task: &Task) {
+    if task.context_refs.is_empty() {
+        return;
+    }
+
+    line!(prompt);
+    line!(prompt, "## Read first");
+    line!(prompt, "Read these before starting.");
+    for reference in &task.context_refs {
+        line!(prompt, "- {reference}");
+    }
+}
+
 fn append_acceptance_criteria(prompt: &mut String, task: &Task) {
     if task.acceptance_criteria.is_empty() {
         return;
     }
 
+    // Done work is already satisfied. Every other status stays an open box
+    // so a blocked or superseded task is not presented as finished.
+    let mark = if task.status == "done" { "x" } else { " " };
     line!(prompt);
     line!(prompt, "## Acceptance criteria");
     for criterion in &task.acceptance_criteria {
-        line!(prompt, "- [ ] {criterion}");
+        line!(prompt, "- [{mark}] {criterion}");
+    }
+}
+
+fn append_checks(prompt: &mut String, task: &Task) {
+    if task.checks.is_empty() {
+        return;
+    }
+
+    line!(prompt);
+    line!(prompt, "## Reviewer checks");
+    line!(
+        prompt,
+        "Hints for the reviewer, not an automated gate. rmap does not execute these commands; the reviewer runs and judges them."
+    );
+    for check in &task.checks {
+        line!(prompt, "- {check}");
     }
 }
 
@@ -315,9 +349,10 @@ fn append_scoring(prompt: &mut String, task: &Task) {
     );
 }
 
-// Per-agent reachability notes. Source of truth is
-// `~/.claude/includes/cloud-agent-environments.md`; when that changes
-// (e.g. Codex sandbox gains/loses a capability), sync these literals by hand.
+// Per-agent execution runtime. Describe where the agent runs (network, local
+// vs hosted, cwd). Do not name a language, toolchain, or package manager —
+// rmap is language-agnostic, and a hosted image's missing runtime is a fact
+// about that image, not about one ecosystem.
 fn append_agent_notes(prompt: &mut String, target: DelegateTarget) {
     line!(prompt);
     line!(prompt, "## Environment notes");
@@ -325,11 +360,11 @@ fn append_agent_notes(prompt: &mut String, target: DelegateTarget) {
         DelegateTarget::Codex => {
             line!(
                 prompt,
-                "- Network access varies by environment config: default is offline. The \"Common dependencies\" preset reaches crates.io / npmjs / PyPI and ~70 dev domains; hex.pm and many vendor docs are NOT in that preset. Try before trusting; fall back to context already in this prompt when blocked."
+                "- Network access varies by environment config: default is offline. A common-dependencies preset reaches some package registries and dev domains; many registries and docs are not in that preset. Try before trusting; fall back to context already in this prompt when blocked."
             );
             line!(
                 prompt,
-                "- Project toolchains are not guaranteed (e.g. Elixir/Erlang/mix are absent on the default image). Don't claim harness runs you couldn't actually execute."
+                "- Project toolchains are not guaranteed on the default image. Don't claim runs you couldn't actually execute."
             );
             line!(
                 prompt,
@@ -343,7 +378,7 @@ fn append_agent_notes(prompt: &mut String, target: DelegateTarget) {
         DelegateTarget::Cursor => {
             line!(
                 prompt,
-                "- Full network: hex.pm / crates.io / npm and general HTTP are reachable."
+                "- Full network: package registries and general HTTP are reachable."
             );
             line!(
                 prompt,
@@ -355,7 +390,7 @@ fn append_agent_notes(prompt: &mut String, target: DelegateTarget) {
             );
             line!(
                 prompt,
-                "- asdf shims may intercept toolchain binaries — set explicit PATHs if a runtime appears \"missing\" mid-session."
+                "- Version-manager shims may intercept toolchain binaries — set explicit paths if a runtime appears \"missing\" mid-session."
             );
         }
         DelegateTarget::Claude => {
