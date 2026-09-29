@@ -1138,6 +1138,7 @@ fn status_command_updates_tasks_and_rerenders_outputs() {
     assert_eq!(data["task"][1]["done_at"], "2026-05-14");
 }
 
+// rmap-spec-tags: DISPATCH-8
 #[test]
 fn status_in_progress_auto_fills_started_at() {
     let dir = temp_dir();
@@ -1704,6 +1705,7 @@ fn delegate_accepts_new_local_agents_with_footers() {
     }
 }
 
+// rmap-spec-tags: DELEGATE-6
 #[test]
 fn delegate_without_to_defaults_to_assignee() {
     // `--to` is optional: the task's stored `assignee` is the routing intent.
@@ -1732,6 +1734,7 @@ fn delegate_without_to_defaults_to_assignee() {
     );
 }
 
+// rmap-spec-tags: DELEGATE-6
 #[test]
 fn delegate_without_to_and_no_assignee_exits_one() {
     // Task 74 has no `assignee` — there is no routing intent to honor.
@@ -1754,6 +1757,7 @@ fn delegate_without_to_and_no_assignee_exits_one() {
     );
 }
 
+// rmap-spec-tags: DELEGATE-6
 #[test]
 fn delegate_without_to_and_human_assignee_exits_one() {
     // `human` is a valid assignee but not a delegatable target — delegating
@@ -2089,6 +2093,7 @@ fn ready_bundle_filters_to_dispatchable_layer_zero_of_bundle() {
     assert_eq!(ids, vec![2], "only task 2 is ready within bundle alpha");
 }
 
+// rmap-spec-tags: DISPATCH-7
 #[test]
 fn ready_dispatchable_excludes_handbuild_tasks() {
     let path = write_temp_tasks("handbuild_tasks.toml", HANDBUILD_TASKS);
@@ -2126,6 +2131,7 @@ fn ready_dispatchable_excludes_handbuild_tasks() {
     );
 }
 
+// rmap-spec-tags: JSON-4
 #[test]
 fn list_fields_projects_to_named_keys_only() {
     // --fields emits a bare JSON array of objects carrying only the requested
@@ -2215,6 +2221,7 @@ fn fields_unknown_name_errors_with_offending_field() {
     );
 }
 
+// rmap-spec-tags: JSON-4
 #[test]
 fn ready_fields_projection_includes_dep_layer() {
     // --fields works on `ready` too, and dep_layer is a projectable key.
@@ -9970,6 +9977,7 @@ fn status_done_verified_with_evaluator_writes_provenance() {
     );
 }
 
+// rmap-spec-tags: DISPATCH-10
 #[test]
 fn status_done_verified_without_evaluator_fails_without_mutating() {
     let dir = temp_dir();
@@ -10059,6 +10067,7 @@ fn status_non_done_with_delivered_by_emits_warning_and_skips_write() {
     );
 }
 
+// rmap-spec-tags: DISPATCH-10
 #[test]
 fn status_done_with_shipped_in_persists_field() {
     let dir = temp_dir();
@@ -10243,6 +10252,7 @@ scored_at = "2026-05-01"
 
 // The blocked-row render segment is covered end-to-end by the `mermaid_block`
 // golden fixture; here we assert the mutator writes the field to tasks.toml.
+// rmap-spec-tags: DISPATCH-11
 #[test]
 fn status_blocked_with_reason_writes_field() {
     let dir = temp_dir();
@@ -10281,6 +10291,7 @@ fn status_blocked_with_reason_writes_field() {
     );
 }
 
+// rmap-spec-tags: DISPATCH-11
 #[test]
 fn status_non_blocked_with_reason_emits_warning_and_skips_write() {
     let dir = temp_dir();
@@ -10324,6 +10335,7 @@ fn status_non_blocked_with_reason_emits_warning_and_skips_write() {
     );
 }
 
+// rmap-spec-tags: DISPATCH-11
 #[test]
 fn status_leaving_blocked_clears_blocked_reason() {
     for (new_status, extra_args) in [
@@ -10367,6 +10379,7 @@ fn status_leaving_blocked_clears_blocked_reason() {
     }
 }
 
+// rmap-spec-tags: DISPATCH-11
 #[test]
 fn status_blocked_reason_overwrites_existing() {
     let dir = temp_dir();
@@ -11364,6 +11377,7 @@ fn landing_ref_workspace() -> (PathBuf, PathBuf) {
     (dir, tasks_path)
 }
 
+// rmap-spec-tags: DISPATCH-8, DISPATCH-9
 #[test]
 fn status_in_progress_landing_ref_persists_and_does_not_churn_started_at() {
     let (dir, tasks_path) = landing_ref_workspace();
@@ -11436,6 +11450,7 @@ fn status_in_progress_landing_ref_persists_and_does_not_churn_started_at() {
     );
 }
 
+// rmap-spec-tags: DISPATCH-9
 #[test]
 fn status_landing_ref_rejected_on_other_statuses() {
     let (dir, tasks_path) = landing_ref_workspace();
@@ -11470,6 +11485,7 @@ fn status_landing_ref_rejected_on_other_statuses() {
     }
 }
 
+// rmap-spec-tags: DISPATCH-9
 #[test]
 fn status_empty_landing_ref_clears_field() {
     let (dir, tasks_path) = landing_ref_workspace();
@@ -11517,6 +11533,7 @@ fn status_empty_landing_ref_clears_field() {
     );
 }
 
+// rmap-spec-tags: DISPATCH-9
 #[test]
 fn status_done_and_blocked_keep_landing_ref_pending_clears() {
     let (dir, tasks_path) = landing_ref_workspace();

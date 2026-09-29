@@ -11,3 +11,5 @@ DELEGATE-3: Acceptance criteria use checked boxes for done tasks and unchecked b
 DELEGATE-4: Context always includes Target repo, using task.target_repo when explicit and the roadmap project otherwise.
 
 DELEGATE-5: Per-agent environment footers describe execution runtime without naming a language, toolchain or package manager.
+
+DELEGATE-6: delegate without --to uses the stored assignee as its target. With no assignee it exits 1 with has no assignee; pass --to <agent>. With assignee = "human" it exits 1 with is assigned to human; pass --to <agent> to delegate anyway.

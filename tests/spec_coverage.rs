@@ -403,15 +403,22 @@ fn agent_contract_specs_validate_and_flag_only_untagged_rules() {
         "DELEGATE-3",
         "DELEGATE-4",
         "DELEGATE-5",
+        "DELEGATE-6",
         "DISPATCH-1",
         "DISPATCH-2",
         "DISPATCH-3",
         "DISPATCH-4",
         "DISPATCH-5",
         "DISPATCH-6",
+        "DISPATCH-7",
+        "DISPATCH-8",
+        "DISPATCH-9",
+        "DISPATCH-10",
+        "DISPATCH-11",
         "JSON-1",
         "JSON-2",
         "JSON-3",
+        "JSON-4",
     ]
     .map(String::from)
     .to_vec();
@@ -436,7 +443,7 @@ fn agent_contract_specs_validate_and_flag_only_untagged_rules() {
     assert_eq!(
         untested,
         vec!["JSON-1"],
-        "only the deliberate additive-only gap is untagged:\n{json_text}"
+        "all harness shell-out rules are tagged; only the deliberate additive-only gap remains:\n{json_text}"
     );
     assert!(findings.iter().any(|finding| {
         finding["kind"] == "untested_rule" && finding["file"] == "specs/agent-json.md"
