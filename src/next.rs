@@ -7,6 +7,7 @@ use crate::query::{
 use crate::schema::{Task, Tasks};
 use crate::scoring::{efficiency, format_efficiency, tier_glyph};
 use crate::topo::compute_unlocks;
+use crate::vocabulary::Status;
 
 /// Top `count` `pending` tasks whose `depends_on` are all `done`, ranked by
 /// a lexicographic key: **(focus-phase × active-milestone) → Eff desc → unlocks desc**.
@@ -43,7 +44,7 @@ pub fn next_tasks<'a>(tasks: &'a Tasks, filter: &TaskFilter, count: usize) -> Ve
     let mut candidates: Vec<&Task> = tasks
         .task
         .iter()
-        .filter(|task| task.status == "pending")
+        .filter(|task| task.status == Status::Pending)
         .filter(|task| matches_bundle(task, filter.bundle.as_deref()))
         .filter(|task| matches_milestone(task, filter.milestone.as_deref()))
         .filter(|task| matches_marker(task, filter.marker.as_deref()))
@@ -72,7 +73,7 @@ pub fn ready_tasks<'a>(
     let mut candidates: Vec<&Task> = tasks
         .task
         .iter()
-        .filter(|task| task.status == "pending")
+        .filter(|task| task.status == Status::Pending)
         .filter(|task| matches_marker(task, filter.marker.as_deref()))
         .filter(|task| matches_phase(task, filter.phase))
         .filter(|task| matches_bundle(task, filter.bundle.as_deref()))
@@ -151,6 +152,6 @@ pub(crate) fn is_unblocked(task: &Task, tasks: &Tasks) -> bool {
         tasks
             .task
             .iter()
-            .any(|candidate| candidate.id == *dependency && candidate.status == "done")
+            .any(|candidate| candidate.id == *dependency && candidate.status == Status::Done)
     })
 }

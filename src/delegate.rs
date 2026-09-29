@@ -5,6 +5,7 @@ use clap::ValueEnum;
 use crate::query::{effective_target_repo, find_task};
 use crate::schema::{Task, Tasks};
 use crate::scoring::{efficiency, format_efficiency, tier_glyph};
+use crate::vocabulary::Status;
 
 // `Write for String` is infallible — the macro lets call sites read like
 // plain text without `.expect(...)` noise on every line.
@@ -278,7 +279,11 @@ fn append_acceptance_criteria(prompt: &mut String, task: &Task) {
 
     // Done work is already satisfied. Every other status stays an open box
     // so a blocked or superseded task is not presented as finished.
-    let mark = if task.status == "done" { "x" } else { " " };
+    let mark = if task.status == Status::Done {
+        "x"
+    } else {
+        " "
+    };
     line!(prompt);
     line!(prompt, "## Acceptance criteria");
     for criterion in &task.acceptance_criteria {

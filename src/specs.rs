@@ -6,6 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::schema::{Task, TaskId, Tasks};
+use crate::vocabulary::Status;
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -166,7 +167,7 @@ pub fn validate_changes(tasks: &Tasks, specs: &Catalog<'_>) -> Result<(), String
         .filter(|rule| rule.text.is_some())
         .collect();
     for task in &tasks.task {
-        if task.status != "pending" && task.status != "in_progress" {
+        if task.status != Status::Pending && task.status != Status::InProgress {
             continue;
         }
         for change in &task.spec_changes {

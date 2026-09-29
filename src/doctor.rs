@@ -327,12 +327,12 @@ impl DoctorReport {
         // Soft advisory only; hand-built and bootstrap tasks legitimately land
         // without an external grader and ClaimedNotGraded never fails the run.
         for task in &tasks.task {
-            if task.status == "done" && task.verified.is_none() {
+            if task.status == Status::Done && task.verified.is_none() {
                 findings.push(DoctorFinding::ClaimedNotGraded {
                     id: task_id_display(&task.id),
                 });
             }
-            if task.status == "done"
+            if task.status == Status::Done
                 && task.verified == Some(true)
                 && task
                     .verified_by
@@ -360,7 +360,7 @@ impl DoctorReport {
 
             if task_count > 0
                 && (phase.status == "in_progress" || phase.status == "pending")
-                && phase_tasks.iter().all(|task| task.status == "done")
+                && phase_tasks.iter().all(|task| task.status == Status::Done)
             {
                 findings.push(DoctorFinding::PhaseFullyDoneButOpen {
                     phase: phase_id,
@@ -372,7 +372,7 @@ impl DoctorReport {
             if phase.status == "pending" {
                 let task_ids: Vec<String> = phase_tasks
                     .iter()
-                    .filter(|task| task.status == "in_progress")
+                    .filter(|task| task.status == Status::InProgress)
                     .map(|task| task_id_display(&task.id))
                     .collect();
 
@@ -395,7 +395,7 @@ impl DoctorReport {
                 .collect();
             let task_count = phase_tasks.len();
             let all_tasks_done =
-                task_count > 0 && phase_tasks.iter().all(|task| task.status == "done");
+                task_count > 0 && phase_tasks.iter().all(|task| task.status == Status::Done);
 
             if phase.status == "done" || all_tasks_done {
                 findings.push(DoctorFinding::FocusPhaseClosed {
@@ -418,7 +418,7 @@ impl DoctorReport {
 
             if task_count > 0
                 && (milestone.status == "pending" || milestone.status == "active")
-                && pinned.iter().all(|task| task.status == "done")
+                && pinned.iter().all(|task| task.status == Status::Done)
             {
                 findings.push(DoctorFinding::MilestoneFullyDoneButOpen {
                     milestone: milestone_key.clone(),
@@ -578,7 +578,7 @@ fn pinned_task_count(tasks: &Tasks, milestone_key: &str) -> usize {
 /// Live agent-assigned predicate shared with `validate_dispatch_model`:
 /// `status ∈ {pending, in_progress}` AND `assignee` set AND `assignee != "human"`.
 fn is_live_agent_assigned(task: &Task) -> bool {
-    if task.status != "pending" && task.status != "in_progress" {
+    if task.status != Status::Pending && task.status != Status::InProgress {
         return false;
     }
     matches!(task.assignee.as_deref(), Some(a) if !a.is_empty() && a != "human")

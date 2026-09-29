@@ -1,5 +1,6 @@
 use crate::schema::{Task, Tasks};
 use crate::scoring::days_since;
+use crate::vocabulary::Status;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StaleError {
@@ -46,7 +47,7 @@ pub fn find_stale<'a>(tasks: &'a Tasks, max_age_days: u32, today: &str) -> Vec<&
     tasks
         .task
         .iter()
-        .filter(|t| t.status == "in_progress")
+        .filter(|t| t.status == Status::InProgress)
         .filter(|t| !has_landing_ref(t))
         .filter(|t| match t.started_at.as_deref() {
             Some(s) => days_since(today, s)
@@ -63,7 +64,7 @@ pub fn find_awaiting_landing(tasks: &Tasks) -> Vec<&Task> {
     tasks
         .task
         .iter()
-        .filter(|t| t.status == "in_progress" && has_landing_ref(t))
+        .filter(|t| t.status == Status::InProgress && has_landing_ref(t))
         .collect()
 }
 

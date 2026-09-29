@@ -25,6 +25,7 @@ use std::collections::{HashMap, HashSet};
 use crate::query::matches_bundle;
 use crate::schema::{Bundle, Task, TaskId, Tasks};
 use crate::scoring::efficiency;
+use crate::vocabulary::Status;
 
 #[derive(Debug, Default)]
 pub struct NextBundleFilter {
@@ -109,7 +110,7 @@ fn compute_actionable<'a>(tasks: &'a Tasks, bundle_name: &str) -> Vec<&'a Task> 
         .iter()
         .filter(|t| matches_bundle(t, Some(bundle_name)))
     {
-        if task.status != "pending" {
+        if task.status != Status::Pending {
             continue;
         }
         if is_actionable(task, tasks, bundle_name, &mut memo, &mut HashSet::new()) {
@@ -134,14 +135,14 @@ fn is_actionable<'a>(
         return false;
     }
 
-    let mut ok = task.status == "pending";
+    let mut ok = task.status == Status::Pending;
     if ok {
         for dep_id in &task.depends_on {
             let Some(dep_task) = tasks.task.iter().find(|t| &t.id == dep_id) else {
                 ok = false;
                 break;
             };
-            if dep_task.status == "done" {
+            if dep_task.status == Status::Done {
                 continue;
             }
             // Dep isn't done — must be in-bundle, pending, and itself actionable.
@@ -149,7 +150,7 @@ fn is_actionable<'a>(
                 ok = false;
                 break;
             }
-            if dep_task.status != "pending" {
+            if dep_task.status != Status::Pending {
                 ok = false;
                 break;
             }

@@ -116,10 +116,13 @@ fn focus_header_line(tasks: &Tasks, focus_phase: u32) -> String {
         .filter(|task| task.phase == focus_phase)
         .collect();
     let total = in_phase.len();
-    let done = in_phase.iter().filter(|task| task.status == "done").count();
+    let done = in_phase
+        .iter()
+        .filter(|task| task.status == Status::Done)
+        .count();
     let in_progress = in_phase
         .iter()
-        .filter(|task| task.status == "in_progress")
+        .filter(|task| task.status == Status::InProgress)
         .count();
     let name = tasks
         .phases
@@ -135,7 +138,7 @@ fn last_shipped_line(tasks: &Tasks, focus_phase: u32, today: &str) -> String {
     let recent: Vec<&Task> = tasks
         .task
         .iter()
-        .filter(|task| task.phase == focus_phase && task.status == "done")
+        .filter(|task| task.phase == focus_phase && task.status == Status::Done)
         .filter(|task| {
             task.done_at
                 .as_deref()
@@ -480,7 +483,7 @@ fn render_phase_table(tasks: &Tasks, phase: u32, today: &str) -> String {
         // Surface the block reason inline so an orchestrator scanning the
         // rendered roadmap sees the dead-end cause without opening tasks.toml.
         // Conditional + trailing: non-blocked rows render byte-identically.
-        let blocked_segment = if task.status == "blocked" {
+        let blocked_segment = if task.status == Status::Blocked {
             task.blocked_reason
                 .as_deref()
                 .map(str::trim)

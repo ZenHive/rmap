@@ -385,7 +385,7 @@ fn validate_target_repos(path: &str, input: &str, tasks: &Tasks) -> Result<(), V
 /// Agent-grep substring for the error: `missing model`.
 fn validate_dispatch_model(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
     for task in &tasks.task {
-        if task.status != "pending" && task.status != "in_progress" {
+        if task.status != Status::Pending && task.status != Status::InProgress {
             continue;
         }
 
@@ -570,7 +570,7 @@ fn is_iso_8601_date(value: &str) -> bool {
 
 fn validate_blocked_reasons(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
     for task in &tasks.task {
-        if task.status != "blocked" {
+        if task.status != Status::Blocked {
             continue;
         }
 
@@ -590,7 +590,7 @@ fn validate_blocked_reasons(path: &str, input: &str, tasks: &Tasks) -> Result<()
 
 fn validate_implemented(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
     for task in &tasks.task {
-        if task.status != "done" {
+        if task.status != Status::Done {
             continue;
         }
 

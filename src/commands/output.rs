@@ -5,6 +5,7 @@ use rmap::paths::ResolvedPaths;
 use rmap::query::format_task_row;
 use rmap::render::render_roadmap_str;
 use rmap::validate::validate_tasks_file;
+use rmap::vocabulary::Status;
 use std::path::PathBuf;
 
 /// Human-readable `rmap next-bundle` output. Header `bundle <name>  phase <N> —
@@ -24,7 +25,7 @@ pub(crate) fn format_next_bundle_human(
         .iter()
         .filter(|task| task.bundle == pick.name)
         .fold((0u32, 0u32), |(d, t), task| {
-            (d + u32::from(task.status == "done"), t + 1)
+            (d + u32::from(task.status == Status::Done), t + 1)
         });
 
     let mut out = format!(
