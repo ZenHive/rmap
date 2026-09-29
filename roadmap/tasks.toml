@@ -1804,7 +1804,7 @@ shipped_in = "b86eba10496c6c64969c3745f276826962cd760a"
 id = 66
 phase = 17
 bundle = "agent_era_maintenance"
-status = "in_progress"
+status = "done"
 title = "Match on Status variants instead of status string literals"
 scores = { d = 3, b = 3, u = 2 }
 markers = ["parallel"]
@@ -1813,9 +1813,16 @@ out_of_scope = ["Changing any status vocabulary or output"]
 assignee = "cursor"
 model = "grok-4.7-high"
 body = "Task 60 introduced typed Status / Marker / Relation vocabularies, but several modules still match status via string literals through Deref<str> (bundles, milestones, render mermaid, render_html, graph_export, mutate/status). Convert them to enum-variant matches so a vocabulary rename is compiler-checked. Pure refactor. Proposed by the task 60 reviewer (run-1790669450005-a603998e)."
+implemented = "Landed by cursor via merge-train; reviewer-approved (run run-1790677163649-a80bc9b5, b6ec357906316439759c43b53f2a629180228336)."
+delivered_by = "cursor"
+verified = true
+verified_by = "claude"
+verification_ref = "harness-run:run-1790677163649-a80bc9b5"
 created_at = "2026-09-29"
 started_at = "2026-09-29"
 scored_at = "2026-09-29"
+done_at = "2026-09-29"
+shipped_in = "b6ec357906316439759c43b53f2a629180228336"
 
 [[task]]
 id = 67
