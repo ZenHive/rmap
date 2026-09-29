@@ -2761,6 +2761,62 @@
       "verified_by": "cursor",
       "verification_ref": "harness-run:run-1790677170319-8b8e1e83",
       "cross_repo": []
+    },
+    {
+      "id": 69,
+      "phase": 17,
+      "bundle": "spec_layer",
+      "status": "pending",
+      "title": "Make agent-contract coverage compatible with live spec registration",
+      "scores": {
+        "d": 2,
+        "b": 4,
+        "u": 3
+      },
+      "eff": 1.75,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [],
+      "depends_on": [],
+      "assignee": "codex",
+      "model": "gpt-6-astra",
+      "acceptance_criteria": [
+        "Coverage regression works whether the repository roadmap registers these specs or not",
+        "Malformed registrations and unexpected rule coverage still fail meaningful assertions",
+        "Register the three agent specs and rmap-spec-tags scanner through the orchestrator; live specs lists 14 rules and doctor reports JSON-1 as untested with no unknown tags"
+      ],
+      "body": "Audit c2f3a09: task 68 expects the orchestrator to register agent specs after landing, but tests/spec_coverage.rs asserts the committed roadmap has no registrations and unconditionally appends the block. Registration would fail the suite. The current roadmap still has no registrations, so live doctor does not report contract coverage. Remove the dependence on an unregistered repository by using an isolated fixture or handling registrations structurally, and coordinate the documented registration through a workflow preserving roadmap edits. Existing task 68 is done; no pending repair duplicates this cause.",
+      "created_at": "2026-09-29",
+      "scored_at": "2026-09-29",
+      "cross_repo": []
+    },
+    {
+      "id": 70,
+      "phase": 17,
+      "bundle": "agent_context",
+      "status": "pending",
+      "title": "Restore release notes for HTML detail lists and agent-contract specs",
+      "scores": {
+        "d": 1,
+        "b": 2,
+        "u": 2
+      },
+      "eff": 2.0,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [],
+      "depends_on": [],
+      "assignee": "codex",
+      "model": "gpt-6-astra",
+      "acceptance_criteria": [
+        "Release notes describe task 67 optional detail sections and reviewer-hint semantics",
+        "Release notes describe task 68 capability specs and coverage tags without claiming live registrations already exist",
+        "Version references match landed commits"
+      ],
+      "body": "Audit c2f3a09: CHANGELOG stops at 0.9.2 while Cargo is 0.9.4. Task 67 shipped context_refs and checks detail lists at 0.9.3 and task 68 shipped agent-contract specs/test tags at 0.9.4. Restore accurate entries through a workflow preserving CHANGELOG edits (the audit cannot edit it). Task 65 covered 0.9.0/0.9.1 and is done; this is a distinct later gap.",
+      "created_at": "2026-09-29",
+      "scored_at": "2026-09-29",
+      "cross_repo": []
     }
   ]
 }

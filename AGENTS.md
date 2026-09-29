@@ -35,7 +35,7 @@ Eager floor per `~/.claude/setup-guide.md` § "Selective-Load Philosophy" (Opus 
 
 - **`verification-policy`** — when checks run (focused implementer/reviewer vs full post-merge QA). Imported at the top of this file so the generated `AGENTS.md` renders it as real markdown, not inside the include fence below.
 - **`critical-rules`** — the portfolio-wide hard-guardrail floor; must stay ambient (a guardrail the model invokes "when relevant" fails exactly when it doesn't realize the rule applies).
-- **`harness-workflow`** — the default include for harness-registered repos, and rmap IS one (registered in harness's `config/dev.local.exs`, MCP wired via `.mcp.json` — see § "Driving harness from this repo"). The implement→review→land loop and its delegation roster (cursor/codex/grok first, opus last) are load-bearing every session, not on-demand reference.
+- **`harness-guardrails`** — the always-on floor for this harness-registered repo: origin is the landing authority, approval is not landing, and retained work is recovered rather than redone. Load the `harness:harness-workflow` skill before planning, dispatching, reading a verdict or recovering a run.
 
 ```markdown
 <!-- @-import: ~/.claude/includes/critical-rules.md -->
