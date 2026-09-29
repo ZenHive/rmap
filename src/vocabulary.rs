@@ -4,11 +4,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 macro_rules! vocabulary {
-    ($name:ident { $($variant:ident => $wire:literal),+ $(,)? }) => {
+    ($(#[$attr:meta])* $name:ident { $($(#[$variant_attr:meta])* $variant:ident => $wire:literal),+ $(,)? }) => {
         #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+        $(#[$attr])*
         #[serde(from = "String", into = "String")]
         pub enum $name {
-            $($variant,)+
+            $($(#[$variant_attr])* $variant,)+
             /// Unvalidated input, rejected by the semantic validator.
             Unknown(String),
         }
@@ -64,8 +65,8 @@ macro_rules! vocabulary {
     };
 }
 
-vocabulary!(Status {
-    Pending => "pending", InProgress => "in_progress", Blocked => "blocked",
+vocabulary!(#[derive(Default)] Status {
+    #[default] Pending => "pending", InProgress => "in_progress", Blocked => "blocked",
     Done => "done", Superseded => "superseded",
 });
 vocabulary!(Marker {
@@ -73,12 +74,6 @@ vocabulary!(Marker {
     Security => "security", Docs => "docs", Handbuild => "handbuild",
 });
 vocabulary!(Relation { Blocks => "blocks", BlockedBy => "blocked_by", Related => "related" });
-
-impl Default for Status {
-    fn default() -> Self {
-        Self::Pending
-    }
-}
 
 impl Status {
     pub fn symbol(&self) -> &str {

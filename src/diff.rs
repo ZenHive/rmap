@@ -354,10 +354,8 @@ fn task_map(tasks: &Tasks) -> BTreeMap<String, &Task> {
         .collect()
 }
 
-// Single-point-of-edit for per-field diff granularity. When `schema::Task` gains
-// a field, add it here AND to `export::ExportedTask`. Also decide whether the
-// field belongs on `TASK_VERBOSE_WHITELIST` above — it's part of the agent
-// contract. `id` is intentionally absent (it's the map key).
+// Per-field diff walk generated from `task_fields.rs` (diff/verbose flags there
+// are part of the agent contract). `id` is excluded (it's the map key).
 fn task_changes(
     base: &Task,
     current: &Task,

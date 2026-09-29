@@ -10,7 +10,6 @@ use std::path::PathBuf;
 /// Human-readable `rmap next-bundle` output. Header `bundle <name>  phase <N> —
 /// <phase_name>  [<done>/<total>]  — <description>`, then one task per line
 /// using `format_task_row` (mirroring `rmap list`) with a two-space indent.
-
 pub(crate) fn format_next_bundle_human(
     tasks: &rmap::schema::Tasks,
     pick: &BundlePick<'_>,

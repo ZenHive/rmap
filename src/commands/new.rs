@@ -10,7 +10,6 @@ use rmap::validate::validate_tasks_str;
 
 /// Top-level for `rmap new` and `rmap new --from-stdin`. Shares the load /
 /// mutate / re-validate / re-render / write tail with the other mutators.
-
 pub(crate) fn create_task(paths: ResolvedPaths, from_stdin: bool) -> Result<()> {
     let input = std::fs::read_to_string(&paths.tasks_path)
         .with_context(|| format!("read {}", paths.tasks_path.display()))?;
