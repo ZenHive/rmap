@@ -2402,7 +2402,7 @@
       "id": 61,
       "phase": 17,
       "bundle": "spec_layer",
-      "status": "pending",
+      "status": "in_progress",
       "title": "Spec layer: capability specs with rule ids, and a spec_changes task field",
       "scores": {
         "d": 7,
@@ -2449,6 +2449,7 @@
       ],
       "body": "rmap tracks tickets, not specifications. A task's intent lives only in its `body`, retold per task and stale once shipped; nothing durable records *what the system must do* or which task changed which rule. Agents re-derive intent from prose every dispatch.\n\nAdd a spec layer, shaped with the star_specs session (2026-09-29):\n\n- **Spec files are plain Markdown in the consuming repo**, one per capability, at any path (e.g. `docs/specs/access.md`). A rule is one line starting with a rule id `<PREFIX>-<n>` (e.g. `ACCESS-4`), written declaratively. No EARS or other template is imposed.\n- **`tasks.toml` registers specs, it does not duplicate them**: a top-level `[specs.<capability>]` table with `path` and `status` (`draft | active | retired`). Rule ids are parsed from the file at read time — never copied into TOML, so they cannot drift. Rule-id prefixes are globally unique across specs, so references need no `slug#` qualifier.\n- **A task states its delta, not just \"implements\"**: creation-time field `spec_changes = [{ rule = \"ACCESS-3\", op = \"add\" | \"change\" | \"remove\" }]`. Tasks often change an existing rule; the op makes that explicit.\n- **Validation**: on live tasks (pending/in_progress), `change`/`remove` must name a rule present in its spec file; `add` must use a prefix belonging to a registered spec (the rule may already exist — spec-first authoring). Terminal tasks are not re-checked (a removed rule legitimately disappears). Duplicate rule ids across or within spec files are an error. Missing spec file → error naming the path.\n- **Surfaces**: `rmap show` / `--json` / data.json carry `spec_changes`; `rmap delegate` renders a section quoting each referenced rule's current text with its op, so the implementer gets the rule, not a pointer; `rmap list --rule <ID>` filters; a read command lists specs with their rules and, per rule, the tasks that changed it (the derived change history — no hand-kept history section needed).\n\nLanguage-agnostic by construction: rmap reads Markdown and matches ids; it knows nothing about the project's language, test framework or build tool.\n",
       "created_at": "2026-09-29",
+      "started_at": "2026-09-29",
       "scored_at": "2026-09-29",
       "cross_repo": []
     },
