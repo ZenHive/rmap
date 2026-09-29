@@ -156,7 +156,7 @@ Same source flow: `tasks.toml` → `data.json` → HTML. The HTML is a **derived
 
 ### Layout
 
-Single-project and portfolio pages share a T-card planning board. Dispatch racks show Ready, Active and Hold tasks above the phase boards. Each phase groups cards into Ready / Active / Hold / Waiting / Done lanes; pending tasks are Ready only when every in-repo dependency is done. Phases with no open tasks start folded. Clicking a card or dependency-graph node opens its full task specification in a detail panel.
+Single-project and portfolio pages share a T-card planning board. Dispatch racks show Ready, Active and Hold tasks above the phase boards. Each phase groups cards into Ready / Active / Hold / Waiting / Done lanes; pending tasks are Ready only when every in-repo dependency is done. Phases with no open tasks start folded. Clicking a card or dependency-graph node opens its full task specification in a detail panel. Non-empty `context_refs` appear there as a Read first list, and non-empty `checks` as a Reviewer checks list labelled as reviewer hints rather than a gate. A list the task does not set adds no heading.
 
 The portfolio groups projects into expandable repository rails, with cross-repo relations drawn as cords in the gutter. Repository search and lane filters narrow the view. Both pages embed the exported data that supplies the task detail panel. The portfolio data island wraps unchanged project envelopes in `projects` and includes `repo_aliases`, mapping lowercase project names, input labels and source-path basenames to project indices. Relation cords and detail links share this lookup; the earliest input wins alias collisions. Unresolved task references remain noninteractive.
 

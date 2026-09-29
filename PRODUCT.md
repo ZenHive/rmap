@@ -18,7 +18,7 @@ One person: the maintainer of a ~20–30-repo portfolio, all driven by rmap road
 2. how far each repo / phase / milestone is;
 3. how tasks and repos depend on each other (in-repo `depends_on`, `cross_repo` relations);
 
-and can open any task and read and understand its full spec (body, acceptance criteria, out of scope, blocked reason, landing ref, assignee/model, deps).
+and can open any task and read and understand its full spec (body, read-first references, acceptance criteria, reviewer checks, out of scope, blocked reason, landing ref, assignee/model, deps).
 
 ## Positioning
 

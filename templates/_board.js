@@ -193,6 +193,17 @@
     field(grid, "Dates", dates, "field-wide");
     backEl.appendChild(grid);
 
+    // Same omission rule as `rmap delegate`: empty lists add no heading.
+    // Reviewer checks are hints; this page never runs the commands.
+    if (t.context_refs && t.context_refs.length) {
+      var read = section("Read first");
+      read.appendChild(el("p", "spec-text", "Read these before starting."));
+      var refs = el("ul", "paths");
+      t.context_refs.forEach(function (ref) {
+        refs.appendChild(el("li")).appendChild(linkOrText(ref));
+      });
+      read.appendChild(refs);
+    }
     if (t.body) {
       var body = section("Spec");
       String(t.body).trim().split(/\n{2,}/).forEach(function (para) {
@@ -201,6 +212,15 @@
     }
     if (t.acceptance_criteria && t.acceptance_criteria.length) {
       list(section("Acceptance criteria", t.acceptance_criteria.length), t.acceptance_criteria, true, "criteria");
+    }
+    if (t.checks && t.checks.length) {
+      var checks = section("Reviewer checks");
+      checks.appendChild(el(
+        "p",
+        "spec-text",
+        "Hints for the reviewer, not an automated gate. rmap does not execute these commands; the reviewer runs and judges them."
+      ));
+      list(checks, t.checks, false, "checks");
     }
     if (t.out_of_scope && t.out_of_scope.length) {
       list(section("Out of scope"), t.out_of_scope, false, "oos");

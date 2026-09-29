@@ -912,11 +912,12 @@ details[open] > summary .chev { transform: rotate(90deg); }
 }
 .spec-text { margin: 0 0 26px; white-space: pre-wrap; max-width: 68ch; }
 .spec-text:last-child { margin-bottom: 0; }
-.criteria, .oos, .paths { margin: 0; padding-left: 26px; }
+.criteria, .oos, .paths, .checks { margin: 0; padding-left: 26px; }
 .criteria li::marker { font-family: var(--f-num); font-weight: 700; color: #1a1b1e; }
 .oos li { color: #4a4843; }
 .oos li::marker { content: "✕  "; color: var(--stamp); }
-.paths li { font-family: var(--f-code); font-size: 12.5px; overflow-wrap: anywhere; }
+.paths li, .checks li { font-family: var(--f-code); font-size: 12.5px; overflow-wrap: anywhere; }
+.paths a { color: #1d4f8c; }
 .refs { display: flex; flex-direction: column; margin: 0 0 26px; }
 .refs:last-child { margin-bottom: 0; }
 .ref {
