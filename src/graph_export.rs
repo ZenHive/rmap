@@ -38,12 +38,21 @@ pub struct DotGraph {
     pub edges: Vec<DotEdge>,
 }
 
-/// Group every task id by [`compute_layers`] depth.
+/// Group every open task id by [`compute_layers`] depth over the open subgraph.
+///
+/// Terminal tasks (`done` / `superseded`) are left out: they need no scheduling,
+/// and a dependency on one is already satisfied, so it adds no depth. Wave 0 is
+/// therefore the open work with no open prerequisites — `in_progress` and
+/// `blocked` tasks stay in, since their dependents still wait on them.
 pub fn build_waves(tasks: &Tasks) -> Waves {
-    let refs: Vec<&Task> = tasks.task.iter().collect();
-    let layers = compute_layers(&refs);
+    let open: Vec<&Task> = tasks
+        .task
+        .iter()
+        .filter(|task| !matches!(task.status.as_str(), "done" | "superseded"))
+        .collect();
+    let layers = compute_layers(&open);
     let mut by_layer: BTreeMap<usize, Vec<String>> = BTreeMap::new();
-    for task in &tasks.task {
+    for task in open {
         let id = task.id.to_string();
         let layer = layers.get(&id).copied().unwrap_or(0);
         by_layer.entry(layer).or_default().push(id);
@@ -223,9 +232,24 @@ mod tests {
             task_toml(4, "pending", &[2, 3]),
         );
         let waves = build_waves(&tasks_from(&body));
-        assert_eq!(waves.layers.get(&0), Some(&vec!["1".into()]));
-        assert_eq!(waves.layers.get(&1), Some(&vec!["2".into(), "3".into()]));
-        assert_eq!(waves.layers.get(&2), Some(&vec!["4".into()]));
+        assert_eq!(waves.layers.get(&0), Some(&vec!["2".into(), "3".into()]));
+        assert_eq!(waves.layers.get(&1), Some(&vec!["4".into()]));
+        assert_eq!(waves.layers.len(), 2);
+    }
+
+    #[test]
+    fn build_waves_skips_terminal_tasks_but_keeps_in_flight_ones() {
+        let body = format!(
+            "{}{}{}{}",
+            task_toml(1, "done", &[]),
+            task_toml(2, "in_progress", &[1]),
+            task_toml(3, "pending", &[2]),
+            task_toml(4, "superseded", &[]),
+        );
+        let waves = build_waves(&tasks_from(&body));
+        assert_eq!(waves.layers.get(&0), Some(&vec!["2".into()]));
+        assert_eq!(waves.layers.get(&1), Some(&vec!["3".into()]));
+        assert_eq!(waves.layers.len(), 2);
     }
 
     #[test]
@@ -236,7 +260,7 @@ mod tests {
             task_toml(2, "pending", &[1]),
         );
         let waves = build_waves(&tasks_from(&body));
-        assert_eq!(format_waves(&waves), "wave 0: [1]\nwave 1: [2]");
+        assert_eq!(format_waves(&waves), "wave 0: [2]");
     }
 
     #[test]
@@ -249,8 +273,8 @@ mod tests {
         let waves = build_waves(&tasks_from(&body));
         let json: serde_json::Value =
             serde_json::from_str(&format_waves_json(&waves)).expect("valid json");
-        assert_eq!(json["0"], serde_json::json!(["1"]));
-        assert_eq!(json["1"], serde_json::json!(["2"]));
+        assert_eq!(json["0"], serde_json::json!(["2"]));
+        assert!(json.get("1").is_none());
     }
 
     #[test]

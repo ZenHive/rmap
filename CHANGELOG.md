@@ -6,6 +6,10 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### `rmap waves` schedules open work only (0.6.2)
+
+- `waves` omitted nothing: every `done` / `superseded` task landed in wave 0, burying the real schedule. It now groups only `pending` / `in_progress` / `blocked` tasks, layered over the open subgraph (terminal deps count as satisfied). Matches the documented "pending/unblocked" contract; the old test pinned the buggy shape.
+
 ### Dependency refresh (0.6.1)
 
 - `cargo update`: `clap` 4.6.7, `thiserror` 2.0.21 plus transitive patch releases.

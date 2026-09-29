@@ -627,7 +627,7 @@ rmap export dot
 # exit: 0
 ```
 
-`rmap waves` prints the parallel dispatch schedule: tasks grouped by longest-path `dep_layer` (`wave 0: [1, 3]` is the root set runnable with unlimited parallelism; each successive wave waits on the prior). `--json` carries the layer → task-id map.
+`rmap waves` prints the parallel dispatch schedule of the open work: non-terminal tasks (`pending` / `in_progress` / `blocked`) grouped by longest-path depth over the open subgraph — `done` / `superseded` tasks are omitted and count as satisfied deps (`wave 0: [1, 3]` is the open set with no open prerequisites; each successive wave waits on the prior). `--json` carries the layer → task-id map.
 
 ```bash
 rmap waves

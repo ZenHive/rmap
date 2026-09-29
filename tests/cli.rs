@@ -610,9 +610,7 @@ fn waves_command_prints_dispatch_schedule() {
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("wave 0: [1]"));
-    assert!(stdout.contains("wave 1: [2, 3]"));
-    assert!(stdout.contains("wave 2: [4]"));
+    assert_eq!(stdout.trim_end(), "wave 0: [2, 3]\nwave 1: [4]");
 }
 
 #[test]
@@ -635,9 +633,9 @@ fn waves_command_json_emits_layer_map() {
 
     let json: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stdout should be valid JSON");
-    assert_eq!(json["0"], serde_json::json!(["1"]));
-    assert_eq!(json["1"], serde_json::json!(["2", "3"]));
-    assert_eq!(json["2"], serde_json::json!(["4"]));
+    assert_eq!(json["0"], serde_json::json!(["2", "3"]));
+    assert_eq!(json["1"], serde_json::json!(["4"]));
+    assert!(json.get("2").is_none());
 }
 
 #[test]
