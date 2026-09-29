@@ -6,6 +6,10 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### `rmap waves --help` describes the open-task schedule (0.7.1)
+
+- Help text no longer claims wave 0 is the set with "no in-repo prerequisites"; it names the open-task filter shipped in 0.6.2.
+
 ### HTML views redesigned as a T-card planning board; task specs readable in-page (0.7.0)
 
 - `render --html` and `--html --multi` share one view path built from the exported envelope (the single-project page is a one-repo portfolio). Lanes are Ready / Active / Hold / Waiting / Done: `ready` = pending with every in-repo dep `done` (the `rmap ready` predicate), `waiting` = pending with an unmet dep; blocked tasks no longer hide in the pending column.

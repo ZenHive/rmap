@@ -473,11 +473,11 @@ pub(super) enum Commands {
         #[arg(long)]
         tasks_path: Option<PathBuf>,
     },
-    /// Print the parallel dispatch schedule grouped by `dep_layer`.
+    /// Print the parallel dispatch schedule of the open tasks.
     ///
-    /// Wave 0 is the set runnable with no in-repo prerequisites; each successive
-    /// wave starts only after the prior wave completes. Read-only — formalizes
-    /// the layering `topo::compute_layers` already computes.
+    /// Only pending / in_progress / blocked tasks appear; done and superseded
+    /// dependencies count as satisfied. Wave 0 has no open prerequisites; each
+    /// successive wave starts only after the prior wave completes. Read-only.
     Waves {
         #[arg(long)]
         json: bool,
