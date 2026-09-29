@@ -1799,3 +1799,49 @@ created_at = "2026-09-29"
 scored_at = "2026-09-29"
 done_at = "2026-09-29"
 shipped_in = "b86eba10496c6c64969c3745f276826962cd760a"
+
+[[task]]
+id = 66
+phase = 17
+bundle = "agent_era_maintenance"
+status = "pending"
+title = "Match on Status variants instead of status string literals"
+scores = { d = 3, b = 3, u = 2 }
+markers = ["parallel"]
+acceptance_criteria = ['No `"pending" =>` / `"in_progress" =>` / `"done" =>`-style status string matches remain in src outside the vocabulary definition and wire (de)serialization', "Every read/render/mutate output is byte-identical to before (existing golden, cli and skills_smoke tests pass unchanged)"]
+out_of_scope = ["Changing any status vocabulary or output"]
+assignee = "cursor"
+model = "grok-4.7-high"
+body = "Task 60 introduced typed Status / Marker / Relation vocabularies, but several modules still match status via string literals through Deref<str> (bundles, milestones, render mermaid, render_html, graph_export, mutate/status). Convert them to enum-variant matches so a vocabulary rename is compiler-checked. Pure refactor. Proposed by the task 60 reviewer (run-1790669450005-a603998e)."
+created_at = "2026-09-29"
+scored_at = "2026-09-29"
+
+[[task]]
+id = 67
+phase = 17
+bundle = "agent_context"
+status = "pending"
+title = "Show context_refs and checks in the HTML task detail panel"
+scores = { d = 2, b = 4, u = 2 }
+acceptance_criteria = ["A rendered page for a task with both lists shows both sections in the detail panel", "A task without them shows today's sections only, no empty headings", "A focused render or browser test covers both cases"]
+out_of_scope = ["Changing the rmap-data island shape"]
+assignee = "grok"
+model = "grok-4.7"
+body = "templates/_board.js renders acceptance criteria, out of scope and files in the task detail panel but ignores context_refs and checks, although both are in the rmap-data island when set. Show a 'Read first' list and a 'Reviewer checks' list (labelled as reviewer hints, not a gate) when non-empty. Proposed by the task 63 reviewer (run-1790671360219-c3101d36)."
+created_at = "2026-09-29"
+scored_at = "2026-09-29"
+
+[[task]]
+id = 68
+phase = 17
+bundle = "spec_layer"
+status = "pending"
+title = "Dogfood the spec layer: capability specs for rmap's agent contract, with [spec_tests]"
+scores = { d = 5, b = 5, u = 3 }
+acceptance_criteria = ["roadmap/tasks.toml registers at least one active spec with rules parsed from a Markdown file in the repo", "[spec_tests] is configured and rmap doctor on this repo reports untested_rule only for rules no test tags", "Existing tests that pin a rule carry the spec-tags marker for it; no test behavior changes", "CLAUDE.md points to the spec files as the rule source for the invariants they cover"]
+out_of_scope = ["Rewriting CLAUDE.md's invariant list wholesale", "New behavior in src/"]
+assignee = "codex"
+model = "gpt-6-astra"
+body = "rmap ships specs, spec_changes and the doctor spec-coverage check, but registers no specs of its own, so none of it runs on rmap's roadmap. Write capability specs for the load-bearing agent contract that CLAUDE.md lists as invariants (e.g. JSON additive-only surfaces, ranking key, validation gates, delegate section order), register them, add [spec_tests] over tests/, and tag the tests that already pin each rule. Start with the contract harness consumes; a rule nobody tests should surface as a doctor finding, not be dropped. The task 62 reviewer proposed only the [spec_tests] part, assuming specs existed; they do not."
+created_at = "2026-09-29"
+scored_at = "2026-09-29"
