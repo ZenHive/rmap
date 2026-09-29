@@ -18,7 +18,7 @@ gantt
     section Phase 6 — HTML render
     rmap render --html single-project view :done, 2026-05-14, 2026-05-14
     rmap render --html --multi portfolio view :done, 2026-06-02, 2026-06-02
-    Resolve portfolio task links using the same repository aliases as relation cords :active, 2026-09-29, 2026-09-29
+    Resolve portfolio task links using the same repository aliases as relation cords :done, 2026-09-29, 2026-09-29
     section Phase 7 — rmap watch (optional)
     rmap watch FS watcher :done, 2026-05-14, 2026-05-14
     rmap watch --json event stream :done, 2026-05-14, 2026-05-14
@@ -90,7 +90,7 @@ Full design lives in [DESIGN.md § HTML render design (Phase 6)](DESIGN.md#html-
 |------|--------|-------|
 | Task 8 | ✅ | 🎁 **html_single** · rmap render --html single-project view [D:6/B:7/U:6 → Eff:1.08?] 📋 |
 | Task 9 | ✅ | 🎁 **html_portfolio** · rmap render --html --multi portfolio view [D:6/B:6/U:5 → Eff:0.92?] ⚠️ |
-| Task 64 | 🔄 | 🎁 **html_portfolio** · 🐛 Resolve portfolio task links using the same repository aliases as relation cords [D:3/B:4/U:4 → Eff:1.33] 📋 |
+| Task 64 | ✅ | 🎁 **html_portfolio** · 🐛 Resolve portfolio task links using the same repository aliases as relation cords [D:3/B:4/U:4 → Eff:1.33] 📋 |
 <!-- TASKS:END -->
 
 ## Phase 7 — `rmap watch` (done)
