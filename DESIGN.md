@@ -158,7 +158,7 @@ Same source flow: `tasks.toml` → `data.json` → HTML. The HTML is a **derived
 
 Single-project and portfolio pages share a T-card planning board. Dispatch racks show Ready, Active and Hold tasks above the phase boards. Each phase groups cards into Ready / Active / Hold / Waiting / Done lanes; pending tasks are Ready only when every in-repo dependency is done. Phases with no open tasks start folded. Clicking a card or dependency-graph node opens its full task specification in a detail panel.
 
-The portfolio groups projects into expandable repository rails, with cross-repo relations drawn as cords in the gutter. Repository search and lane filters narrow the view. Both pages embed the exported data that supplies the task detail panel.
+The portfolio groups projects into expandable repository rails, with cross-repo relations drawn as cords in the gutter. Repository search and lane filters narrow the view. Both pages embed the exported data that supplies the task detail panel. The portfolio data island wraps unchanged project envelopes in `projects` and includes `repo_aliases`, mapping lowercase project names, input labels and source-path basenames to project indices. Relation cords and detail links share this lookup; the earliest input wins alias collisions. Unresolved task references remain noninteractive.
 
 The visual tokens, responsive layout and component rules live in [templates/DESIGN.md](templates/DESIGN.md).
 
@@ -174,7 +174,7 @@ The visual tokens, responsive layout and component rules live in [templates/DESI
 ### What stays out
 
 - No dark mode toggle or stored user preferences. Colors follow `prefers-color-scheme`; the detail panel uses the motion defined in `templates/DESIGN.md`.
-- No JS framework dependency. No npm. No bundler. Vanilla JS, hand-written, single file.
+- No JS framework dependency. No npm runtime dependency. No bundler. Vanilla JS, hand-written, single file.
 - No per-user customization. The HTML is a report artifact, not an app.
 - No live updates — that's the Phoenix dashboard's job (see `dashboard_roadmap.md`). `rmap render --html` produces a **static snapshot** taken at render time.
 - No template authoring surface. The HTML template ships inside the rmap binary alongside the markdown template. Both evolve in lockstep with the schema.

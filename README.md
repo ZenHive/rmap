@@ -72,7 +72,8 @@ rmap status 1 done --implemented "wired up postgres + ecto repo"
 | `rmap render` | Render `ROADMAP.md` + `roadmap/data.json`; `--html` also writes `roadmap/dist/index.html`. | yes (md + json) |
 | `rmap watch` | Re-render on every `tasks.toml` change (FS watch). Ctrl-C to stop. | yes (md + json) |
 | `rmap show <id>` | Inspect one task (`--json` for agent envelope). | no |
-| `rmap list` | Filter by `--status`, `--phase`, `--marker`, `--bundle` (`--json`). | no |
+| `rmap list` | Filter by `--status`, `--phase`, `--marker`, `--bundle`, `--rule` (`--json`). | no |
+| `rmap specs [--json]` | List registered specs, current rules and task history. | no |
 | `rmap next` | Pick highest-Eff pending task with deps `done`. | no |
 | `rmap new` | Interactive create; `--from-stdin` for batch ingest. | yes (toml) |
 | `rmap status <ids> <state>` | Bulk status transition (atomic). | yes (toml) |
@@ -82,7 +83,7 @@ rmap status 1 done --implemented "wired up postgres + ecto repo"
 | `rmap delegate <id> [--to <agent>]` | Format task as an agent prompt. | no |
 | `rmap stale` | In-progress tasks idle past a threshold (`7d`/`2w`/`1y`). | no |
 | `rmap doctor` | Aggregate soft signals (validate, stale, score decay, drift, …). | no |
-| `rmap schema --json` | Emit JSON Schema for `tasks.toml` (agent self-description). | no |
+| `rmap schema` | Emit JSON Schema for `tasks.toml` (agent self-description). | no |
 
 All mutators follow a **validate-then-write** contract: mutate in memory, re-validate, refuse to write if invalid. Bulk `rmap status 1,2,3 done` is all-or-nothing.
 
@@ -109,6 +110,8 @@ Optional, all additive:
 - `changelog_path` / per-phase `changelog` — archive-collapse link target (path, or `false` to omit the link)
 - `[focus] phase = N` — bias `rmap next` toward a focus phase; surfaces a FOCUS block in `ROADMAP.md`
 - `[linear] team_key = "ENG"` — opt-in Linear cross-reference (validated only when present)
+- `[specs.<capability>] = { path, status }` — register Markdown capability rules (`draft`, `active`, or `retired`); task `spec_changes` records `add`, `change`, or `remove` deltas
+- `[spec_tests] globs = ["tests/**/*.rs"]` — opt into doctor advisories for untagged active rules and unknown rule tags; optional `marker` defaults to `spec-tags:` (see [SKILLS.md](SKILLS.md#capability-specs))
 - per-task: `markers`, `depends_on`, `cross_repo`, `target_repo`, `module`, `assignee`, `model`, `domains`, `linear_id`, `acceptance_criteria`, `checks`, `out_of_scope`, `context_refs`, `files_to_modify`, `touches`, `blocked_reason`, `started_at`, `done_at`, `shipped_in`, `landing_ref`, `delivered_by`, `verified`, `verified_by`, `verification_ref`, `scored_at`
 
 **Efficiency** is computed at read time as `(b + u) / (2 * d)`, never stored. Scores older than 30 days get a decay suffix in the rendered view.
@@ -135,10 +138,10 @@ Everything outside the markers — your headings, prose, links, blank lines — 
 
 ## Agent contract
 
-The `--json` outputs of `show`, `list`, `next`, `schema`, `diff`, and `doctor` are stable surfaces:
+The `--json` outputs of `show`, `list`, `next`, `specs`, `diff`, and `doctor`, plus the JSON output of `schema`, are stable surfaces:
 
 - **append-only** — fields may be added; renames or removals require bumping `schema_version`
-- `schema --json` emits the live JSON Schema derived from the Rust types (no hand-authored parallel schema)
+- `schema` emits the live JSON Schema derived from the Rust types (no hand-authored parallel schema)
 - `SKILLS.md` is the agent-facing user manual; every fenced command in it runs in CI (`tests/skills_smoke.rs`)
 - `rmap delegate <id> --to <agent>` formats a Markdown prompt plus per-agent environment notes that describe the execution runtime and name no language toolchain
 
