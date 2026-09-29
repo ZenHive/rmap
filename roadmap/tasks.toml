@@ -1964,3 +1964,17 @@ started_at = "2026-09-29"
 scored_at = "2026-09-29"
 done_at = "2026-09-29"
 shipped_in = "0671b02c67cc4c1677c650f5231acb00fbba82f9"
+
+[[task]]
+id = 73
+phase = 17
+bundle = "agent_context"
+status = "pending"
+title = "Restore 0.9.5 release notes for the harness shell-out contract"
+scores = { d = 1, b = 2, u = 2 }
+acceptance_criteria = ["CHANGELOG describes task 72 under version 0.9.5 and distinguishes documented existing behavior from new CLI behavior", "Notes identify 21 registered rules and JSON-1 as deliberately untagged", "The CHANGELOG entry survives the landing workflow"]
+assignee = "codex"
+model = "gpt-6-astra"
+body = "Audit 9d901f7: task 72 bumped Cargo.toml and Cargo.lock to 0.9.5 and extended the registered agent contract from 14 to 21 rules, but CHANGELOG.md still ends its version history at 0.9.4. Document the handbuild filter, field projection, delegate routing and status write-back rules, their existing-test tags, and JSON-1 as the remaining deliberately untagged rule. This is documentation of existing behavior, not new CLI behavior. Task 70 is done and covers only 0.9.3/0.9.4; no pending task covers this gap. Apply through a workflow that preserves CHANGELOG edits, since harness delivery resets that file."
+created_at = "2026-09-29"
+scored_at = "2026-09-29"
