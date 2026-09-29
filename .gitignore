@@ -1,2 +1,5 @@
 /target
 /roadmap/dist
+.dep-audit-watch.json
+.impeccable/questions/
+.impeccable/review/
