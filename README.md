@@ -172,7 +172,7 @@ cargo clippy --all-targets -- -D warnings
 
 Golden fixtures live under `tests/golden/<case>/` — drop a `tasks.toml` + `ROADMAP.input.md` + expected `ROADMAP.md` triplet and the runner picks it up. Pin date-sensitive fixtures with a `today.txt`.
 
-See `CLAUDE.md` for the load-bearing invariants (marker byte-preservation, validate-then-write contract, three-place edits for new `Task` fields, …), `DESIGN.md` for the design contract and Phase 6 HTML render design, and `ROADMAP.md` (rendered from `roadmap/tasks.toml`) for the active work list.
+See `CLAUDE.md` for the load-bearing invariants (marker byte-preservation, validate-then-write contract, the single-source task field registry, …), `DESIGN.md` for the design contract and Phase 6 HTML render design, and `ROADMAP.md` (rendered from `roadmap/tasks.toml`) for the active work list.
 
 ## Scope
 

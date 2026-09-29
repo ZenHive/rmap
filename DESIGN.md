@@ -154,43 +154,26 @@ Same source flow: `tasks.toml` → `data.json` → HTML. The HTML is a **derived
 - `rmap render --html` — single-project view at `roadmap/dist/index.html` (gitignored).
 - `rmap render --html --multi P1 P2 …` — portfolio view across N repos. Each `Pn` is either a project root (rmap discovers its `roadmap/data.json`) or a path to a `data.json` directly. Output: `roadmap/dist/portfolio.html` in the current working repo, or `--out <path>` to redirect.
 
-### Layout (single project)
+### Layout
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│ rmap   Phase 1: 8/10 ▓▓▓▓▓▓▓▓░░    Phase 2: 3/7 ▓▓▓░░░░          │
-│ markers: [all][chain][api][docs]   status: [✓][→][⏸][⛔]          │
-├──────────────────┬──────────────────┬────────────────────────────┤
-│  PENDING         │  IN PROGRESS     │  DONE                      │
-│  ┌────────────┐  │  ┌────────────┐  │  ┌──────────────────┐      │
-│  │ #14  eff:6 │  │  │ #12  eff:5 │  │  │ #11 render-html  │      │
-│  │ html-out   │  │  │ dep-graph  │  │  │ #10 export-json  │      │
-│  │ ⊃ #12 #11  │  │  │ ●chain    │  │  └──────────────────┘      │
-│  │ ●chain ●ui │  │  └────────────┘  │                            │
-│  └────────────┘  │                  │                            │
-├──────────────────┴──────────────────┴────────────────────────────┤
-│ DEPENDENCY GRAPH (SVG, layered DAG)                        [+]   │
-└──────────────────────────────────────────────────────────────────┘
-```
+Single-project and portfolio pages share a T-card planning board. Dispatch racks show Ready, Active and Hold tasks above the phase boards. Each phase groups cards into Ready / Active / Hold / Waiting / Done lanes; pending tasks are Ready only when every in-repo dependency is done. Phases with no open tasks start folded. Clicking a card or dependency-graph node opens its full task specification in a detail panel.
 
-Vertical phases stacked; each phase header carries a progress bar so a top-down skim conveys the whole project in 5 seconds. Within a phase, three horizontal status columns (pending / in_progress / done) read left→right as progress. A sticky filter bar exposes marker chips and status toggles. The dependency graph sits below, collapsed by default.
+The portfolio groups projects into expandable repository rails, with cross-repo relations drawn as cords in the gutter. Repository search and lane filters narrow the view. Both pages embed the exported data that supplies the task detail panel.
 
-### Portfolio layout
-
-Same shell, but the top level is **repos-as-rows**: each row is a mini progress strip (phase-bar summary) + the top 3 open tasks by `eff`. A top-of-page panel renders **cross-repo blockers** driven by the `cross_repo` field — arrows between repo cards visualize "X blocks Y across the fleet." Click a repo row → expands inline to the single-project layout.
+The visual tokens, responsive layout and component rules live in [templates/DESIGN.md](templates/DESIGN.md).
 
 ### Design invariants
 
 1. **Self-contained single file.** Inline CSS + vanilla JS. No CDN, no framework, no external assets, no build step. <50KB target per page. Opens offline; uploads to S3 as one blob; attaches to email; survives indefinitely without a server.
 2. **Embedded data island.** A `<script id="rmap-data" type="application/json">…</script>` carries the full `data.json` verbatim inside the HTML. Agents extract structured data without DOM scraping; client-side filters read from this island. This is the single most important choice for "agents read it too" — the visual layer never becomes the bottleneck for an agent reading the file.
-3. **Semantic data attributes** on every task element: `data-id`, `data-status`, `data-eff`, `data-markers`, `data-depends-on`, `data-phase`. Stable selectors, greppable, future-proof.
-4. **Color = status, chips = markers.** Status carries the primary visual signal (done=green, in_progress=blue, pending=slate, blocked=amber). Markers render as small muted text chips, not loud colors. Status colors must remain WCAG AA at body text size; print stylesheet falls back to status symbols (`✓ → ⏸ ⛔`) for monochrome output.
-5. **Dep graph as SVG, layered DAG.** Topological layers, downward arrows. Collapsed by default. SVG (not Canvas) because nodes are selectable, text is searchable, and each node carries `data-id` for agent introspection. In portfolio mode, cross-repo edges render distinctly (dashed + repo label) from in-repo edges.
+3. **Semantic data attributes** on every `.task-card` board element (rack copies omit `.task-card`): `data-id`, `data-status`, `data-eff`, `data-markers`, `data-depends-on`, `data-phase`. Stable selectors, greppable, future-proof.
+4. **Color = lane, chips = markers.** Ready is canary, Active sky, Hold salmon, Waiting buff, Done green; superseded cards use grey stock with a VOID stamp. See `templates/DESIGN.md` for the shared tokens. Lane labels and stamps also identify state without relying on color. Lane colors must meet WCAG AA at body text size.
+5. **Dep graph as SVG, layered DAG.** Topological layers, downward arrows. Collapsed by default. SVG nodes are selectable, text is searchable, and each node carries `data-id` for agent introspection. Portfolio cross-repo cords connect repository rails.
 6. **Print stylesheet** included. Leadership prints, hands around, marks up. Status symbols + grayscale layout, no progress bars (they don't print well — replaced with `N/M done` numerals).
 
 ### What stays out
 
-- No dark mode toggle, no user preferences, no animations, no tooltips that hide content.
+- No dark mode toggle or stored user preferences. Colors follow `prefers-color-scheme`; the detail panel uses the motion defined in `templates/DESIGN.md`.
 - No JS framework dependency. No npm. No bundler. Vanilla JS, hand-written, single file.
 - No per-user customization. The HTML is a report artifact, not an app.
 - No live updates — that's the Phoenix dashboard's job (see `dashboard_roadmap.md`). `rmap render --html` produces a **static snapshot** taken at render time.

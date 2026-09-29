@@ -212,7 +212,7 @@ pub(super) enum Commands {
     },
     /// List the parallel-safe dispatch set: every `pending` task whose
     /// `depends_on` are all `done`, ranked like `rmap next` (4-tier focus ×
-    /// active-milestone, then Eff desc).
+    /// active-milestone, then Eff desc, then computed `unlocks` desc).
     ///
     /// The set is mutually independent by construction — a pending task whose
     /// deps are all `done` cannot depend on another pending task — so it is
