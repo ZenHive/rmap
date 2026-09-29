@@ -6,6 +6,11 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Dependency refresh (0.6.1)
+
+- `cargo update`: `clap` 4.6.7, `thiserror` 2.0.21 plus transitive patch releases.
+- Dev-dependency `jsonschema` 0.56 → 0.58.
+
 ### Prioritization model decided: keep D/B/U, D = landing risk, unlocks breaks ties (0.6.0)
 
 - `rmap next` / `rmap ready` now break equal Eff on the computed `unlocks` count (transitive dependents), then TOML order. Previously ties fell to TOML order only.
