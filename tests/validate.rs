@@ -62,6 +62,7 @@ fn valid_tasks_toml_deserializes_and_validates() {
     assert_eq!(tasks.task[1].depends_on, vec![74]);
 }
 
+// rmap-spec-tags: DISPATCH-1
 #[test]
 fn rejects_unknown_schema_version_with_migration_hint() {
     let input = VALID_TASKS.replace("schema_version = 2", "schema_version = 99");
@@ -97,6 +98,7 @@ fn rejects_invalid_marker() {
     assert!(message.contains("invalid marker \"fast\""));
 }
 
+// rmap-spec-tags: DISPATCH-4
 #[test]
 fn rejects_score_below_minimum() {
     let input = VALID_TASKS.replace(
@@ -114,6 +116,7 @@ fn rejects_score_below_minimum() {
     );
 }
 
+// rmap-spec-tags: DISPATCH-4
 #[test]
 fn rejects_score_above_maximum() {
     let input = VALID_TASKS.replace(
@@ -131,6 +134,7 @@ fn rejects_score_above_maximum() {
     );
 }
 
+// rmap-spec-tags: DISPATCH-4
 #[test]
 fn accepts_scores_at_range_edges() {
     let input = VALID_TASKS
@@ -182,6 +186,7 @@ fn accepts_kimi_assignee_with_model_and_acceptance_criteria() {
     assert_eq!(tasks.task[1].model.as_deref(), Some("kimi-for-coding"));
 }
 
+// rmap-spec-tags: DISPATCH-3
 #[test]
 fn rejects_agent_assigned_live_task_without_acceptance_criteria() {
     let input = VALID_TASKS.replace(
@@ -198,6 +203,7 @@ fn rejects_agent_assigned_live_task_without_acceptance_criteria() {
     );
 }
 
+// rmap-spec-tags: DISPATCH-3
 #[test]
 fn rejects_blank_acceptance_criterion_on_agent_assigned_live_task() {
     let input = VALID_TASKS.replace(
@@ -214,6 +220,7 @@ fn rejects_blank_acceptance_criterion_on_agent_assigned_live_task() {
     );
 }
 
+// rmap-spec-tags: DISPATCH-3
 #[test]
 fn permits_missing_acceptance_criteria_for_human_or_unassigned_tasks() {
     let human = VALID_TASKS.replace(

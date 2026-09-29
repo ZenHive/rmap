@@ -68,6 +68,7 @@ depends_on = [75]
 markers = ["parallel"]
 "#;
 
+// rmap-spec-tags: DISPATCH-5
 #[test]
 fn selects_highest_eff_pending_unblocked_task() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
@@ -103,6 +104,7 @@ fn no_matching_next_task_returns_none() {
     assert!(next_task(&tasks, &marker_filter(Some("csr"))).is_none());
 }
 
+// rmap-spec-tags: DISPATCH-5
 #[test]
 fn focus_phase_wins_over_higher_eff_in_other_phases() {
     let input = r#"
@@ -358,6 +360,7 @@ scores = { d = 6, b = 6, u = 6 }
     assert_eq!(selected[2].id.to_string(), "10");
 }
 
+// rmap-spec-tags: DISPATCH-5
 #[test]
 fn ties_preserve_toml_order() {
     let input = TASKS.replace(
@@ -373,6 +376,7 @@ markers = ["parallel"]"#,
     assert_eq!(task.id.to_string(), "75");
 }
 
+// rmap-spec-tags: DISPATCH-5
 #[test]
 fn active_milestone_wins_over_higher_eff_in_other_milestones() {
     let input = r#"
@@ -429,6 +433,7 @@ scores = { d = 5, b = 6, u = 6 }
     assert_eq!(task.id.to_string(), "20");
 }
 
+// rmap-spec-tags: DISPATCH-5
 #[test]
 fn focus_phase_beats_active_milestone_when_dominance_diverges() {
     let input = r#"
@@ -490,6 +495,7 @@ scores = { d = 6, b = 6, u = 6 }
     assert_eq!(task.id.to_string(), "40");
 }
 
+// rmap-spec-tags: DISPATCH-5
 #[test]
 fn focus_and_active_milestone_combined_win_over_either_alone() {
     let input = r#"
@@ -562,6 +568,7 @@ scores = { d = 2, b = 10, u = 10 }
     assert_eq!(selected[2].id.to_string(), "70");
 }
 
+// rmap-spec-tags: DISPATCH-5
 #[test]
 fn multiple_active_milestones_all_qualify() {
     let input = r#"
@@ -634,6 +641,7 @@ scores = { d = 4, b = 6, u = 6 }
     assert_eq!(selected[2].id.to_string(), "10");
 }
 
+// rmap-spec-tags: DISPATCH-5
 #[test]
 fn no_active_milestones_preserves_focus_only_behavior() {
     // Mirrors `focus_phase_wins_over_higher_eff_in_other_phases` but adds a

@@ -48,6 +48,7 @@ scores = { d = 6, b = 8, u = 8 }
 depends_on = [74]
 "#;
 
+// rmap-spec-tags: JSON-3
 #[test]
 fn exports_validated_tasks_with_computed_efficiency() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
@@ -150,6 +151,7 @@ fn omits_focus_key_when_absent() {
     );
 }
 
+// rmap-spec-tags: JSON-3
 #[test]
 fn rejects_eff_in_source_toml() {
     let input = TASKS.replace(

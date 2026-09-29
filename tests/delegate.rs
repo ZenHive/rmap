@@ -125,6 +125,7 @@ scores = { d = 5, b = 9, u = 9 }
 module = "src/parse_order.rs"
 "#;
 
+// rmap-spec-tags: DELEGATE-4
 #[test]
 fn formats_full_delegate_prompt_for_agent_target() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
@@ -202,6 +203,7 @@ fn formats_full_delegate_prompt_for_agent_target() {
     );
 }
 
+// rmap-spec-tags: DELEGATE-4
 #[test]
 fn delegate_defaults_target_repo_to_roadmap_project() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");
@@ -238,6 +240,7 @@ fn omits_domains_bullet_when_unset() {
     assert!(!prompt.contains("- Domains:"), "{prompt}");
 }
 
+// rmap-spec-tags: DELEGATE-2
 #[test]
 fn formats_minimal_delegate_prompt_without_optional_sections() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");
@@ -262,6 +265,7 @@ fn formats_minimal_delegate_prompt_without_optional_sections() {
     assert!(!prompt.contains("## Files to modify"), "{prompt}");
 }
 
+// rmap-spec-tags: DELEGATE-1
 #[test]
 fn emits_canonical_section_order_with_distinguishing_line() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", TASKS).expect("valid tasks");
@@ -307,6 +311,7 @@ fn emits_canonical_section_order_with_distinguishing_line() {
     }
 }
 
+// rmap-spec-tags: DELEGATE-3
 #[test]
 fn done_tasks_check_acceptance_criteria_open_tasks_do_not() {
     let base = r#"
@@ -362,6 +367,7 @@ IMPLEMENTED
     }
 }
 
+// rmap-spec-tags: DELEGATE-2
 #[test]
 fn files_to_modify_falls_back_to_module_when_empty() {
     let tasks =
@@ -372,6 +378,7 @@ fn files_to_modify_falls_back_to_module_when_empty() {
     assert!(prompt.contains("- src/parse_order.rs"), "{prompt}");
 }
 
+// rmap-spec-tags: DELEGATE-2
 #[test]
 fn files_to_modify_section_omitted_when_both_empty() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");
@@ -503,6 +510,7 @@ fn delegate_emits_milestone_bullet_without_target_version() {
     );
 }
 
+// rmap-spec-tags: DELEGATE-5
 #[test]
 fn environment_footer_names_no_language_toolchain_or_package_manager() {
     let tasks = validate_tasks_str("roadmap/tasks.toml", MINIMAL_TASKS).expect("valid tasks");

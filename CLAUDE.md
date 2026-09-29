@@ -82,6 +82,8 @@ Modules — each file's doc comment is the authoritative reference for its inter
 
 Easy to violate without breaking tests immediately. The "why" lives in source doc comments and tests; this list is the index.
 
+The rule sources for the covered agent contract are [JSON surfaces](specs/agent-json.md), [dispatch validation and ranking](specs/agent-dispatch.md), and [delegation prompts](specs/agent-delegate.md). The invariant index below remains a navigation aid. Test comments use `rmap-spec-tags:` so doctor can distinguish contract coverage from the synthetic `spec-tags:` strings in its own scanner fixtures. Untagged rules remain visible as doctor findings; tags record existing assertions, not exhaustive coverage.
+
 **Render & markers**
 - **Marker boundaries are byte-preserved** (TASKS / FOCUS / MERMAID / VISION / MILESTONES). Don't normalize input bytes outside matched pairs.
 - **FOCUS / MERMAID / VISION line shape and empty-state strings are agent-grep contract.** Changing wording is a `schema_version` bump.

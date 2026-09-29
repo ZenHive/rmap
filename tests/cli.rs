@@ -1392,6 +1392,7 @@ fn next_command_prints_nothing_and_exits_zero_when_no_task_matches() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "");
 }
 
+// rmap-spec-tags: JSON-2
 #[test]
 fn next_json_prints_task_object_or_null() {
     let path = write_temp_tasks("phase4_tasks.toml", PHASE4_TASKS);
@@ -1849,6 +1850,7 @@ scores = {{ d = 2, b = 5, u = 5 }}
     }
 }
 
+// rmap-spec-tags: DISPATCH-2
 #[test]
 fn validate_requires_model_for_live_agent_tasks() {
     // status × assignee × model → expected `rmap validate` success.
@@ -2014,6 +2016,7 @@ fn show_json_includes_dep_layer() {
     assert_eq!(dep_layer("75"), 1, "task depending on a root is layer 1");
 }
 
+// rmap-spec-tags: DISPATCH-6
 #[test]
 fn ready_returns_only_dep_satisfied_pending_ranked() {
     // The parallel-safe set is {2, 4}: 1 is done (excluded), 3 depends on the
@@ -2455,6 +2458,7 @@ title = "Mid Eff"
 scores = { d = 3, b = 8, u = 8 }
 "#;
 
+// rmap-spec-tags: JSON-2
 #[test]
 fn next_command_count_one_default_emits_bare_object_json() {
     let path = write_temp_tasks("next_count.toml", NEXT_COUNT_TASKS);
@@ -2478,6 +2482,7 @@ fn next_command_count_one_default_emits_bare_object_json() {
     assert_eq!(value["id"], 2);
 }
 
+// rmap-spec-tags: JSON-2
 #[test]
 fn next_command_count_three_json_emits_eff_ranked_array() {
     let path = write_temp_tasks("next_count.toml", NEXT_COUNT_TASKS);
@@ -12052,6 +12057,7 @@ scores = { d = 5, b = 2, u = 2 }
 depends_on = [2]
 "#;
 
+// rmap-spec-tags: DISPATCH-5
 #[test]
 fn next_and_ready_break_equal_eff_on_unlocks() {
     let path = write_temp_tasks("rank_unlocks.toml", RANK_UNLOCKS_TIEBREAK_TASKS);
