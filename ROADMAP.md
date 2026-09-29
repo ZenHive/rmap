@@ -64,7 +64,7 @@ gantt
     doctor— spec rules without a tagged test— and test tags naming unknown rules :done, 2026-09-29, 2026-09-29
     Delegate prompt for current agents— read-first refs— reviewer check hints— runtime-accurate footer :done, 2026-09-29, 2026-09-29
     Match on Status variants instead of status string literals :active, 2026-09-29, 2026-09-29
-    Show context_refs and checks in the HTML task detail panel :active, 2026-09-29, 2026-09-29
+    Show context_refs and checks in the HTML task detail panel :done, 2026-09-29, 2026-09-29
     Dogfood the spec layer— capability specs for rmap's agent contract— with [spec_tests] :active, 2026-09-29, 2026-09-29
 ```
 <!-- MERMAID:END -->
