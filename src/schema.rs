@@ -30,6 +30,22 @@ pub struct Tasks {
     pub task: Vec<Task>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub specs: BTreeMap<String, crate::specs::Spec>,
+    /// Which files `rmap doctor` scans for spec-rule tags. Absent leaves that
+    /// check silent, including on roadmaps that register specs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spec_tests: Option<SpecTests>,
+}
+
+/// Plain-text scan configuration for spec-rule coverage. Doctor reads matching
+/// files as text and looks for `marker`; it does not parse a language or run tests.
+#[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpecTests {
+    /// Project-root-relative globs (`tests/**/*.rs`). At least one pattern.
+    pub globs: Vec<String>,
+    /// Marker string. Absent uses `spec-tags:` (for example `// spec-tags: ACCESS-4, ACCESS-9`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub marker: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema, PartialEq, Serialize)]

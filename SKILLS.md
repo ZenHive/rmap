@@ -483,6 +483,7 @@ rmap diff --json
 - **milestone drift** — milestone all-done-but-still-open, and multiple-active-milestones (keep exactly one `active`).
 - **graph health** — bottleneck (a `pending`/`blocked` task whose transitive-dependent count is ≥ the bottleneck threshold), and isolated-node (an orphan with no in-repo deps and no dependents, or a node unreachable forward from any milestone-pinned task).
 - **spec quality** — placeholder/vague `acceptance_criteria` on live agent-assigned tasks (`placeholder_criteria` / `vague_criteria`), and near-duplicate open tasks by title+body Jaccard (`near_duplicate_tasks`). Token-mechanical only; no auto-merge.
+- **spec coverage** — only when `[spec_tests]` is set and the roadmap registers specs. Each current rule of an `active` spec with no tagging test (`untested_rule`), and each plain-text tag naming a rule in no registered spec (`unknown_rule_tag`). Draft and retired specs are not untested-rule findings. No `[spec_tests]`, or no `[specs]`, leaves this check silent. See [Capability specs](#capability-specs).
 
 All findings are **soft** — `rmap doctor` **always exits 0** on success (no auto-mutation; phase/focus/milestone state is user-curated); it only fails when input is unparseable. CI gates should pipe through `jq`:
 
@@ -780,3 +781,29 @@ null text in JSON. If no current rule establishes a historical prefix, use
 `list --rule` to retrieve that history. The rule selector composes with all list
 selectors. Specs and empty deltas are omitted from legacy exports; schema version
 remains 2. rmap reads specs but never generates or edits them.
+
+Tests pin the rules they cover with a plain-text tag. Configure the scan in
+`tasks.toml`; omit the table and `rmap doctor` does not look for tags.
+
+```toml
+[spec_tests]
+globs = ["tests/**/*.rs", "test/**/*_test.exs", "db/**/*.sql"]
+marker = "spec-tags:" # optional; this string is the default
+```
+
+Globs are relative to the project root and must stay inside it. The marker is
+matched as text, in whatever comment syntax the file already uses:
+
+```text
+// spec-tags: ACCESS-4, ACCESS-9
+# spec-tags: ACCESS-4
+-- spec-tags: ACCESS-4 ACCESS-9
+```
+
+`rmap doctor` (always exit 0) then reports each current rule of an `active` spec
+that no scanned file tags, and each tag whose rule id is not current text in any
+registered spec (draft, active, or retired). Human lines cite the rule id and
+the file; `--json` kinds are `untested_rule` and `unknown_rule_tag`. Draft and
+retired specs produce no untested-rule findings. A roadmap with no `[specs]`
+table produces neither finding, even when `[spec_tests]` is set. rmap does not
+run the tests, and `validate` does not fail on missing tags.

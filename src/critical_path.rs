@@ -170,6 +170,7 @@ mod tests {
             bundles: BTreeMap::new(),
             milestones: BTreeMap::new(),
             specs: BTreeMap::new(),
+            spec_tests: None,
             task,
         }
     }

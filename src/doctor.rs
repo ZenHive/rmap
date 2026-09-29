@@ -1,4 +1,5 @@
 mod display;
+mod spec_tags;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
@@ -181,6 +182,20 @@ pub enum DoctorFinding {
     NearDuplicateTasks {
         ids: Vec<String>,
     },
+    /// Soft coverage advisory: a current rule of an `active` spec is not named
+    /// by any scanned test tag. `file` is the spec path. Draft and retired
+    /// specs do not produce this finding.
+    UntestedRule {
+        rule: String,
+        file: String,
+    },
+    /// Soft coverage advisory: a scanned file tags a rule id that is not
+    /// current text in any registered spec. `file` is the test path, relative
+    /// to the project root.
+    UnknownRuleTag {
+        rule: String,
+        file: String,
+    },
     Drift,
 }
 
@@ -207,7 +222,8 @@ impl DoctorReport {
     /// `today` is the `YYYY-MM-DD` reference date. `thresholds`
     /// carries the effective stale/decay and AC cutoffs for this invocation (defaults
     /// unless overridden on the CLI). Registered spec files are read when `path`
-    /// names an existing tasks.toml; non-file labels skip that read.
+    /// names an existing tasks.toml; non-file labels skip that read. Spec-rule
+    /// coverage runs only when `[spec_tests]` is set and `[specs]` is non-empty.
     pub fn run(
         tasks: &Tasks,
         path: &str,
@@ -520,7 +536,10 @@ impl DoctorReport {
             }
         }
 
-        // 12. render drift — only if a roadmap was provided
+        // 12. spec-rule coverage — soft only, and only when configured.
+        findings.extend(spec_tags::findings(tasks, path));
+
+        // 13. render drift — only if a roadmap was provided
         if let Some(roadmap) = roadmap_input
             && let Ok(rendered) = render_roadmap_str_with_today(roadmap, tasks, today)
             && rendered != roadmap

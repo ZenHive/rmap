@@ -61,6 +61,7 @@ const METADATA_VERBOSE_WHITELIST: &[&str] = &[
     "focus",
     "linear.team_key",
     "linear.workspace_url",
+    "spec_tests",
 ];
 
 pub fn diff_toml(base: &Tasks, current: &Tasks, verbose: bool) -> TomlDiff {
@@ -185,6 +186,14 @@ pub fn diff_metadata(base: &Tasks, current: &Tasks, verbose: bool) -> Vec<Metada
     }
 
     diff.extend(map_diff("specs", &base.specs, &current.specs));
+    if let Some(entry) = diff_optional(
+        "spec_tests",
+        base.spec_tests.as_ref(),
+        current.spec_tests.as_ref(),
+        verbose,
+    ) {
+        diff.push(entry);
+    }
     diff.extend(map_diff("phases", &base.phases, &current.phases));
     diff.extend(map_diff("bundles", &base.bundles, &current.bundles));
     diff.extend(map_diff(

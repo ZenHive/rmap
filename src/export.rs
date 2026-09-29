@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use crate::next_bundle::BundlePick;
-use crate::schema::{Bundle, Changelog, Focus, Linear, Milestone, Phase, Task, Tasks};
+use crate::schema::{Bundle, Changelog, Focus, Linear, Milestone, Phase, SpecTests, Task, Tasks};
 use crate::scoring::rounded_efficiency;
 use crate::topo::{compute_layers, compute_unlocks};
 
@@ -25,6 +25,8 @@ struct ExportedTasks<'a> {
     milestones: &'a std::collections::BTreeMap<String, Milestone>,
     #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     specs: &'a std::collections::BTreeMap<String, crate::specs::Spec>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    spec_tests: Option<&'a SpecTests>,
     task: Vec<ExportedTask<'a>>,
 }
 
@@ -239,6 +241,7 @@ fn exported_tasks_with<'a>(
         bundles: &tasks.bundles,
         milestones: &tasks.milestones,
         specs: &tasks.specs,
+        spec_tests: tasks.spec_tests.as_ref(),
         task: task
             .into_iter()
             .map(|t| exported_task(t, &metrics))

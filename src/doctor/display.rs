@@ -456,6 +456,47 @@ impl fmt::Display for DoctorReport {
             }
         }
 
+        let untested_rules: Vec<(&str, &str)> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::UntestedRule { rule, file } = fi {
+                    Some((rule.as_str(), file.as_str()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !untested_rules.is_empty() {
+            writeln!(f, "\nUntested spec rules (active, no tagging test):")?;
+            for (rule, file) in untested_rules {
+                writeln!(f, "  - rule {rule} in {file} — no test tags this rule")?;
+            }
+        }
+
+        let unknown_tags: Vec<(&str, &str)> = self
+            .findings
+            .iter()
+            .filter_map(|fi| {
+                if let DoctorFinding::UnknownRuleTag { rule, file } = fi {
+                    Some((rule.as_str(), file.as_str()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !unknown_tags.is_empty() {
+            writeln!(f, "\nUnknown spec rule tags:")?;
+            for (rule, file) in unknown_tags {
+                writeln!(
+                    f,
+                    "  - rule {rule} in {file} — tag names a rule in no registered spec"
+                )?;
+            }
+        }
+
         let has_drift = self
             .findings
             .iter()

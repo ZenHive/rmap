@@ -130,6 +130,9 @@ pub fn collect_findings(tasks: &Tasks, path: &str, input: &str) -> Vec<ValidateE
     if let Err(e) = validate_specs(path, tasks) {
         findings.push(e);
     }
+    if let Err(e) = validate_spec_tests(path, input, tasks) {
+        findings.push(e);
+    }
     findings
 }
 
@@ -174,7 +177,53 @@ pub fn validate_tasks_str(path: impl Into<String>, input: &str) -> Result<Tasks,
     validate_focus_phase(&path, input, &tasks)?;
 
     validate_specs(&path, &tasks)?;
+    validate_spec_tests(&path, input, &tasks)?;
     Ok(tasks)
+}
+
+fn validate_spec_tests(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {
+    let Some(config) = &tasks.spec_tests else {
+        return Ok(());
+    };
+    let line = line_containing(input, "spec_tests").unwrap_or(FIRST_LINE_NUMBER);
+    if config.globs.is_empty() || config.globs.iter().all(|glob| glob.trim().is_empty()) {
+        return Err(semantic_error(
+            path,
+            line,
+            "spec_tests.globs must list at least one pattern".to_string(),
+        ));
+    }
+    for glob in &config.globs {
+        let glob = glob.trim();
+        if glob.is_empty() {
+            return Err(semantic_error(
+                path,
+                line,
+                "spec_tests.globs entries must be nonblank".to_string(),
+            ));
+        }
+        if std::path::Path::new(glob).is_absolute()
+            || glob.split(['/', '\\']).any(|part| part == "..")
+        {
+            return Err(semantic_error(
+                path,
+                line,
+                format!("spec_tests glob `{glob}` must stay inside the project root"),
+            ));
+        }
+    }
+    if config
+        .marker
+        .as_ref()
+        .is_some_and(|marker| marker.trim().is_empty())
+    {
+        return Err(semantic_error(
+            path,
+            line,
+            "spec_tests.marker must be nonblank".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_schema_version(path: &str, input: &str, tasks: &Tasks) -> Result<(), ValidateError> {

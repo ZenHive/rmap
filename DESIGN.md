@@ -298,3 +298,10 @@ selector composes with existing list filters. `show` and exports carry deltas;
 `delegate` quotes current text with the op or explicitly reports absent text.
 Spec Markdown is never written by rmap. No test-framework or language knowledge
 enters parsing or validation.
+
+`[spec_tests]` optionally names project-root-relative `globs` and a plain-text
+`marker` (default `spec-tags:`). `rmap doctor` scans matches as text: an active
+spec's current rule with no tag, and a tag naming a rule id absent from every
+registered spec, are soft advisories. Draft and retired specs are outside the
+untested check. The check is silent without `[spec_tests]` or without `[specs]`.
+It does not run tests and does not fail `validate`.
