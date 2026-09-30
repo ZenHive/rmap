@@ -2964,6 +2964,36 @@
       "implemented": "CHANGELOG [Unreleased] entry for 0.9.5 naming JSON-4, DISPATCH-7..11, DELEGATE-6 and JSON-1 as the untagged rule",
       "delivered_by": "claude",
       "cross_repo": []
+    },
+    {
+      "id": 74,
+      "phase": 15,
+      "bundle": "agent_era_maintenance",
+      "status": "pending",
+      "title": "rmap new fails on a roadmap with no tasks yet (missing [[task]] array)",
+      "scores": {
+        "d": 2,
+        "b": 5,
+        "u": 5
+      },
+      "eff": 2.5,
+      "dep_layer": 0,
+      "unlocks": 0,
+      "markers": [
+        "bug"
+      ],
+      "depends_on": [],
+      "assignee": "codex",
+      "model": "gpt-6-astra",
+      "acceptance_criteria": [
+        "rmap new --from-stdin appends the first task to a tasks.toml that has phases, bundles and specs but no [[task]] entries",
+        "rmap render on a roadmap without ROADMAP.md either creates it with the marker skeleton or names the missing file and the markers it needs",
+        "CLI tests cover both cases"
+      ],
+      "body": "Observed 2026-09-30 while scaffolding zen_mm. A fresh tasks.toml with header, phases, milestones, bundles and specs, but no tasks, passes `rmap validate`. Yet `rmap new --from-stdin` with a valid one-task fragment exits 1 with `Error: missing [[task]] array`, so the first tasks had to be written by hand. `rmap render` then failed on the missing ROADMAP.md and printed only `No such file or directory`; the MILESTONES/TASKS marker skeleton had to be copied from another repo.",
+      "created_at": "2026-09-30",
+      "scored_at": "2026-09-30",
+      "cross_repo": []
     }
   ]
 }
