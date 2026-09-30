@@ -6,6 +6,11 @@ Completed roadmap tasks. For upcoming work, see [ROADMAP.md](ROADMAP.md); for th
 
 ## [Unreleased]
 
+### Harness shell-out contract in the agent specs (0.9.5)
+
+- Task 72: the registered agent contract grows from 14 to 21 rules and covers every command harness calls. New: `JSON-4` (`--fields` emits a bare array), `DISPATCH-7` (`ready --dispatchable` drops `handbuild`), `DISPATCH-8`–`DISPATCH-11` (status write-backs: `in_progress`, `--landing-ref`, `done --verified --verified-by --verification-ref --shipped-in`, `blocked --reason`) and `DELEGATE-6` (routing from `assignee`, with the missing / `human` errors). Existing tests carry the matching `rmap-spec-tags:`; `JSON-1` stays the one deliberately untagged rule. Documentation of existing behavior; no CLI change.
+- Task 71 (internal, no behavior change): every task-status comparison in `src/` uses `Status` variants instead of string literals.
+
 ### rmap's agent contract as capability specs with tagged tests (0.9.4)
 
 - Task 68: `specs/agent-json.md`, `specs/agent-dispatch.md` and `specs/agent-delegate.md` state the JSON, dispatch-validation/ranking and delegate-prompt contract as 14 rules (`JSON-*`, `DISPATCH-*`, `DELEGATE-*`). Existing tests carry `rmap-spec-tags:` comments naming the rules they pin; the distinct marker keeps doctor's own `spec-tags:` scanner fixtures out of the coverage count.

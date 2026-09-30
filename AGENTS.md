@@ -350,6 +350,14 @@ Edition is `2024` (Cargo.toml). MSRV: whatever ships with Rust 1.85+.
 
 **Reinstall after any source change.** rmap is dogfooded on itself, so a stale `~/.cargo/bin/rmap` will silently render with the old schema or reject TOML using a newly-added field. After any change to `src/`, run `cargo install --path .` before invoking `rmap` again. The `skills_smoke` test compiles fresh under cargo and catches `SKILLS.md` regressions regardless of the installed binary; interactive `rmap` calls do not.
 
+**🚨 Reinstall on the harness server too — the laptop binary is not the one harness runs.** Harness runs on a separate Linux host (`ex63-eth`) and shells out to its own `/home/harness/.cargo/bin/rmap`, built from its checkout at `/data/postgresql/code/rmap`. A stale server binary fails every ingest of a roadmap that uses a newer field, and harness reports it as `{:error, :roadmap_not_found}`, not as a version problem (2026-09-30: server was still 0.5.1, `[spec_tests]` broke dispatch). After every push that changes `src/`, `Cargo.toml` or `Cargo.lock` — including landed harness runs on rmap — rebuild there in the same motion, over SSH:
+
+```bash
+ssh blockwatch-harness 'cd /data/postgresql/code/rmap && git pull --ff-only -q && ~/.cargo/bin/cargo install --locked --force --path . 2>&1 | tail -1 && ~/.cargo/bin/rmap --version'
+```
+
+This is the orchestrator's job, never a harness task. The work is done only when the laptop `rmap --version`, the server `rmap --version` and `Cargo.toml` agree.
+
 **Bump `version` in `Cargo.toml` on every user-visible change.** `rmap --version` reports the crate version, and rmap is dogfooded across the portfolio — a stale version means neither the user nor a consuming agent can tell which binary is installed, and "reinstall and retry" stops being a checkable instruction. Bump in the same commit as the change, never as a follow-up. On a 0.x CLI: a new command, flag, task field, JSON key, or render affordance is a **minor** bump (`0.N+1.0`); a bugfix, message change, or docs-only edit is a **patch** bump. This is orthogonal to `schema_version` — a breaking agent-contract change bumps both. Pair the bump with a `CHANGELOG.md` entry under `[Unreleased]` (cutting a release renames that heading to the version with a date), and re-run `cargo install --path .` afterwards so `rmap --version` on this machine matches the source.
 
 **Prefer `rmap` CLI over direct `tasks.toml` edits when a mutator exists.** Today the mutator surface is `rmap status` (single + bulk), `rmap mark`, `rmap depend`, and `rmap new` — all go through `toml_edit` and validate-then-write. Direct edits are the only path for everything else (bundle/phase CRUD, focus, scores, titles, ACs, top-level metadata); after any direct edit run `cargo run -- validate --check-render` before committing.
